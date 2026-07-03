@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+import experiment_ui
 from acquisition.factory import AcquirerFactory, register_default_acquirers
 from cli import (
     build_acquirer,
@@ -19,7 +21,6 @@ from cli import (
     resolve_config_path,
     write_config,
 )
-from experiment_ui import persist_session, render_experiment_popup
 from protocol.video_protocol import VideoProtocolConfig, build_playlist_from_config
 from tasks.task_factory import load_task_from_config
 from utils.markers import TRIGGER_REFERENCE
@@ -308,7 +309,7 @@ def render_settings(config: dict) -> None:
             st.session_state.baseline_done = protocol.baseline_sec <= 0
             st.session_state.eeg_session_dir = None
             st.session_state.phase_log = []
-            persist_session(config)
+            experiment_ui.persist_session(config)
             library = load_video_library(config)
             st.success(
                 f"已从视频库 `{library.root}` 生成 {len(playlist)} 个 trial 的播放列表。"
@@ -424,7 +425,8 @@ def _inject_gui_nav_styles() -> None:
 
 
 def run_experiment_popup_mode(config: dict) -> None:
-    render_experiment_popup(
+    popup_ui = importlib.reload(experiment_ui)
+    popup_ui.render_experiment_popup(
         config,
         get_eeg_manager=_get_eeg_manager,
         start_eeg_session=_start_eeg_session,

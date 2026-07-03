@@ -67,7 +67,6 @@ def bootstrap_popup_session(config: dict) -> None:
         "eeg_session_dir": None,
         "baseline_done": False,
         "phase_log": [],
-        "show_start_dialog": False,
         "rating_started_at": None,
         "popup_bootstrapped": False,
     }
@@ -196,50 +195,89 @@ def _inject_popup_styles() -> None:
           object-fit: contain !important;
           background: #000 !important;
         }
-        .rating-title {
-          font-size: clamp(1rem, 2.4vh, 1.6rem);
-          line-height: 1.2;
-          margin: 0 0 clamp(6px, 1.5vh, 14px) 0 !important;
-          text-align: center;
-          color: #ffffff !important;
-        }
         [data-testid="stVerticalBlock"] {
           gap: clamp(2px, 0.8vh, 8px) !important;
         }
-        [data-testid="stHorizontalBlock"] {
-          gap: clamp(16px, 3vw, 40px) !important;
+        [data-testid="stForm"]:has(.rating-page-anchor) {
+          position: fixed !important;
+          inset: 0 !important;
+          z-index: 20 !important;
+          width: 100vw !important;
+          height: 100dvh !important;
+          max-width: 100vw !important;
+          max-height: 100dvh !important;
+          border: 0 !important;
+          border-radius: 0 !important;
+          background: #000 !important;
+          padding: clamp(36px, 7vh, 80px) clamp(72px, 10vw, 150px) !important;
+          overflow: hidden !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) > div {
+          width: 100% !important;
+          height: 100% !important;
+          gap: 0 !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stMarkdownContainer"]:has(.rating-page-anchor) {
+          display: none !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stHorizontalBlock"] {
+          display: grid !important;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+          gap: clamp(48px, 10vw, 160px) !important;
+          align-items: start !important;
+          width: 100% !important;
+          height: 100% !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] {
+          width: 100% !important;
+          min-width: 0 !important;
+          flex: unset !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] > div {
+          width: 100% !important;
+          height: 100% !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] [data-testid="stVerticalBlock"] {
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-evenly !important;
+          gap: clamp(14px, 2.4vh, 28px) !important;
+          width: 100% !important;
+          height: 100% !important;
         }
         [data-testid="stSlider"] {
           min-height: 0 !important;
           padding: 0 !important;
         }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stSlider"] {
+          margin: 0 !important;
+          width: 100% !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stSlider"] > div {
+          width: 100% !important;
+        }
         [data-testid="stSlider"] label {
           min-height: 0 !important;
           padding-bottom: 0 !important;
-          font-size: clamp(0.78rem, 1.8vh, 1rem) !important;
+          font-size: clamp(0.9rem, 2vh, 1.2rem) !important;
         }
         [data-baseweb="slider"] {
-          padding-top: clamp(2px, 0.6vh, 6px) !important;
-          padding-bottom: clamp(2px, 0.6vh, 6px) !important;
+          width: 100% !important;
+          padding-top: clamp(4px, 0.9vh, 8px) !important;
+          padding-bottom: clamp(4px, 0.9vh, 8px) !important;
+        }
+        [data-testid="stFormSubmitButton"] {
+          position: fixed !important;
+          left: -10000px !important;
+          top: 0 !important;
+          width: 1px !important;
+          height: 1px !important;
+          opacity: 0 !important;
+          overflow: hidden !important;
         }
         </style>
         """,
         unsafe_allow_html=True,
-    )
-
-
-def _request_fullscreen() -> None:
-    components.html(
-        """
-        <script>
-        (function () {
-          const el = window.parent.document.documentElement;
-          const req = el.requestFullscreen || el.webkitRequestFullscreen;
-          if (req) req.call(el).catch(function () {});
-        })();
-        </script>
-        """,
-        height=0,
     )
 
 
@@ -292,6 +330,15 @@ def _pin_start_experiment_button() -> None:
             if (!button) return false;
 
             const wrapper = button.closest('[data-testid="stButton"]') || button.parentElement;
+            function hideStartButton() {
+              Object.assign(wrapper.style, {
+                display: "none",
+                visibility: "hidden",
+                opacity: "0",
+                pointerEvents: "none"
+              });
+            }
+
             Object.assign(wrapper.style, {
               position: "fixed",
               left: "50%",
@@ -305,6 +352,15 @@ def _pin_start_experiment_button() -> None:
               minHeight: "3rem",
               fontSize: "1.1rem"
             });
+            if (!button.dataset.videoEegFullscreenBound) {
+              button.dataset.videoEegFullscreenBound = "true";
+              button.addEventListener("click", function () {
+                const el = doc.documentElement;
+                const req = el.requestFullscreen || el.webkitRequestFullscreen;
+                if (req) req.call(el).catch(function () {});
+                hideStartButton();
+              });
+            }
             return true;
           }
 
@@ -315,6 +371,63 @@ def _pin_start_experiment_button() -> None:
           observer.observe(window.parent.document.body, { childList: true, subtree: true });
           setTimeout(function () { observer.disconnect(); }, 3000);
         })();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _schedule_rating_timeout(remaining: float) -> None:
+    delay_ms = max(50, int(remaining * 1000))
+    components.html(
+        f"""
+        <script>
+        (function () {{
+          const label = "评分时间到";
+          const delayMs = {delay_ms};
+          const doc = window.parent.document;
+
+          function findTimeoutButton() {{
+            return Array.from(doc.querySelectorAll("button")).find(function (el) {{
+              return el.textContent && el.textContent.trim() === label;
+            }});
+          }}
+
+          function setupTimeout() {{
+            const button = findTimeoutButton();
+            if (!button) return false;
+
+            const wrapper =
+              button.closest('[data-testid="stFormSubmitButton"]') ||
+              button.closest('[data-testid="stButton"]') ||
+              button.parentElement;
+            Object.assign(wrapper.style, {{
+              position: "fixed",
+              left: "-10000px",
+              top: "0",
+              width: "1px",
+              height: "1px",
+              opacity: "0",
+              overflow: "hidden"
+            }});
+
+            if (window.__videoEegRatingTimeout) {{
+              clearTimeout(window.__videoEegRatingTimeout);
+            }}
+            window.__videoEegRatingTimeout = setTimeout(function () {{
+              const currentButton = findTimeoutButton();
+              if (currentButton) currentButton.click();
+            }}, delayMs);
+            return true;
+          }}
+
+          if (setupTimeout()) return;
+          const observer = new MutationObserver(function () {{
+            if (setupTimeout()) observer.disconnect();
+          }});
+          observer.observe(doc.body, {{ childList: true, subtree: true }});
+          setTimeout(function () {{ observer.disconnect(); }}, 3000);
+        }})();
         </script>
         """,
         height=0,
@@ -348,64 +461,35 @@ def _render_rating_page(
     *,
     trial_idx: int,
     remaining: float,
-) -> None:
-    st.markdown(
-        f"""
-        <h2 class="rating-title">请对刚才的视频进行评分 — 剩余 {remaining:.0f} 秒</h2>
-        """,
-        unsafe_allow_html=True,
-    )
-    cols = st.columns(2)
-    for index, dim in enumerate(RATING_DIMENSIONS):
-        slider_key = f"rating_{trial_idx}_{index}"
-        cols[index % 2].slider(
-            dim,
-            min_value=1,
-            max_value=9,
-            value=int(st.session_state.get(slider_key, 5)),
-            key=slider_key,
-        )
+) -> bool:
+    with st.form(key=f"rating_form_{trial_idx}"):
+        st.markdown('<div class="rating-page-anchor"></div>', unsafe_allow_html=True)
+        cols = st.columns(2)
+        midpoint = (len(RATING_DIMENSIONS) + 1) // 2
+        for col, dimensions in zip(cols, (RATING_DIMENSIONS[:midpoint], RATING_DIMENSIONS[midpoint:])):
+            for dim in dimensions:
+                index = RATING_DIMENSIONS.index(dim)
+                slider_key = f"rating_{trial_idx}_{index}"
+                current_value = int(st.session_state.get(slider_key, 4))
+                col.slider(
+                    dim,
+                    min_value=1,
+                    max_value=7,
+                    value=min(7, max(1, current_value)),
+                    key=slider_key,
+                )
+        timed_out = st.form_submit_button("评分时间到")
+    _schedule_rating_timeout(remaining)
+    return timed_out
 
 
 def _collect_ratings(trial_idx: int) -> dict[str, int]:
     ratings: dict[str, int] = {}
     for index, dim in enumerate(RATING_DIMENSIONS):
         slider_key = f"rating_{trial_idx}_{index}"
-        ratings[dim] = int(st.session_state.get(slider_key, 5))
+        value = int(st.session_state.get(slider_key, 4))
+        ratings[dim] = min(7, max(1, value))
     return ratings
-
-
-@st.dialog("实验即将开始")
-def _confirm_experiment_start(
-    config: dict,
-    protocol: VideoProtocolConfig,
-    *,
-    start_eeg_session,
-) -> None:
-    st.markdown(
-        f"""
-        **请确认：**
-        - 您已坐好并保持舒适姿势
-        - 窗口即将进入全屏
-        - 实验开始后将自动进行全部 trial
-        - 每个视频评分限时 **{protocol.rating_sec:.0f} 秒**
-        """
-    )
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("取消", use_container_width=True):
-            st.session_state.show_start_dialog = False
-            st.rerun()
-    with col2:
-        if st.button("确认开始", type="primary", use_container_width=True):
-            st.session_state.show_start_dialog = False
-            start_eeg_session(config)
-            st.session_state.baseline_done = protocol.baseline_sec <= 0
-            st.session_state.experiment_state = (
-                "baseline" if protocol.baseline_sec > 0 else "fixation"
-            )
-            persist_session(config)
-            st.rerun()
 
 
 def _finalize_rating(
@@ -464,28 +548,24 @@ def render_experiment_popup(
     state = st.session_state.experiment_state
     phase_slot = st.empty()
 
-    if state not in {"idle", "finished"}:
-        _request_fullscreen()
-
-    def _show_phase(content_fn) -> None:
-        phase_slot.empty()
+    def _show_phase(content_fn):
         with phase_slot.container():
-            content_fn()
+            return content_fn()
 
     if state == "idle":
         def _idle_content() -> None:
             _render_phase_banner("ready")
             if st.button("开始实验", type="primary", use_container_width=True):
-                st.session_state.show_start_dialog = True
+                start_eeg_session(config)
+                st.session_state.baseline_done = protocol.baseline_sec <= 0
+                st.session_state.experiment_state = (
+                    "baseline" if protocol.baseline_sec > 0 else "fixation"
+                )
+                persist_session(config)
+                st.rerun()
             _pin_start_experiment_button()
 
         _show_phase(_idle_content)
-        if st.session_state.get("show_start_dialog"):
-            _confirm_experiment_start(
-                config,
-                protocol,
-                start_eeg_session=start_eeg_session,
-            )
 
     elif state == "baseline" and not st.session_state.baseline_done:
         manager = _ensure_manager(
@@ -520,7 +600,6 @@ def render_experiment_popup(
         trial_idx = current
         asset = _asset_at(trial_idx)
         manager.video_on(trial_idx=trial_idx, video_name=asset.asset_id)
-        phase_slot.empty()
         with phase_slot.container():
             duration_sec = _render_library_video(config, asset)
         time.sleep(max(duration_sec, 0.1))
@@ -555,9 +634,17 @@ def render_experiment_popup(
         elapsed = time.time() - float(st.session_state.rating_started_at)
         remaining = max(0.0, protocol.rating_sec - elapsed)
 
-        _show_phase(lambda: _render_rating_page(trial_idx=trial_idx, remaining=remaining))
-
         if remaining <= 0:
+            timed_out = True
+        else:
+            timed_out = bool(_show_phase(
+                lambda: _render_rating_page(
+                    trial_idx=trial_idx,
+                    remaining=remaining,
+                )
+            ))
+
+        if timed_out:
             _finalize_rating(
                 config,
                 manager,
@@ -567,9 +654,6 @@ def render_experiment_popup(
                 timed_out=True,
             )
             st.session_state.experiment_state = "iti"
-            st.rerun()
-        else:
-            time.sleep(0.25)
             st.rerun()
 
     elif state == "iti":
@@ -590,7 +674,6 @@ def render_experiment_popup(
 
     elif state == "finished":
         _exit_fullscreen()
-        phase_slot.empty()
         with phase_slot.container():
             _render_phase_banner("finished")
             session_dir = stop_eeg_session(
