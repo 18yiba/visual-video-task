@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "video-eeg"
+version = "0.1.0"
+description = "Video neuro-response experiment with EEG acquisition and trigger alignment"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+  { name = "NCCLab" }
+]
+dependencies = [
+  "bc-ecap-sdk",
+  "brainflow",
+  "click",
+  "numpy",
+  "pandas",
+  "pylsl",
+  "pyserial",
+  "pyyaml",
+  "rich",
+  "streamlit>=1.30",
+  "zeroconf",
+]
+
+[project.scripts]
+video-eeg = "cli:cli"
+
+[tool.setuptools]
+py-modules = ["cli", "gui"]
+
+[tool.setuptools.packages.find]
+include = ["acquisition*", "collect*", "protocol*", "tasks*", "utils*"]

@@ -1,0 +1,32 @@
+subject_id: S001
+session_id: 1
+task_mode: visual
+device_type: brainco
+hardware_dummy_mode: false
+sfreq: 250
+buffer_sec: 120
+protocol:
+  fixation_sec: 1.5
+  default_video_sec: 8.0
+  blank_sec: 1.0
+  iti_sec: 2.0
+  baseline_sec: 60.0
+  trials_per_session: 90
+  video_dir: videos
+  random_seed: 17
+device:
+  neuracle_host: 127.0.0.1
+  neuracle_port: 8712
+  brainco_addr: ''
+  brainco_port: 0
+  brainco_auto_discover: true
+  brainco_scan_timeout_sec: 6.0
+  brainco_ready_timeout_sec: 20.0
+  brainco_start_retries: 2
+  brainco_gain: 6
+  brainco_signal_source: NORMAL
+  brainco_device_id: eeg-cap
+  trigger_serial_port: ''
+storage:
+  records_dir: records_storage
+  ratings_dir: ratings_storage
