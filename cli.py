@@ -18,7 +18,8 @@ from rich.console import Console
 from rich.table import Table
 
 from acquisition.factory import AcquirerFactory, register_default_acquirers
-from protocol.video_protocol import EegSessionManager, VideoProtocolConfig, build_playlist
+from protocol.video_protocol import EegSessionManager, VideoProtocolConfig, build_playlist_from_config
+from utils.video_library import serialize_playlist
 from tasks.task_factory import load_task_from_config
 from utils.markers import TRIGGER_REFERENCE, TriggerBoxMarkerBackend, NoOpMarkerBackend
 
@@ -39,9 +40,11 @@ _DEFAULT_CONFIG_TEMPLATE: dict[str, Any] = {
         "default_video_sec": 8.0,
         "blank_sec": 1.0,
         "iti_sec": 2.0,
+        "rating_sec": 10.0,
         "baseline_sec": 60.0,
         "trials_per_session": 90,
-        "video_dir": "videos",
+        "video_library_dir": "video_library",
+        "video_library_mode": "manifest",
         "random_seed": 17,
     },
     "device": {
@@ -226,7 +229,9 @@ def dry_run(app: AppContext, trials: int) -> None:
     """Run a short mock session to verify EEG pull + trigger alignment."""
     config = app.config
     protocol = VideoProtocolConfig.from_config(config)
-    playlist = build_playlist(protocol)[:trials]
+    playlist = build_playlist_from_config(config)
+    trials = min(trials, len(playlist))
+    playlist = playlist[:trials]
     acquirer = build_acquirer(device_name=str(config["device_type"]), config=config)
     task = load_task_from_config(config)
     marker_backend = task.wrap_marker_backend(build_marker_backend(config))
@@ -243,25 +248,27 @@ def dry_run(app: AppContext, trials: int) -> None:
     app.console.print(f"[cyan]Session started[/cyan] {session_dir}")
     if protocol.baseline_sec > 0:
         manager.run_baseline(min(protocol.baseline_sec, 3.0))
-    for trial_idx, video_name in enumerate(playlist):
-        manager.begin_trial(trial_idx=trial_idx, video_name=video_name)
-        manager.fixation_on(trial_idx=trial_idx, video_name=video_name)
+    for trial_idx, asset in enumerate(playlist):
+        manager.begin_trial(trial_idx=trial_idx, video_name=asset.asset_id)
+        manager.fixation_on(trial_idx=trial_idx, video_name=asset.asset_id)
         time.sleep(min(protocol.fixation_sec, 1.0))
         manager.fixation_off(trial_idx=trial_idx)
-        manager.video_on(trial_idx=trial_idx, video_name=video_name)
+        manager.video_on(trial_idx=trial_idx, video_name=asset.asset_id)
         time.sleep(min(protocol.default_video_sec, 2.0))
-        manager.video_off(trial_idx=trial_idx, video_name=video_name)
+        manager.video_off(trial_idx=trial_idx, video_name=asset.asset_id)
         manager.blank_on(trial_idx=trial_idx)
         time.sleep(min(protocol.blank_sec, 0.5))
         manager.blank_off(trial_idx=trial_idx)
-        manager.rating_on(trial_idx=trial_idx, video_name=video_name)
+        manager.rating_on(trial_idx=trial_idx, video_name=asset.asset_id)
         time.sleep(0.2)
         manager.rating_off(trial_idx=trial_idx)
-        manager.end_trial(trial_idx=trial_idx, video_name=video_name)
+        manager.end_trial(trial_idx=trial_idx, video_name=asset.asset_id)
         manager.iti_on(trial_idx=trial_idx)
         time.sleep(min(protocol.iti_sec, 0.5))
         manager.iti_off(trial_idx=trial_idx)
-    exported = manager.stop_and_export(metadata={"dry_run": True, "playlist": playlist})
+    exported = manager.stop_and_export(
+        metadata={"dry_run": True, "playlist": serialize_playlist(playlist)},
+    )
     app.console.print(f"[green]Exported[/green] {exported}")
 
 

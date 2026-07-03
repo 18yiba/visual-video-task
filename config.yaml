@@ -2,17 +2,19 @@ subject_id: S001
 session_id: 1
 task_mode: visual
 device_type: brainco
-hardware_dummy_mode: false
-sfreq: 250
-buffer_sec: 120
+hardware_dummy_mode: true
+sfreq: 250.0
+buffer_sec: 120.0
 protocol:
   fixation_sec: 1.5
   default_video_sec: 8.0
   blank_sec: 1.0
   iti_sec: 2.0
-  baseline_sec: 60.0
-  trials_per_session: 90
-  video_dir: videos
+  rating_sec: 15.0
+  baseline_sec: 30.0
+  trials_per_session: 10
+  video_library_dir: video_library
+  video_library_mode: local
   random_seed: 17
 device:
   neuracle_host: 127.0.0.1

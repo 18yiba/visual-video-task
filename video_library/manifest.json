@@ -1,0 +1,15 @@
+{
+  "description": "Video catalog for video-EEG sessions (10 local stimuli).",
+  "assets": [
+    {"id": "stim_001", "file": "stim_001.mp4"},
+    {"id": "stim_002", "file": "stim_002.mp4"},
+    {"id": "stim_003", "file": "stim_003.mp4"},
+    {"id": "stim_004", "file": "stim_004.mp4"},
+    {"id": "stim_005", "file": "stim_005.mp4"},
+    {"id": "stim_006", "file": "stim_006.mp4"},
+    {"id": "stim_007", "file": "stim_007.mp4"},
+    {"id": "stim_008", "file": "stim_008.mp4"},
+    {"id": "stim_009", "file": "stim_009.mp4"},
+    {"id": "stim_010", "file": "stim_010.mp4"}
+  ]
+}

@@ -30,7 +30,7 @@ dependencies = [
 video-eeg = "cli:cli"
 
 [tool.setuptools]
-py-modules = ["cli", "gui"]
+py-modules = ["cli", "gui", "experiment_ui"]
 
 [tool.setuptools.packages.find]
 include = ["acquisition*", "collect*", "protocol*", "tasks*", "utils*"]

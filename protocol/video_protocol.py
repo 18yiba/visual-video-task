@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import random
+from utils.video_library import VideoAsset, build_playlist as build_video_playlist, load_video_library
+
 import threading
 import time
 from dataclasses import dataclass
@@ -26,35 +27,40 @@ class VideoProtocolConfig:
     iti_sec: float
     trials_per_session: int
     baseline_sec: float
-    video_dir: str
+    video_library_dir: str
+    video_library_mode: str
     random_seed: int
     default_video_sec: float
+    rating_sec: float
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> VideoProtocolConfig:
         protocol = dict(config.get("protocol", {}))
+        library_dir = protocol.get("video_library_dir") or protocol.get("video_dir") or "video_library"
         return cls(
             fixation_sec=float(protocol.get("fixation_sec", 1.5)),
             blank_sec=float(protocol.get("blank_sec", 1.0)),
             iti_sec=float(protocol.get("iti_sec", 2.0)),
             trials_per_session=int(protocol.get("trials_per_session", 90)),
             baseline_sec=float(protocol.get("baseline_sec", 60.0)),
-            video_dir=str(protocol.get("video_dir", "videos")),
+            video_library_dir=str(library_dir),
+            video_library_mode=str(protocol.get("video_library_mode", "auto")),
             random_seed=int(protocol.get("random_seed", 17)),
             default_video_sec=float(protocol.get("default_video_sec", 8.0)),
+            rating_sec=float(protocol.get("rating_sec", 10.0)),
         )
 
 
-def build_playlist(protocol: VideoProtocolConfig, *, video_files: list[str] | None = None) -> list[str]:
-    """Return a shuffled trial playlist."""
+def build_playlist_from_config(config: dict[str, Any]) -> list[VideoAsset]:
+    """Build a shuffled session playlist from the configured video library."""
 
-    if video_files:
-        pool = list(video_files)
-    else:
-        pool = [f"video_{index:03d}.mp4" for index in range(protocol.trials_per_session)]
-    rng = random.Random(protocol.random_seed)
-    rng.shuffle(pool)
-    return pool[: protocol.trials_per_session]
+    protocol = VideoProtocolConfig.from_config(config)
+    library = load_video_library(config)
+    return build_video_playlist(
+        library,
+        trials_per_session=protocol.trials_per_session,
+        random_seed=protocol.random_seed,
+    )
 
 
 class EegSessionManager:

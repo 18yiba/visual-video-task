@@ -24,10 +24,24 @@ build/
 # Project data (large / sensitive)
 original_data/
 records/
+records_storage/
+ratings_storage/
 models/
 *.npy
 *.npz
 *.bdf
+
+# Local video stimuli and generated rename logs
+video_library/*.mp4
+video_library/*.avi
+video_library/*.mov
+video_library/*.mkv
+video_library/*.webm
+video_library/*.m4v
+video_library/_list_after.txt
+video_library/_rename_result.txt
+video_library/_spawn_exit.txt
+video_library/_run_rename.bat
 
 # OS
 .DS_Store
