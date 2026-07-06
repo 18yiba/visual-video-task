@@ -209,12 +209,19 @@ def _inject_popup_styles() -> None:
           border: 0 !important;
           border-radius: 0 !important;
           background: #000 !important;
-          padding: clamp(36px, 7vh, 80px) clamp(72px, 10vw, 150px) !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          padding: clamp(24px, 5vh, 64px) clamp(48px, 7vw, 120px) !important;
           overflow: hidden !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) > div {
           width: 100% !important;
           height: 100% !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: center !important;
           gap: 0 !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stMarkdownContainer"]:has(.rating-page-anchor) {
@@ -223,15 +230,16 @@ def _inject_popup_styles() -> None:
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stHorizontalBlock"] {
           display: grid !important;
           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-          gap: clamp(48px, 10vw, 160px) !important;
-          align-items: start !important;
+          align-items: stretch !important;
+          justify-items: center !important;
           width: 100% !important;
-          height: 100% !important;
+          height: clamp(360px, 56vh, 560px) !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] {
-          width: 100% !important;
+          width: clamp(260px, 28vw, 420px) !important;
           min-width: 0 !important;
           flex: unset !important;
+          justify-self: center !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] > div {
           width: 100% !important;
@@ -437,9 +445,9 @@ def _schedule_rating_timeout(remaining: float) -> None:
 def _render_phase_banner(phase: str) -> None:
     labels = {
         "fixation": ("+", "注视中央十字，保持静止"),
-        "blank": ("", "空屏 — 保持静止"),
+        "blank": ("",""),
         "iti": ("…", "休息一下"),
-        "baseline": ("+", "基线采集 — 睁眼注视中央十字"),
+        "baseline": ("+", "请注视中央十字"),
         "ready": ("◎", "准备就绪"),
         "finished": ("✓", "Session 完成"),
     }
