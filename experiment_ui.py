@@ -141,6 +141,9 @@ def bootstrap_popup_session(config: dict) -> None:
         "baseline_done": False,
         "phase_log": [],
         "rating_started_at": None,
+        "video_started_at": None,
+        "video_duration_sec": None,
+        "video_asset_key": None,
         "popup_bootstrapped": False,
     }
     for key, value in defaults.items():
@@ -167,6 +170,9 @@ def bootstrap_popup_session(config: dict) -> None:
     st.session_state.eeg_manager = None
     st.session_state.eeg_session_dir = None
     st.session_state.rating_started_at = None
+    st.session_state.video_started_at = None
+    st.session_state.video_duration_sec = None
+    st.session_state.video_asset_key = None
     st.session_state.popup_bootstrapped = True
 
 
@@ -217,6 +223,45 @@ def _render_library_video(config: dict, asset: VideoAsset) -> float:
             unsafe_allow_html=True,
         )
     return duration_sec
+
+
+def _video_duration(config: dict, asset: VideoAsset) -> float:
+    library = load_video_library(config)
+    return library.playback_duration(asset)
+
+
+def _video_phase_key(trial_idx: int, asset: VideoAsset) -> str:
+    return f"{trial_idx}:{asset.rel_path}"
+
+
+def _start_video_phase_if_needed(
+    config: dict,
+    manager: EegSessionManager,
+    *,
+    trial_idx: int,
+    asset: VideoAsset,
+) -> None:
+    phase_key = _video_phase_key(trial_idx, asset)
+    if st.session_state.get("video_asset_key") == phase_key and st.session_state.get("video_started_at") is not None:
+        return
+    manager.video_on(trial_idx=trial_idx, video_name=asset.asset_id)
+    st.session_state.video_asset_key = phase_key
+    st.session_state.video_started_at = time.time()
+    st.session_state.video_duration_sec = _video_duration(config, asset)
+
+
+def _clear_video_phase() -> None:
+    st.session_state.video_started_at = None
+    st.session_state.video_duration_sec = None
+    st.session_state.video_asset_key = None
+
+
+def _render_video_page(config: dict, asset: VideoAsset, *, trial_key: int | str, remaining: float) -> bool:
+    _render_library_video(config, asset)
+    skipped = st.button("跳过视频", key=f"skip_video_{trial_key}")
+    ended = st.button("视频播放结束", key=f"video_done_{trial_key}")
+    _setup_video_controls(remaining)
+    return bool(skipped or ended)
 
 
 def _inject_popup_styles() -> None:
@@ -282,6 +327,29 @@ def _inject_popup_styles() -> None:
           object-fit: contain !important;
           background: #000 !important;
         }
+        .stButton > button,
+        [data-testid="stFormSubmitButton"] button {
+          border: 1px solid #14b8a6 !important;
+          background-color: #0f766e !important;
+          color: #ffffff !important;
+          border-radius: 8px !important;
+          box-shadow: none !important;
+        }
+        .stButton > button *,
+        [data-testid="stFormSubmitButton"] button * {
+          color: inherit !important;
+        }
+        .stButton > button:hover,
+        .stButton > button:focus,
+        .stButton > button:active,
+        [data-testid="stFormSubmitButton"] button:hover,
+        [data-testid="stFormSubmitButton"] button:focus,
+        [data-testid="stFormSubmitButton"] button:active {
+          border-color: #2dd4bf !important;
+          background-color: #115e59 !important;
+          color: #ffffff !important;
+          box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.24) !important;
+        }
         [data-testid="stVerticalBlock"] {
           gap: clamp(2px, 0.8vh, 8px) !important;
         }
@@ -306,6 +374,15 @@ def _inject_popup_styles() -> None:
         .instruction-page li,
         .instruction-page p {
           font-size: clamp(0.95rem, 2.1vh, 1.12rem) !important;
+        }
+        [data-testid="stAppViewContainer"]:has(.instruction-page-anchor) [data-testid="stMarkdownContainer"] {
+          max-width: min(920px, calc(100vw - 64px)) !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+        [data-testid="stAppViewContainer"]:has(.instruction-page-anchor) [data-testid="stHeading"] a,
+        [data-testid="stAppViewContainer"]:has(.instruction-page-anchor) a[href^="#"] {
+          display: none !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) {
           position: fixed !important;
@@ -584,6 +661,82 @@ def _schedule_rating_timeout(remaining: float) -> None:
     )
 
 
+def _setup_video_controls(remaining: float) -> None:
+    delay_ms = max(50, int(max(remaining, 0.0) * 1000))
+    components.html(
+        f"""
+        <script>
+        (function () {{
+          const skipLabel = "跳过视频";
+          const doneLabel = "视频播放结束";
+          const delayMs = {delay_ms};
+          const doc = window.parent.document;
+
+          function findButton(label) {{
+            return Array.from(doc.querySelectorAll("button")).find(function (el) {{
+              return el.textContent && el.textContent.trim() === label;
+            }});
+          }}
+
+          function setupControls() {{
+            const skipButton = findButton(skipLabel);
+            const doneButton = findButton(doneLabel);
+            if (!skipButton || !doneButton) return false;
+
+            const skipWrapper = skipButton.closest('[data-testid="stButton"]') || skipButton.parentElement;
+            Object.assign(skipWrapper.style, {{
+              position: "fixed",
+              right: "32px",
+              bottom: "32px",
+              width: "min(180px, calc(100vw - 64px))",
+              zIndex: "1000"
+            }});
+            Object.assign(skipButton.style, {{
+              width: "100%",
+              minHeight: "2.8rem",
+              border: "1px solid #cbd5e1",
+              background: "rgba(248, 250, 252, 0.92)",
+              color: "#0f172a"
+            }});
+            Array.from(skipButton.querySelectorAll("*")).forEach(function (node) {{
+              node.style.color = "#0f172a";
+              node.style.webkitTextFillColor = "#0f172a";
+            }});
+
+            const doneWrapper = doneButton.closest('[data-testid="stButton"]') || doneButton.parentElement;
+            Object.assign(doneWrapper.style, {{
+              position: "fixed",
+              left: "-10000px",
+              top: "0",
+              width: "1px",
+              height: "1px",
+              opacity: "0",
+              overflow: "hidden"
+            }});
+
+            if (window.__videoEegVideoTimeout) {{
+              clearTimeout(window.__videoEegVideoTimeout);
+            }}
+            window.__videoEegVideoTimeout = setTimeout(function () {{
+              const currentDoneButton = findButton(doneLabel);
+              if (currentDoneButton) currentDoneButton.click();
+            }}, delayMs);
+            return true;
+          }}
+
+          if (setupControls()) return;
+          const observer = new MutationObserver(function () {{
+            if (setupControls()) observer.disconnect();
+          }});
+          observer.observe(doc.body, {{ childList: true, subtree: true }});
+          setTimeout(function () {{ observer.disconnect(); }}, 3000);
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def _render_phase_banner(phase: str) -> None:
     labels = {
         "fixation": ("+", "注视中央十字，保持静止"),
@@ -638,7 +791,9 @@ def _render_rating_dimension(container, *, trial_key: int | str, dimension: dict
 
 def _render_instruction_page() -> None:
     st.markdown('<div class="instruction-page-anchor"></div>', unsafe_allow_html=True)
-    st.markdown(EXPERIMENT_INSTRUCTIONS_MD)
+    left, center, right = st.columns([1, 3, 1])
+    del left, right
+    center.markdown(EXPERIMENT_INSTRUCTIONS_MD)
 
 
 def _render_rating_page(
@@ -778,14 +933,18 @@ def render_experiment_popup(
         )
         trial_idx = -1
         asset = _practice_asset()
-        manager.video_on(trial_idx=trial_idx, video_name=asset.asset_id)
-        with phase_slot.container():
-            duration_sec = _render_library_video(config, asset)
-        time.sleep(max(duration_sec, 0.1))
-        manager.video_off(trial_idx=trial_idx, video_name=asset.asset_id)
-        st.session_state.experiment_state = "practice_blank"
-        persist_session(config)
-        st.rerun()
+        _start_video_phase_if_needed(config, manager, trial_idx=trial_idx, asset=asset)
+        elapsed = time.time() - float(st.session_state.video_started_at)
+        remaining = max(0.0, float(st.session_state.video_duration_sec) - elapsed)
+        completed = remaining <= 0 or bool(_show_phase(
+            lambda: _render_video_page(config, asset, trial_key="practice", remaining=remaining)
+        ))
+        if completed:
+            manager.video_off(trial_idx=trial_idx, video_name=asset.asset_id)
+            _clear_video_phase()
+            st.session_state.experiment_state = "practice_blank"
+            persist_session(config)
+            st.rerun()
 
     elif state == "practice_blank":
         manager = _ensure_manager(
@@ -867,14 +1026,18 @@ def render_experiment_popup(
         )
         trial_idx = current
         asset = _asset_at(trial_idx)
-        manager.video_on(trial_idx=trial_idx, video_name=asset.asset_id)
-        with phase_slot.container():
-            duration_sec = _render_library_video(config, asset)
-        time.sleep(max(duration_sec, 0.1))
-        manager.video_off(trial_idx=trial_idx, video_name=asset.asset_id)
-        st.session_state.experiment_state = "blank"
-        persist_session(config)
-        st.rerun()
+        _start_video_phase_if_needed(config, manager, trial_idx=trial_idx, asset=asset)
+        elapsed = time.time() - float(st.session_state.video_started_at)
+        remaining = max(0.0, float(st.session_state.video_duration_sec) - elapsed)
+        completed = remaining <= 0 or bool(_show_phase(
+            lambda: _render_video_page(config, asset, trial_key=trial_idx, remaining=remaining)
+        ))
+        if completed:
+            manager.video_off(trial_idx=trial_idx, video_name=asset.asset_id)
+            _clear_video_phase()
+            st.session_state.experiment_state = "blank"
+            persist_session(config)
+            st.rerun()
 
     elif state == "blank":
         manager = _ensure_manager(

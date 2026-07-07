@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from html import escape
 import importlib
 import json
 import sys
@@ -34,6 +35,12 @@ _PAGE_ICON = "🎬"
 st.set_page_config(page_title="视频神经反应实验台", page_icon=_PAGE_ICON, layout="wide")
 
 SIDEBAR_NAV_PAGES = ("首页", "实验设置", "连通检测", "Trigger 说明", "数据导出")
+
+TABLE_STYLES = [
+    {"selector": "", "props": [("background-color", "#ffffff"), ("color", "#0f172a")]},
+    {"selector": "th", "props": [("background-color", "#f1f5f9"), ("color", "#0f172a"), ("font-weight", "700")]},
+    {"selector": "td", "props": [("background-color", "#ffffff"), ("color", "#0f172a")]},
+]
 
 
 def parse_config_path(argv: list[str] | None = None) -> Path:
@@ -286,8 +293,8 @@ def render_settings(config: dict) -> None:
         help="local=扫描目录中的真实视频文件；正式实验推荐 local。",
     )
     try:
-        library_root, catalog_size, library_mode = _library_summary(config)
-        st.caption(f"当前库路径: `{library_root}` · 模式 `{library_mode}` · 可用条目 **{catalog_size}**")
+        _library_root, catalog_size, library_mode = _library_summary(config)
+        st.caption(f"视频库已就绪 · 模式 {library_mode} · 可用视频 {catalog_size} 个")
     except Exception as exc:  # noqa: BLE001
         st.warning(f"视频库尚未就绪: {exc}")
 
@@ -328,7 +335,6 @@ def render_settings(config: dict) -> None:
             st.session_state.eeg_session_dir = None
             st.session_state.phase_log = []
             experiment_ui.persist_session(config)
-            library = load_video_library(config)
             counts_text = "，".join(f"{name}: {count}" for name, count in metadata["category_counts"].items())
             if run.used_placeholder:
                 st.warning(
@@ -337,7 +343,7 @@ def render_settings(config: dict) -> None:
                 )
             else:
                 st.success(
-                    f"已从视频库 `{library.root}` 生成练习 1 个、正式 {len(playlist)} 个 trial。分类: {counts_text}"
+                    f"已生成练习 1 个、正式 {len(playlist)} 个 trial。分类: {counts_text}"
                 )
         except Exception as exc:  # noqa: BLE001
             st.error(f"生成播放列表失败: {exc}")
@@ -416,7 +422,24 @@ def render_probe(config: dict) -> None:
 def render_trigger_reference() -> None:
     st.title("Trigger 事件码设计")
     rows = [{"事件码": code, "说明": desc} for code, desc in TRIGGER_REFERENCE.items()]
-    st.dataframe(pd.DataFrame(rows), use_container_width=True)
+    body = "\n".join(
+        (
+            "<tr>"
+            f"<td>{escape(str(row['事件码']))}</td>"
+            f"<td>{escape(str(row['说明']))}</td>"
+            "</tr>"
+        )
+        for row in rows
+    )
+    st.markdown(
+        f"""
+        <table class="trigger-table">
+          <thead><tr><th>事件码</th><th>说明</th></tr></thead>
+          <tbody>{body}</tbody>
+        </table>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_data_export(config: dict) -> None:
@@ -427,7 +450,7 @@ def render_data_export(config: dict) -> None:
         st.info("暂无行为评分数据。")
     else:
         df = pd.DataFrame(results)
-        st.dataframe(df)
+        st.dataframe(df.style.set_table_styles(TABLE_STYLES), use_container_width=True)
         st.download_button(
             "下载行为评分 CSV",
             df.to_csv(index=False).encode("utf-8"),
@@ -445,21 +468,161 @@ def render_data_export(config: dict) -> None:
         if events_path.exists():
             with events_path.open("r", encoding="utf-8") as handle:
                 events = json.load(handle)
-            st.dataframe(pd.DataFrame(events[:20]), use_container_width=True)
+            st.dataframe(pd.DataFrame(events[:20]).style.set_table_styles(TABLE_STYLES), use_container_width=True)
 
 
 def _inject_gui_nav_styles() -> None:
     st.markdown(
         """
         <style>
-        .stApp { background-color: #ffffff; color: #0f172a; }
+        [data-testid="stHeader"],
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        #MainMenu,
+        footer {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+        }
+
+        .stApp {
+          background: #ffffff;
+          color: #0f172a;
+        }
+
+        .stApp h1,
+        .stApp h2,
+        .stApp h3,
+        .stApp h4,
+        .stApp h5,
+        .stApp h6,
+        .stApp p,
+        .stApp label,
+        .stApp span {
+          color: #0f172a;
+        }
+
         section[data-testid="stSidebar"] {
-          background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+          background: #f8fafc;
           border-right: 1px solid rgba(15, 23, 42, 0.08);
         }
-        section[data-testid="stSidebar"] .stButton > button { width: 100%; border-radius: 8px; }
-        section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
-          background-color: #0F766E; color: white;
+
+        section[data-testid="stSidebar"] h1,
+        section[data-testid="stSidebar"] h2,
+        section[data-testid="stSidebar"] h3,
+        section[data-testid="stSidebar"] p,
+        section[data-testid="stSidebar"] span,
+        section[data-testid="stSidebar"] label {
+          color: #0f172a !important;
+        }
+
+        div[data-testid="stButton"] > button,
+        div[data-testid="stDownloadButton"] > button {
+          border-radius: 8px !important;
+          border: 1px solid #cbd5e1 !important;
+          background: #f8fafc !important;
+          color: #0f172a !important;
+          box-shadow: none !important;
+        }
+
+        div[data-testid="stButton"] > button *,
+        div[data-testid="stDownloadButton"] > button * {
+          color: inherit !important;
+          -webkit-text-fill-color: currentColor !important;
+        }
+
+        div[data-testid="stButton"] > button:hover,
+        div[data-testid="stButton"] > button:focus,
+        div[data-testid="stButton"] > button:active,
+        div[data-testid="stDownloadButton"] > button:hover,
+        div[data-testid="stDownloadButton"] > button:focus,
+        div[data-testid="stDownloadButton"] > button:active {
+          border-color: #0f766e !important;
+          background: #ecfdf5 !important;
+          color: #0f172a !important;
+          box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12) !important;
+        }
+
+        div[data-testid="stButton"] > button[kind="primary"],
+        div[data-testid="stDownloadButton"] > button[kind="primary"] {
+          border-color: #0f766e !important;
+          background: #0f766e !important;
+          color: #ffffff !important;
+        }
+
+        div[data-testid="stButton"] > button[kind="primary"]:hover,
+        div[data-testid="stButton"] > button[kind="primary"]:focus,
+        div[data-testid="stButton"] > button[kind="primary"]:active,
+        div[data-testid="stDownloadButton"] > button[kind="primary"]:hover,
+        div[data-testid="stDownloadButton"] > button[kind="primary"]:focus,
+        div[data-testid="stDownloadButton"] > button[kind="primary"]:active {
+          border-color: #115e59 !important;
+          background: #115e59 !important;
+          color: #ffffff !important;
+          box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2) !important;
+        }
+
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
+          width: 100% !important;
+          border-radius: 8px !important;
+          border: 1px solid #1f2937 !important;
+          background: #1f2937 !important;
+          color: #ffffff !important;
+          box-shadow: none !important;
+        }
+
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button * {
+          color: #ffffff !important;
+          -webkit-text-fill-color: #ffffff !important;
+        }
+
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover,
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button:focus,
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button:active {
+          border-color: #334155 !important;
+          background: #334155 !important;
+          color: #ffffff !important;
+          box-shadow: none !important;
+        }
+
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"],
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"]:hover,
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"]:focus,
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"]:active {
+          border-color: #0f766e !important;
+          background: #0f766e !important;
+          color: #ffffff !important;
+        }
+
+        .trigger-table {
+          width: 100%;
+          border-collapse: collapse;
+          background: #ffffff;
+          color: #0f172a;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .trigger-table th,
+        .trigger-table td {
+          padding: 0.7rem 0.9rem;
+          border-bottom: 1px solid #e2e8f0;
+          color: #0f172a;
+          text-align: left;
+        }
+
+        .trigger-table th {
+          background: #f1f5f9;
+          font-weight: 700;
+        }
+
+        .trigger-table tr:nth-child(even) td {
+          background: #f8fafc;
+        }
+
+        .trigger-table tr:last-child td {
+          border-bottom: 0;
         }
         </style>
         """,
