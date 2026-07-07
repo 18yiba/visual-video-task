@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
-from utils.video_library import VideoAsset, build_playlist as build_video_playlist, load_video_library
+from utils.video_library import (
+    VideoAsset,
+    build_balanced_playlist,
+    build_playlist as build_video_playlist,
+    choose_practice_asset,
+    load_video_library,
+)
 
+import secrets
 import threading
 import time
 from dataclasses import dataclass
@@ -36,19 +43,32 @@ class VideoProtocolConfig:
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> VideoProtocolConfig:
         protocol = dict(config.get("protocol", {}))
-        library_dir = protocol.get("video_library_dir") or protocol.get("video_dir") or "video_library"
+        library_dir = (
+            protocol.get("video_library_dir")
+            or protocol.get("video_dir")
+            or "video_library/selected_540_balanced_videos"
+        )
         return cls(
             fixation_sec=float(protocol.get("fixation_sec", 1.5)),
             blank_sec=float(protocol.get("blank_sec", 1.0)),
             iti_sec=float(protocol.get("iti_sec", 2.0)),
-            trials_per_session=int(protocol.get("trials_per_session", 90)),
+            trials_per_session=int(protocol.get("trials_per_session", 500)),
             baseline_sec=float(protocol.get("baseline_sec", 60.0)),
             video_library_dir=str(library_dir),
-            video_library_mode=str(protocol.get("video_library_mode", "auto")),
+            video_library_mode=str(protocol.get("video_library_mode", "local")),
             random_seed=int(protocol.get("random_seed", 17)),
             default_video_sec=float(protocol.get("default_video_sec", 8.0)),
             rating_sec=float(protocol.get("rating_sec", 10.0)),
         )
+
+
+@dataclass(slots=True)
+class ExperimentPlaylists:
+    practice_asset: VideoAsset
+    formal_playlist: list[VideoAsset]
+    random_seed: int
+    used_placeholder: bool = False
+    fallback_reason: str | None = None
 
 
 def build_playlist_from_config(config: dict[str, Any]) -> list[VideoAsset]:
@@ -60,6 +80,51 @@ def build_playlist_from_config(config: dict[str, Any]) -> list[VideoAsset]:
         library,
         trials_per_session=protocol.trials_per_session,
         random_seed=protocol.random_seed,
+    )
+
+
+def build_experiment_playlists_from_config(
+    config: dict[str, Any],
+    *,
+    random_seed: int | None = None,
+) -> ExperimentPlaylists:
+    """Build one untimed practice trial plus a balanced formal playlist."""
+
+    protocol = VideoProtocolConfig.from_config(config)
+    library = load_video_library(config)
+    seed = int(random_seed if random_seed is not None else secrets.randbits(32))
+
+    catalog = library.list_assets()
+    if len(catalog) != 540:
+        duration_sec = min(10.0, max(5.0, protocol.default_video_sec))
+        placeholder = VideoAsset(
+            asset_id="placeholder_black_screen",
+            rel_path="placeholder_black_screen.mp4",
+            duration_sec=duration_sec,
+            category="placeholder",
+        )
+        return ExperimentPlaylists(
+            practice_asset=placeholder,
+            formal_playlist=[placeholder] * protocol.trials_per_session,
+            random_seed=seed,
+            used_placeholder=True,
+            fallback_reason=(
+                f"Expected 540 local videos but found {len(catalog)}. "
+                "Using placeholder black-screen video for practice and formal trials."
+            ),
+        )
+
+    practice_asset = choose_practice_asset(library, random_seed=seed)
+    formal_playlist = build_balanced_playlist(
+        library,
+        trials_per_session=protocol.trials_per_session,
+        random_seed=seed + 1,
+        exclude=practice_asset,
+    )
+    return ExperimentPlaylists(
+        practice_asset=practice_asset,
+        formal_playlist=formal_playlist,
+        random_seed=seed,
     )
 
 
@@ -92,6 +157,7 @@ class EegSessionManager:
         self._session_stamp = ""
         self._session_dir: Path | None = None
         self._running = False
+        self._start_metadata: dict[str, Any] = {}
 
     @property
     def running(self) -> bool:
@@ -118,6 +184,7 @@ class EegSessionManager:
         )
         self._acquirer.start_stream()
         self._stop_event.clear()
+        self._start_metadata = dict(metadata or {})
         self._thread = threading.Thread(target=self._pull_loop, name="video-eeg-pull", daemon=True)
         self._thread.start()
         self._running = True
@@ -196,6 +263,7 @@ class EegSessionManager:
             "device_type": self._acquirer.metadata.name,
             "trigger_codes": dict(PROTOCOL_EVENT_CODES),
         }
+        export_metadata.update(self._start_metadata)
         if metadata:
             export_metadata.update(metadata)
         self._recorder.export(self._session_dir, metadata=export_metadata)

@@ -27,6 +27,7 @@ records/
 records_storage/
 ratings_storage/
 models/
+video_library/selected_540_balanced_videos/
 *.npy
 *.npz
 *.bdf

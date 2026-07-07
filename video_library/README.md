@@ -1,36 +1,42 @@
 # 视频材料库
 
-实验程序**只从此目录**（`config.yaml` → `protocol.video_library_dir`）加载刺激视频。
-
-## 目录结构
+正式刺激视频请放入以下目录：
 
 ```
 video_library/
-  manifest.json    # 视频目录（10 条 assets）
-  stim_001.mp4
-  stim_002.mp4
-  ...
-  stim_010.mp4
+  selected_540_balanced_videos/
+    100025_科技商业.mp4
+    100084_时尚美妆.mp4
+    ...
 ```
+
+`selected_540_balanced_videos/` 已在 `.gitignore` 中忽略，视频文件不会提交到仓库。
 
 ## 文件命名
 
-视频文件必须命名为 `stim_001.mp4` … `stim_010.mp4`，与 `manifest.json` 中 `assets` 一致。
+正式视频文件名应保持为：
 
-若原始文件名不同，在本机终端（Cursor 底部已打开的 `(omni)` 终端即可）执行一行：
-
-```bat
-D:\QW_FILE\visual-video-task\video_library\_rename.cmd
+```
+视频ID_分类名.mp4
 ```
 
-执行完成后可删除 `_rename.cmd`。
+例如：
 
-## 加载模式
+```
+100025_科技商业.mp4
+100150_游戏动漫.mp4
+```
 
-| 模式 | 行为 |
-|------|------|
-| `local` | 扫描目录中的视频文件 |
-| `manifest` | 读取 `manifest.json` |
-| `auto` | 优先 manifest，否则扫描目录 |
+后续实验代码会根据文件名中下划线后的分类名进行均衡抽样。
 
-当前 `config.yaml` 使用 `local` 模式，需保证磁盘上存在与 manifest 同名的文件。
+如果运行时没有检测到完整 540 个正式视频，程序会自动进入 placeholder 模式：练习 trial 和正式 trial 都使用一个 5-10 秒的黑屏虚拟视频，以便在没有完整素材时测试流程。
+
+## 配置
+
+推荐配置为：
+
+```yaml
+protocol:
+  video_library_dir: video_library/selected_540_balanced_videos
+  video_library_mode: local
+```

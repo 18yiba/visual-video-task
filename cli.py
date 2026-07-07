@@ -42,9 +42,9 @@ _DEFAULT_CONFIG_TEMPLATE: dict[str, Any] = {
         "iti_sec": 2.0,
         "rating_sec": 10.0,
         "baseline_sec": 60.0,
-        "trials_per_session": 90,
-        "video_library_dir": "video_library",
-        "video_library_mode": "manifest",
+        "trials_per_session": 500,
+        "video_library_dir": "video_library/selected_540_balanced_videos",
+        "video_library_mode": "local",
         "random_seed": 17,
     },
     "device": {

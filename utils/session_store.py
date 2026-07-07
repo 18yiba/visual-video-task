@@ -39,19 +39,28 @@ def clear(config: dict[str, Any]) -> None:
         path.unlink()
 
 
-def reset_for_popup(config: dict[str, Any], playlist: list[Any]) -> None:
+def reset_for_popup(
+    config: dict[str, Any],
+    playlist: list[Any],
+    *,
+    practice_asset: Any | None = None,
+    playlist_seed: int | None = None,
+    playlist_metadata: dict[str, Any] | None = None,
+) -> None:
     """Reset persisted state so each popup open starts a fresh session."""
 
-    save(
-        config,
-        {
-            "playlist": playlist,
-            "current_trial": 0,
-            "results": [],
-            "experiment_state": "idle",
-            "baseline_done": False,
-            "eeg_session_dir": None,
-            "phase_log": [],
-            "popup_open": True,
-        },
-    )
+    payload = {
+        "playlist": playlist,
+        "practice_asset": practice_asset,
+        "playlist_seed": playlist_seed,
+        "playlist_metadata": playlist_metadata or {},
+        "current_trial": 0,
+        "results": [],
+        "experiment_state": "instructions",
+        "practice_completed": False,
+        "baseline_done": False,
+        "eeg_session_dir": None,
+        "phase_log": [],
+        "popup_open": True,
+    }
+    save(config, payload)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from html import escape
 from pathlib import Path
 
 import pandas as pd
@@ -19,18 +20,74 @@ from utils.video_library import (
     serialize_playlist,
 )
 
+RATING_VALUES = (1, 2, 3, 4, 5)
+
 RATING_DIMENSIONS = [
-    "愉悦度 (Valence)",
-    "唤醒度 (Arousal)",
-    "专注度 (Attention)",
-    "熟悉度 (Familiarity)",
-    "喜好度 (Preference)",
-    "真实感 (Realism)",
-    "情绪强度 (Emotion)",
-    "视觉质量 (Quality)",
-    "动态程度 (Dynamic)",
-    "整体评分 (Overall)",
+    {
+        "key": "valence",
+        "label": "愉悦度 (Valence)",
+        "prompt": "观看视频时感受到的情绪正负性。",
+        "levels": ("非常负性", "负性", "中性", "正性", "非常正性"),
+    },
+    {
+        "key": "arousal",
+        "label": "唤醒度 (Arousal)",
+        "prompt": "观看视频时身心被激活、兴奋或紧张的程度。",
+        "levels": ("非常平静", "平静", "中性", "兴奋", "非常兴奋"),
+    },
+    {
+        "key": "immersion",
+        "label": "沉浸感 (Immersion)",
+        "prompt": "观看视频时投入到画面事件中的程度。",
+        "levels": ("非常疏离", "疏离", "中性", "投入", "非常投入"),
+    },
+    {
+        "key": "interest",
+        "label": "兴趣度 (Interest)",
+        "prompt": "您认为视频内容有趣、吸引人的程度。",
+        "levels": ("非常无趣", "无趣", "中性", "有趣", "非常有趣"),
+    },
+    {
+        "key": "visual",
+        "label": "视觉感受 (Visual)",
+        "prompt": "您认为视频画面令人愉悦、具有吸引力的程度。",
+        "levels": ("非常不吸引", "不吸引", "中性", "吸引", "非常吸引"),
+    },
+    {
+        "key": "auditory",
+        "label": "听觉感受 (Auditory)",
+        "prompt": "您认为视频声音令人愉悦、具有吸引力的程度。",
+        "levels": ("非常不愉悦", "不愉悦", "中性", "愉悦", "非常愉悦"),
+    },
 ]
+
+EXPERIMENT_INSTRUCTIONS_MD = """
+### 欢迎参与本次实验
+
+在接下来的任务中，您将观看一系列简短的视频片段。
+
+**实验流程：**
+1. 首先进行 1 个练习 trial，帮助您熟悉流程。
+2. 正式实验共 500 个 trial。
+3. 每个 trial 中，屏幕中央会出现十字注视点，请保持静止并注视屏幕中央。
+4. 播放一段视频。
+5. 短暂空屏。
+6. 出现评分界面，请根据您的真实感受对视频进行 6 个维度的 5 点评分。
+7. 短暂休息后自动进入下一个视频。
+
+**注意事项：**
+- 观看视频时请尽量保持身体和头部静止，减少眨眼，避免干扰脑电信号采集。
+- 评分阶段可以自由活动和操作鼠标。
+- 练习 trial 的评分没有时间限制，正式实验的评分阶段限时完成。
+
+**评分维度：**
+- 愉悦度：非常负性、负性、中性、正性、非常正性。
+- 唤醒度：非常平静、平静、中性、兴奋、非常兴奋。
+- 沉浸感：非常疏离、疏离、中性、投入、非常投入。
+- 兴趣度：非常无趣、无趣、中性、有趣、非常有趣。
+- 视觉感受：非常不吸引、不吸引、中性、吸引、非常吸引。
+- 听觉感受：非常不愉悦、不愉悦、中性、愉悦、非常愉悦。
+"""
 
 
 def persist_session(config: dict) -> None:
@@ -40,13 +97,25 @@ def persist_session(config: dict) -> None:
     else:
         playlist_payload = list(playlist_raw)
 
+    practice_raw = st.session_state.get("practice_asset")
+    if isinstance(practice_raw, VideoAsset):
+        practice_payload = practice_raw.to_mapping()
+    elif isinstance(practice_raw, dict):
+        practice_payload = dict(practice_raw)
+    else:
+        practice_payload = None
+
     save_session_store(
         config,
         {
             "playlist": playlist_payload,
+            "practice_asset": practice_payload,
+            "playlist_seed": st.session_state.get("playlist_seed"),
+            "playlist_metadata": dict(st.session_state.get("playlist_metadata", {})),
             "current_trial": int(st.session_state.get("current_trial", 0)),
             "results": list(st.session_state.get("results", [])),
-            "experiment_state": str(st.session_state.get("experiment_state", "idle")),
+            "experiment_state": str(st.session_state.get("experiment_state", "instructions")),
+            "practice_completed": bool(st.session_state.get("practice_completed", False)),
             "baseline_done": bool(st.session_state.get("baseline_done", False)),
             "eeg_session_dir": st.session_state.get("eeg_session_dir"),
             "phase_log": list(st.session_state.get("phase_log", [])),
@@ -59,10 +128,14 @@ def bootstrap_popup_session(config: dict) -> None:
     """Load playlist only; always start a fresh run inside the popup."""
 
     defaults = {
-        "experiment_state": "idle",
+        "experiment_state": "instructions",
         "current_trial": 0,
         "results": [],
         "playlist": [],
+        "practice_asset": None,
+        "practice_completed": False,
+        "playlist_seed": None,
+        "playlist_metadata": {},
         "eeg_manager": None,
         "eeg_session_dir": None,
         "baseline_done": False,
@@ -80,11 +153,16 @@ def bootstrap_popup_session(config: dict) -> None:
     stored = load_session_store(config)
     if stored.get("playlist"):
         st.session_state.playlist = deserialize_playlist(stored["playlist"])
+    if stored.get("practice_asset"):
+        st.session_state.practice_asset = VideoAsset.from_mapping(stored["practice_asset"])
 
     protocol = VideoProtocolConfig.from_config(config)
     st.session_state.current_trial = 0
     st.session_state.results = []
-    st.session_state.experiment_state = "idle"
+    st.session_state.experiment_state = str(stored.get("experiment_state", "instructions"))
+    st.session_state.practice_completed = bool(stored.get("practice_completed", False))
+    st.session_state.playlist_seed = stored.get("playlist_seed")
+    st.session_state.playlist_metadata = dict(stored.get("playlist_metadata", {}))
     st.session_state.baseline_done = protocol.baseline_sec <= 0
     st.session_state.eeg_manager = None
     st.session_state.eeg_session_dir = None
@@ -98,6 +176,15 @@ def _playlist_assets() -> list[VideoAsset]:
 
 def _asset_at(trial_idx: int) -> VideoAsset:
     return _playlist_assets()[trial_idx]
+
+
+def _practice_asset() -> VideoAsset:
+    asset = st.session_state.get("practice_asset")
+    if isinstance(asset, VideoAsset):
+        return asset
+    if isinstance(asset, dict):
+        return VideoAsset.from_mapping(asset)
+    raise RuntimeError("Practice video is missing from this run.")
 
 
 def _ensure_manager(config: dict, *, get_eeg_manager, start_eeg_session) -> EegSessionManager:
@@ -198,6 +285,28 @@ def _inject_popup_styles() -> None:
         [data-testid="stVerticalBlock"] {
           gap: clamp(2px, 0.8vh, 8px) !important;
         }
+        [data-testid="stAppViewContainer"]:has(.instruction-page-anchor),
+        [data-testid="stAppViewContainer"]:has(.instruction-page-anchor) [data-testid="stMain"],
+        [data-testid="stAppViewContainer"]:has(.instruction-page-anchor) [data-testid="stMainBlockContainer"],
+        [data-testid="stAppViewContainer"]:has(.instruction-page-anchor) .block-container {
+          overflow-y: auto !important;
+          max-height: none !important;
+        }
+        .instruction-page-anchor + div,
+        .instruction-page {
+          width: min(920px, calc(100vw - 64px));
+          margin: 0 auto;
+          padding: clamp(28px, 5vh, 56px) 0 128px;
+          color: #ffffff;
+          line-height: 1.8;
+        }
+        .instruction-page h3 {
+          font-size: clamp(1.6rem, 4vh, 2.4rem) !important;
+        }
+        .instruction-page li,
+        .instruction-page p {
+          font-size: clamp(0.95rem, 2.1vh, 1.12rem) !important;
+        }
         [data-testid="stForm"]:has(.rating-page-anchor) {
           position: fixed !important;
           inset: 0 !important;
@@ -212,17 +321,17 @@ def _inject_popup_styles() -> None:
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
-          padding: clamp(24px, 5vh, 64px) clamp(48px, 7vw, 120px) !important;
-          overflow: hidden !important;
+          padding: clamp(18px, 4vh, 48px) clamp(28px, 6vw, 96px) !important;
+          overflow-y: auto !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) > div {
           width: 100% !important;
-          height: 100% !important;
+          min-height: min(100%, 680px) !important;
           display: flex !important;
           flex-direction: column !important;
           align-items: center !important;
           justify-content: center !important;
-          gap: 0 !important;
+          gap: clamp(12px, 2vh, 22px) !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stMarkdownContainer"]:has(.rating-page-anchor) {
           display: none !important;
@@ -230,51 +339,74 @@ def _inject_popup_styles() -> None:
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stHorizontalBlock"] {
           display: grid !important;
           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-          align-items: stretch !important;
+          align-items: start !important;
           justify-items: center !important;
           width: 100% !important;
-          height: clamp(360px, 56vh, 560px) !important;
+          gap: clamp(28px, 5vw, 72px) !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] {
-          width: clamp(260px, 28vw, 420px) !important;
+          width: min(480px, 100%) !important;
           min-width: 0 !important;
           flex: unset !important;
           justify-self: center !important;
         }
-        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] > div {
-          width: 100% !important;
-          height: 100% !important;
-        }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] [data-testid="stVerticalBlock"] {
           display: flex !important;
           flex-direction: column !important;
-          justify-content: space-evenly !important;
-          gap: clamp(14px, 2.4vh, 28px) !important;
+          gap: clamp(12px, 2vh, 20px) !important;
           width: 100% !important;
-          height: 100% !important;
         }
-        [data-testid="stSlider"] {
-          min-height: 0 !important;
-          padding: 0 !important;
+        .rating-header {
+          width: min(960px, 100%);
+          text-align: center;
+          color: #d1d5db;
+          font-size: clamp(0.9rem, 2vh, 1.05rem);
+          line-height: 1.6;
         }
-        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stSlider"] {
+        .rating-dimension-title {
+          margin: 0 0 4px;
+          font-size: clamp(0.95rem, 2vh, 1.12rem);
+          font-weight: 700;
+          color: #ffffff;
+        }
+        .rating-dimension-prompt {
+          margin: 0 0 6px;
+          color: #b8c0cc;
+          font-size: clamp(0.78rem, 1.6vh, 0.92rem);
+          line-height: 1.35;
+        }
+        .rating-levels {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 8px;
+          width: 100%;
+          margin-bottom: 2px;
+          color: #dbeafe;
+          font-size: clamp(0.68rem, 1.45vh, 0.82rem);
+          line-height: 1.25;
+          text-align: center;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] {
+          width: 100% !important;
+          margin-top: -2px !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] > label {
+          display: none !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] [role="radiogroup"] {
+          display: grid !important;
+          grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+          justify-items: center !important;
+          gap: 8px !important;
+          width: 100% !important;
+        }
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] [role="radiogroup"] label {
           margin: 0 !important;
-          width: 100% !important;
         }
-        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stSlider"] > div {
-          width: 100% !important;
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] [role="radiogroup"] p {
+          display: none !important;
         }
-        [data-testid="stSlider"] label {
-          min-height: 0 !important;
-          padding-bottom: 0 !important;
-          font-size: clamp(0.9rem, 2vh, 1.2rem) !important;
-        }
-        [data-baseweb="slider"] {
-          width: 100% !important;
-          padding-top: clamp(4px, 0.9vh, 8px) !important;
-          padding-bottom: clamp(4px, 0.9vh, 8px) !important;
-        }
-        [data-testid="stFormSubmitButton"] {
+        [data-testid="stForm"]:has(.timed-rating-anchor) [data-testid="stFormSubmitButton"] {
           position: fixed !important;
           left: -10000px !important;
           top: 0 !important;
@@ -282,6 +414,15 @@ def _inject_popup_styles() -> None:
           height: 1px !important;
           opacity: 0 !important;
           overflow: hidden !important;
+        }
+        [data-testid="stForm"]:has(.practice-rating-anchor) [data-testid="stFormSubmitButton"] {
+          width: min(360px, calc(100vw - 56px)) !important;
+          margin-top: clamp(8px, 2vh, 20px) !important;
+        }
+        [data-testid="stForm"]:has(.practice-rating-anchor) [data-testid="stFormSubmitButton"] button {
+          width: 100% !important;
+          min-height: 3rem !important;
+          font-size: 1.05rem !important;
         }
         </style>
         """,
@@ -323,12 +464,13 @@ def _close_popup_window() -> None:
     )
 
 
-def _pin_start_experiment_button() -> None:
+def _pin_start_experiment_button(label: str = "开始实验") -> None:
+    safe_label = label.replace("\\", "\\\\").replace('"', '\\"')
     components.html(
         """
         <script>
         (function () {
-          const label = "开始实验";
+          const label = "__BUTTON_LABEL__";
 
           function pinButton() {
             const doc = window.parent.document;
@@ -380,7 +522,7 @@ def _pin_start_experiment_button() -> None:
           setTimeout(function () { observer.disconnect(); }, 3000);
         })();
         </script>
-        """,
+        """.replace("__BUTTON_LABEL__", safe_label),
         height=0,
     )
 
@@ -446,10 +588,10 @@ def _render_phase_banner(phase: str) -> None:
     labels = {
         "fixation": ("+", "注视中央十字，保持静止"),
         "blank": ("",""),
-        "iti": ("…", "休息一下"),
+        "iti": ("…", "短暂休息"),
         "baseline": ("+", "请注视中央十字"),
         "ready": ("◎", "准备就绪"),
-        "finished": ("✓", "Session 完成"),
+        "finished": ("✓", "实验完成"),
     }
     symbol, hint = labels.get(phase, ("·", phase))
     st.markdown(
@@ -465,38 +607,78 @@ def _render_phase_banner(phase: str) -> None:
     )
 
 
+def _rating_key(trial_key: int | str, dimension_key: str) -> str:
+    return f"rating_{trial_key}_{dimension_key}"
+
+
+def _render_rating_dimension(container, *, trial_key: int | str, dimension: dict[str, object]) -> None:
+    key = str(dimension["key"])
+    levels = tuple(str(level) for level in dimension["levels"])
+    current_value = int(st.session_state.get(_rating_key(trial_key, key), 3))
+    current_value = min(5, max(1, current_value))
+    level_html = "".join(f"<span>{escape(level)}</span>" for level in levels)
+    container.markdown(
+        f"""
+        <div class="rating-dimension-title">{escape(str(dimension["label"]))}</div>
+        <div class="rating-dimension-prompt">{escape(str(dimension["prompt"]))}</div>
+        <div class="rating-levels">{level_html}</div>
+        """,
+        unsafe_allow_html=True,
+    )
+    container.radio(
+        str(dimension["label"]),
+        options=RATING_VALUES,
+        index=current_value - 1,
+        format_func=lambda _: "",
+        horizontal=True,
+        key=_rating_key(trial_key, key),
+        label_visibility="collapsed",
+    )
+
+
+def _render_instruction_page() -> None:
+    st.markdown('<div class="instruction-page-anchor"></div>', unsafe_allow_html=True)
+    st.markdown(EXPERIMENT_INSTRUCTIONS_MD)
+
+
 def _render_rating_page(
     *,
-    trial_idx: int,
-    remaining: float,
+    trial_key: int | str,
+    remaining: float | None,
+    submit_label: str,
 ) -> bool:
-    with st.form(key=f"rating_form_{trial_idx}"):
-        st.markdown('<div class="rating-page-anchor"></div>', unsafe_allow_html=True)
+    is_timed = remaining is not None
+    anchor_class = "timed-rating-anchor" if is_timed else "practice-rating-anchor"
+    with st.form(key=f"rating_form_{trial_key}"):
+        st.markdown(
+            f'<div class="rating-page-anchor {anchor_class}"></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            """
+            <div class="rating-header">
+              请根据刚才观看视频时的真实感受作答。每行从左到右表示程度由低到高，圆圈内不显示数字。
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         cols = st.columns(2)
         midpoint = (len(RATING_DIMENSIONS) + 1) // 2
         for col, dimensions in zip(cols, (RATING_DIMENSIONS[:midpoint], RATING_DIMENSIONS[midpoint:])):
-            for dim in dimensions:
-                index = RATING_DIMENSIONS.index(dim)
-                slider_key = f"rating_{trial_idx}_{index}"
-                current_value = int(st.session_state.get(slider_key, 4))
-                col.slider(
-                    dim,
-                    min_value=1,
-                    max_value=7,
-                    value=min(7, max(1, current_value)),
-                    key=slider_key,
-                )
-        timed_out = st.form_submit_button("评分时间到")
-    _schedule_rating_timeout(remaining)
-    return timed_out
+            for dimension in dimensions:
+                _render_rating_dimension(col, trial_key=trial_key, dimension=dimension)
+        submitted = st.form_submit_button(submit_label)
+    if remaining is not None:
+        _schedule_rating_timeout(remaining)
+    return submitted
 
 
-def _collect_ratings(trial_idx: int) -> dict[str, int]:
+def _collect_ratings(trial_key: int | str) -> dict[str, int]:
     ratings: dict[str, int] = {}
-    for index, dim in enumerate(RATING_DIMENSIONS):
-        slider_key = f"rating_{trial_idx}_{index}"
-        value = int(st.session_state.get(slider_key, 4))
-        ratings[dim] = min(7, max(1, value))
+    for dimension in RATING_DIMENSIONS:
+        key = str(dimension["key"])
+        value = int(st.session_state.get(_rating_key(trial_key, key), 3))
+        ratings[str(dimension["label"])] = min(5, max(1, value))
     return ratings
 
 
@@ -517,6 +699,7 @@ def _finalize_rating(
         "trial_idx": trial_idx,
         "asset_id": asset.asset_id,
         "rel_path": asset.rel_path,
+        "category": asset.category,
         "timestamp": time.time(),
         "eeg_session_dir": st.session_state.get("eeg_session_dir"),
         "rating_timed_out": timed_out,
@@ -542,38 +725,115 @@ def render_experiment_popup(
     _inject_popup_styles()
     protocol = VideoProtocolConfig.from_config(config)
 
-    if not st.session_state.playlist:
-        st.error("尚未生成播放列表。请关闭此窗口，在「实验设置」中生成播放列表后再试。")
+    if not st.session_state.playlist or not st.session_state.get("practice_asset"):
+        st.error("尚未生成本次练习与正式播放列表。请关闭此窗口，在「实验设置」中重新打开实验窗口。")
         if st.button("关闭窗口"):
             _close_popup_window()
         return
 
     current = st.session_state.current_trial
     total = len(st.session_state.playlist)
-    if current >= total:
-        st.session_state.experiment_state = "finished"
-
     state = st.session_state.experiment_state
+    if current >= total and state not in {"iti", "finished"}:
+        st.session_state.experiment_state = "finished"
+        state = "finished"
+
     phase_slot = st.empty()
 
     def _show_phase(content_fn):
         with phase_slot.container():
             return content_fn()
 
-    if state == "idle":
-        def _idle_content() -> None:
-            _render_phase_banner("ready")
-            if st.button("开始实验", type="primary", use_container_width=True):
+    if state in {"idle", "instructions"}:
+        def _instructions_content() -> None:
+            _render_instruction_page()
+            if st.button("我已理解，开始练习", type="primary", use_container_width=True):
                 start_eeg_session(config)
                 st.session_state.baseline_done = protocol.baseline_sec <= 0
-                st.session_state.experiment_state = (
-                    "baseline" if protocol.baseline_sec > 0 else "fixation"
-                )
+                st.session_state.experiment_state = "practice_fixation"
                 persist_session(config)
                 st.rerun()
-            _pin_start_experiment_button()
+            _pin_start_experiment_button("我已理解，开始练习")
 
-        _show_phase(_idle_content)
+        _show_phase(_instructions_content)
+
+    elif state == "practice_fixation":
+        manager = _ensure_manager(
+            config, get_eeg_manager=get_eeg_manager, start_eeg_session=start_eeg_session
+        )
+        trial_idx = -1
+        asset = _practice_asset()
+        manager.begin_trial(trial_idx=trial_idx, video_name=asset.asset_id)
+        manager.fixation_on(trial_idx=trial_idx, video_name=asset.asset_id)
+        _show_phase(lambda: _render_phase_banner("fixation"))
+        time.sleep(protocol.fixation_sec)
+        manager.fixation_off(trial_idx=trial_idx)
+        st.session_state.experiment_state = "practice_video"
+        persist_session(config)
+        st.rerun()
+
+    elif state == "practice_video":
+        manager = _ensure_manager(
+            config, get_eeg_manager=get_eeg_manager, start_eeg_session=start_eeg_session
+        )
+        trial_idx = -1
+        asset = _practice_asset()
+        manager.video_on(trial_idx=trial_idx, video_name=asset.asset_id)
+        with phase_slot.container():
+            duration_sec = _render_library_video(config, asset)
+        time.sleep(max(duration_sec, 0.1))
+        manager.video_off(trial_idx=trial_idx, video_name=asset.asset_id)
+        st.session_state.experiment_state = "practice_blank"
+        persist_session(config)
+        st.rerun()
+
+    elif state == "practice_blank":
+        manager = _ensure_manager(
+            config, get_eeg_manager=get_eeg_manager, start_eeg_session=start_eeg_session
+        )
+        trial_idx = -1
+        asset = _practice_asset()
+        manager.blank_on(trial_idx=trial_idx)
+        _show_phase(lambda: _render_phase_banner("blank"))
+        time.sleep(protocol.blank_sec)
+        manager.blank_off(trial_idx=trial_idx)
+        manager.rating_on(trial_idx=trial_idx, video_name=asset.asset_id)
+        st.session_state.rating_started_at = None
+        st.session_state.experiment_state = "practice_rating"
+        persist_session(config)
+        st.rerun()
+
+    elif state == "practice_rating":
+        manager = _ensure_manager(
+            config, get_eeg_manager=get_eeg_manager, start_eeg_session=start_eeg_session
+        )
+        asset = _practice_asset()
+        submitted = bool(_show_phase(
+            lambda: _render_rating_page(
+                trial_key="practice",
+                remaining=None,
+                submit_label="完成练习，开始正式实验",
+            )
+        ))
+        if submitted:
+            manager.rating_off(trial_idx=-1)
+            manager.end_trial(trial_idx=-1, video_name=asset.asset_id)
+            st.session_state.practice_completed = True
+            st.session_state.experiment_state = "practice_iti"
+            persist_session(config)
+            st.rerun()
+
+    elif state == "practice_iti":
+        manager = _ensure_manager(
+            config, get_eeg_manager=get_eeg_manager, start_eeg_session=start_eeg_session
+        )
+        manager.iti_on(trial_idx=-1)
+        _show_phase(lambda: _render_phase_banner("iti"))
+        time.sleep(protocol.iti_sec)
+        manager.iti_off(trial_idx=-1)
+        st.session_state.experiment_state = "baseline" if protocol.baseline_sec > 0 else "fixation"
+        persist_session(config)
+        st.rerun()
 
     elif state == "baseline" and not st.session_state.baseline_done:
         manager = _ensure_manager(
@@ -647,8 +907,9 @@ def render_experiment_popup(
         else:
             timed_out = bool(_show_phase(
                 lambda: _render_rating_page(
-                    trial_idx=trial_idx,
+                    trial_key=trial_idx,
                     remaining=remaining,
+                    submit_label="评分时间到",
                 )
             ))
 
@@ -686,7 +947,12 @@ def render_experiment_popup(
             _render_phase_banner("finished")
             session_dir = stop_eeg_session(
                 config,
-                extra_metadata={"behavioral_trials": len(st.session_state.results)},
+                extra_metadata={
+                    "behavioral_trials": len(st.session_state.results),
+                    "practice_asset": st.session_state.get("practice_asset"),
+                    "playlist_seed": st.session_state.get("playlist_seed"),
+                    "playlist_metadata": st.session_state.get("playlist_metadata", {}),
+                },
             )
             if session_dir is not None:
                 ratings_path = Path(str(config.get("storage", {}).get("ratings_dir", "ratings_storage")))
@@ -698,7 +964,7 @@ def render_experiment_popup(
                 pd.DataFrame(st.session_state.results).to_csv(session_dir / "behavioral_ratings.csv", index=False)
                 st.success(f"数据已保存。EEG: `{session_dir}`")
             else:
-                st.success("Session 完成。")
+                st.success("实验完成。")
             persist_session(config)
             save_session_store(config, {**load_session_store(config), "popup_open": False})
             if st.button("关闭窗口并返回设置", type="primary", use_container_width=True):
