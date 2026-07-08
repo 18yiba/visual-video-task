@@ -447,25 +447,19 @@ def _inject_popup_styles() -> None:
           color: #ffffff;
         }
         .rating-dimension-prompt {
-          margin: 0 0 6px;
+          margin: 0 0 10px;
           color: #b8c0cc;
           font-size: clamp(0.78rem, 1.6vh, 0.92rem);
           line-height: 1.35;
         }
-        .rating-levels {
-          display: grid;
-          grid-template-columns: repeat(5, minmax(0, 1fr));
-          gap: 8px;
-          width: 100%;
-          margin-bottom: 2px;
-          color: #dbeafe;
-          font-size: clamp(0.68rem, 1.45vh, 0.82rem);
-          line-height: 1.25;
-          text-align: center;
+        [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] [data-testid="stMarkdownContainer"] {
+          width: 100% !important;
+          padding: 0 !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] {
           width: 100% !important;
-          margin-top: -2px !important;
+          margin-top: 0 !important;
+          padding: 0 !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] > label {
           display: none !important;
@@ -473,15 +467,50 @@ def _inject_popup_styles() -> None:
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] [role="radiogroup"] {
           display: grid !important;
           grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-          justify-items: center !important;
-          gap: 8px !important;
+          justify-items: stretch !important;
+          align-items: end !important;
+          gap: clamp(4px, 1.2vw, 8px) !important;
           width: 100% !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] [role="radiogroup"] label {
           margin: 0 !important;
+          display: flex !important;
+          flex-direction: column-reverse !important;
+          align-items: center !important;
+          justify-content: flex-end !important;
+          gap: clamp(4px, 1.2vw, 8px) !important;
+          width: 100% !important;
+          min-width: 0 !important;
+          cursor: pointer !important;
         }
         [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stRadio"] [role="radiogroup"] p {
-          display: none !important;
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          min-height: clamp(2.2em, 4.5vh, 2.8em) !important;
+          color: #dbeafe !important;
+          font-size: clamp(0.62rem, 1.45vh, 0.82rem) !important;
+          line-height: 1.25 !important;
+          text-align: center !important;
+          word-break: keep-all !important;
+          overflow-wrap: anywhere !important;
+        }
+        @media (max-width: 720px) {
+          [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="stHorizontalBlock"] {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: clamp(16px, 3vh, 28px) !important;
+          }
+          [data-testid="stForm"]:has(.rating-page-anchor) [data-testid="column"] {
+            width: min(520px, 100%) !important;
+          }
+        }
+        @media (max-height: 560px) {
+          [data-testid="stForm"]:has(.rating-page-anchor) {
+            align-items: flex-start !important;
+            padding-top: 12px !important;
+            padding-bottom: 12px !important;
+          }
         }
         [data-testid="stForm"]:has(.timed-rating-anchor) [data-testid="stFormSubmitButton"] {
           position: fixed !important;
@@ -769,12 +798,10 @@ def _render_rating_dimension(container, *, trial_key: int | str, dimension: dict
     levels = tuple(str(level) for level in dimension["levels"])
     current_value = int(st.session_state.get(_rating_key(trial_key, key), 3))
     current_value = min(5, max(1, current_value))
-    level_html = "".join(f"<span>{escape(level)}</span>" for level in levels)
     container.markdown(
         f"""
         <div class="rating-dimension-title">{escape(str(dimension["label"]))}</div>
         <div class="rating-dimension-prompt">{escape(str(dimension["prompt"]))}</div>
-        <div class="rating-levels">{level_html}</div>
         """,
         unsafe_allow_html=True,
     )
@@ -782,7 +809,7 @@ def _render_rating_dimension(container, *, trial_key: int | str, dimension: dict
         str(dimension["label"]),
         options=RATING_VALUES,
         index=current_value - 1,
-        format_func=lambda _: "",
+        format_func=lambda value, level_labels=levels: level_labels[value - 1],
         horizontal=True,
         key=_rating_key(trial_key, key),
         label_visibility="collapsed",
@@ -812,7 +839,7 @@ def _render_rating_page(
         st.markdown(
             """
             <div class="rating-header">
-              请根据刚才观看视频时的真实感受作答。每行从左到右表示程度由低到高，圆圈内不显示数字。
+              请根据刚才观看视频时的真实感受作答。
             </div>
             """,
             unsafe_allow_html=True,
