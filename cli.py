@@ -31,7 +31,7 @@ _DEFAULT_CONFIG_TEMPLATE: dict[str, Any] = {
     "subject_id": "S001",
     "session_id": 1,
     "task_mode": "visual",
-    "device_type": "dummy",
+    "device_type": "brainco",
     "hardware_dummy_mode": False,
     "sfreq": 250,
     "buffer_sec": 120,
@@ -93,8 +93,25 @@ def resolve_config_path(config_path: Path | None = None) -> Path:
     return _PROJECT_DEFAULT_CONFIG_PATH.resolve()
 
 
+def normalize_device_type(config: dict[str, Any]) -> str:
+    """Keep device_type as a real backend; simulation is only via hardware_dummy_mode."""
+    register_default_acquirers()
+    hardware = AcquirerFactory.list_hardware_devices()
+    raw = str(config.get("device_type", hardware[0] if hardware else "brainco")).strip()
+    if raw == "dummy" or raw not in hardware:
+        if raw == "dummy":
+            config["hardware_dummy_mode"] = True
+        resolved = hardware[0] if hardware else "brainco"
+        config["device_type"] = resolved
+        return resolved
+    config["device_type"] = raw
+    return raw
+
+
 def write_config(path: Path, config: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    config["hardware_dummy_mode"] = bool(config.get("hardware_dummy_mode", False))
+    normalize_device_type(config)
     with path.open("w", encoding="utf-8") as handle:
         yaml.safe_dump(config, handle, allow_unicode=True, sort_keys=False)
 
@@ -118,6 +135,8 @@ def load_config(path: Path) -> dict[str, Any]:
     missing = sorted(required_keys - set(config))
     if missing:
         raise click.ClickException(f"Missing required config keys: {', '.join(missing)}")
+    config["hardware_dummy_mode"] = bool(config.get("hardware_dummy_mode", False))
+    normalize_device_type(config)
     return config
 
 
@@ -128,7 +147,13 @@ def default_device_channels(device_name: str) -> int:
 def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
     register_default_acquirers()
     device_cfg = config.get("device", {})
-    device_name = "dummy" if bool(config.get("hardware_dummy_mode", False)) else device_name
+    # Simulation is controlled only by hardware_dummy_mode, never by device_type=dummy.
+    if bool(config.get("hardware_dummy_mode", False)):
+        device_name = "dummy"
+    else:
+        config["device_type"] = device_name
+        device_name = normalize_device_type(config)
+        config["hardware_dummy_mode"] = False
     kwargs: dict[str, Any] = {
         "sfreq": float(config["sfreq"]),
         "n_channels": default_device_channels(device_name),
@@ -187,7 +212,7 @@ def list_devices() -> None:
     register_default_acquirers()
     table = Table(title="EEG Devices")
     table.add_column("Device")
-    for device_name in AcquirerFactory.list_devices():
+    for device_name in AcquirerFactory.list_hardware_devices():
         table.add_row(device_name)
     CONSOLE.print(table)
 

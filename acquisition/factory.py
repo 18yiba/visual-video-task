@@ -34,6 +34,11 @@ class AcquirerFactory:
     def list_devices(cls) -> list[str]:
         return sorted(cls._registry)
 
+    @classmethod
+    def list_hardware_devices(cls) -> list[str]:
+        """Real acquisition backends only (excludes the internal dummy backend)."""
+        return [name for name in cls.list_devices() if name != "dummy"]
+
 
 def register_default_acquirers() -> None:
     """Register all built-in backends once."""

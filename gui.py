@@ -124,7 +124,7 @@ def _start_eeg_session(config: dict):
 
     subject_id = str(config.get("subject_id", "S001"))
     session_id = int(config.get("session_id", 1))
-    acquirer = build_acquirer(device_name=str(config.get("device_type", "dummy")), config=config)
+    acquirer = build_acquirer(device_name=str(config.get("device_type", "brainco")), config=config)
     task = load_task_from_config(config)
 
     def _on_phase(event_name: str, payload: dict) -> None:
@@ -255,16 +255,27 @@ def render_settings(config: dict) -> None:
     )
 
     st.markdown("### EEG 采集设备")
-    devices = AcquirerFactory.list_devices()
-    current_device = str(config.get("device_type", devices[0] if devices else "dummy"))
+    devices = AcquirerFactory.list_hardware_devices()
+    raw_device = str(config.get("device_type", devices[0] if devices else "brainco"))
+    # Legacy configs used device_type=dummy; migrate to a real device + checkbox.
+    if raw_device == "dummy" or raw_device not in devices:
+        if raw_device == "dummy":
+            config["hardware_dummy_mode"] = True
+        current_device = devices[0] if devices else "brainco"
+    else:
+        current_device = raw_device
     config["device_type"] = st.selectbox(
         "采集设备 (device_type)",
         devices,
         index=devices.index(current_device) if current_device in devices else 0,
+        help="仅选择真实采集设备。模拟信号请使用下方「硬件模拟模式」。",
     )
-    config["hardware_dummy_mode"] = st.checkbox(
-        "硬件模拟模式 (dummy)",
-        value=bool(config.get("hardware_dummy_mode", False)),
+    config["hardware_dummy_mode"] = bool(
+        st.checkbox(
+            "硬件模拟模式",
+            value=bool(config.get("hardware_dummy_mode", False)),
+            help="勾选后强制使用模拟 EEG，忽略上方设备；取消勾选后 hardware_dummy_mode 为 false，按所选设备真实采集。",
+        )
     )
     device_cfg["trigger_serial_port"] = st.text_input(
         "Trigger Box 串口",
@@ -400,9 +411,12 @@ def render_probe(config: dict) -> None:
 
     st.title("连通检测")
     duration = st.number_input("探测时长 (秒)", min_value=0.1, value=3.0, step=0.5)
+    selected_device = str(config.get("device_type", "brainco"))
+    if bool(config.get("hardware_dummy_mode", False)):
+        st.caption("当前已开启硬件模拟模式：探测将使用模拟信号，而非上方所选真实设备。")
     if st.button("开始探测", type="primary"):
-        selected_device = str(config.get("device_type", "neuracle"))
-        with st.spinner(f"正在连接 {selected_device} ..."):
+        probe_label = "dummy (模拟)" if bool(config.get("hardware_dummy_mode", False)) else selected_device
+        with st.spinner(f"正在连接 {probe_label} ..."):
             try:
                 acquirer = build_acquirer(device_name=selected_device, config=config)
                 acquirer.start_stream()
