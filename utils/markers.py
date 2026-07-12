@@ -27,6 +27,8 @@ PROTOCOL_EVENT_CODES = {
     "fixation_off": 131,
     "video_on": 132,
     "video_off": 133,
+    "image_on": 132,
+    "image_off": 133,
     "blank_on": 134,
     "blank_off": 135,
     "rating_on": 136,
@@ -36,6 +38,10 @@ PROTOCOL_EVENT_CODES = {
     # Trial boundaries
     "trial_start": 140,
     "trial_end": 141,
+    "attention_task_on": 142,
+    "attention_response": 143,
+    "rating_item_on": 144,
+    "rating_item_off": 145,
 }
 
 # Human-readable trigger reference for experiment documentation.
@@ -48,8 +54,8 @@ TRIGGER_REFERENCE = {
     121: "block_end — block 结束",
     130: "fixation_on — 注视十字出现",
     131: "fixation_off — 注视十字结束",
-    132: "video_on — 视频开始播放",
-    133: "video_off — 视频播放结束",
+    132: "video_on/image_on — 视频或图片开始呈现",
+    133: "video_off/image_off — 视频或图片呈现结束",
     134: "blank_on — 空屏开始",
     135: "blank_off — 空屏结束",
     136: "rating_on — 行为评分界面出现",
@@ -58,6 +64,10 @@ TRIGGER_REFERENCE = {
     139: "iti_off — trial 间隔结束",
     140: "trial_start — 单个 trial 开始",
     141: "trial_end — 单个 trial 结束",
+    142: "attention_task_on — 随机注意力任务出现",
+    143: "attention_response — 随机注意力任务按键响应",
+    144: "rating_item_on — 图片范式二单个评分题目出现",
+    145: "rating_item_off — 图片范式二单个评分题目结束",
 }
 
 
@@ -380,3 +390,4 @@ class ArTcpCommandRelay:
             sock.close()
         except OSError:
             pass
+

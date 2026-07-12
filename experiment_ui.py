@@ -768,10 +768,10 @@ def _setup_video_controls(remaining: float) -> None:
 
 def _render_phase_banner(phase: str) -> None:
     labels = {
-        "fixation": ("+", "注视中央十字，保持静止"),
+        "fixation": ("+", ""),
         "blank": ("",""),
-        "iti": ("…", "短暂休息"),
-        "baseline": ("+", "请注视中央十字"),
+        "iti": ("", ""),
+        "baseline": ("+", " "),
         "ready": ("◎", "准备就绪"),
         "finished": ("✓", "实验完成"),
     }

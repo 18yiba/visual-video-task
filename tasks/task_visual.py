@@ -13,6 +13,8 @@ PHASE_LABELS = {
     "fixation_off": ("注视结束", "视频即将播放"),
     "video_on": ("视频播放", "请专注观看，尽量减少眨眼"),
     "video_off": ("视频结束", "请保持静止"),
+    "image_on": ("图片呈现", "请注视图片中央"),
+    "image_off": ("图片结束", "请保持静止"),
     "blank_on": ("空屏", "短暂空屏，请保持静止"),
     "blank_off": ("空屏结束", "即将进入评分"),
     "rating_on": ("行为评分", "请根据真实感受打分"),
@@ -20,6 +22,10 @@ PHASE_LABELS = {
     "iti_on": ("休息", "短暂休息，准备下一个视频"),
     "iti_off": ("休息结束", "准备下一个 trial"),
     "trial_end": ("Trial 结束", ""),
+    "attention_task_on": ("注意力任务", "请按提示快速作答"),
+    "attention_response": ("注意力响应", "已记录响应"),
+    "rating_item_on": ("单题评分", "请快速选择"),
+    "rating_item_off": ("单题评分结束", ""),
     "session_end": ("实验结束", "感谢参与"),
 }
 
@@ -107,3 +113,4 @@ class Task:
 
     def close(self) -> None:
         self._current_phase = "closed"
+

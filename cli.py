@@ -30,7 +30,7 @@ _PROJECT_DEFAULT_CONFIG_PATH = Path(__file__).with_name(DEFAULT_CONFIG_FILENAME)
 _DEFAULT_CONFIG_TEMPLATE: dict[str, Any] = {
     "subject_id": "S001",
     "session_id": 1,
-    "task_mode": "visual",
+    "task_mode": "video",
     "device_type": "brainco",
     "hardware_dummy_mode": False,
     "sfreq": 250,

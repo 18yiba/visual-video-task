@@ -3,6 +3,13 @@ from __future__ import annotations
 import importlib
 from typing import Any, Protocol, runtime_checkable
 
+TASK_MODE_ALIASES = {
+    "visual": "visual",
+    "video": "visual",
+    "image_a": "image_a",
+    "image_b": "image_b",
+}
+
 
 @runtime_checkable
 class Task(Protocol):
@@ -16,7 +23,8 @@ def resolve_task_mode(config: dict[str, Any]) -> str:
         return "visual"
     if not isinstance(mode, str) or not mode.strip():
         raise RuntimeError(f"Invalid task_mode: expected non-empty string, got {mode!r}")
-    return mode.strip()
+    normalized = mode.strip().lower()
+    return TASK_MODE_ALIASES.get(normalized, normalized)
 
 
 def load_task(task_mode: str) -> Task:

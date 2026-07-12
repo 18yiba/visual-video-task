@@ -27,6 +27,7 @@ from tasks.task_factory import load_task_from_config
 from utils.markers import TRIGGER_REFERENCE
 from utils.session_store import load as load_session_store
 from utils.session_store import reset_for_popup
+from utils.session_store import save as save_session_store
 from utils.video_library import category_counts, load_video_library, serialize_playlist
 
 _GUI_ROOT = Path(__file__).resolve().parent
@@ -35,6 +36,13 @@ _PAGE_ICON = "🎬"
 st.set_page_config(page_title="视频神经反应实验台", page_icon=_PAGE_ICON, layout="wide")
 
 SIDEBAR_NAV_PAGES = ("首页", "实验设置", "连通检测", "Trigger 说明", "数据导出")
+
+PARADIGM_LABELS = {
+    "video": "视频范式",
+    "image_a": "图片范式一",
+    "image_b": "图片范式二",
+}
+IMAGE_PARADIGM_MODES = {"image_a", "image_b"}
 
 TABLE_STYLES = [
     {"selector": "", "props": [("background-color", "#ffffff"), ("color", "#0f172a")]},
@@ -76,6 +84,19 @@ def _set_gui_nav_mode(page: str) -> None:
     st.session_state.gui_nav_mode = page
 
 
+def _selected_paradigm_mode(config: dict) -> str:
+    mode = str(config.get("task_mode", "video")).strip().lower()
+    if mode == "visual":
+        return "video"
+    if mode in PARADIGM_LABELS:
+        return mode
+    return "video"
+
+
+def _is_video_paradigm(config: dict) -> bool:
+    return _selected_paradigm_mode(config) == "video"
+
+
 def init_session_state(config: dict) -> None:
     defaults = {
         "gui_nav_mode": "首页",
@@ -106,6 +127,8 @@ def _library_summary(config: dict) -> tuple[Path, int, str]:
 def _append_phase_log(message: str) -> None:
     from datetime import datetime
 
+    if "phase_log" not in st.session_state:
+        st.session_state.phase_log = []
     st.session_state.phase_log.append(f"{datetime.now().strftime('%H:%M:%S')} {message}")
     if len(st.session_state.phase_log) > 40:
         st.session_state.phase_log.pop(0)
@@ -146,10 +169,11 @@ def _start_eeg_session(config: dict):
     session_dir = manager.start(
         metadata={
             "task_mode": str(config.get("task_mode", "visual")),
-            "playlist_size": len(st.session_state.get("playlist", [])),
+            "playlist_size": len(st.session_state.get("playlist", [])) or len(st.session_state.get("image_trials", [])),
             "practice_asset": st.session_state.get("practice_asset"),
             "playlist_seed": st.session_state.get("playlist_seed"),
             "playlist_metadata": st.session_state.get("playlist_metadata", {}),
+            "image_trial_count": len(st.session_state.get("image_trials", [])),
         }
     )
     st.session_state.eeg_manager = manager
@@ -231,6 +255,44 @@ def _prepare_experiment_run(config: dict):
     return run, playlist, practice_asset, metadata
 
 
+
+def _prepare_image_experiment_run(config: dict):
+    from tasks import image_paradigms
+
+    trials, assets, metadata = image_paradigms.build_image_playlist(config)
+    playlist = image_paradigms._serialize_trials(trials)
+    assets_payload = [asset.to_mapping() for asset in assets]
+    return trials, assets, playlist, assets_payload, metadata
+
+
+def _persist_image_run(config: dict, playlist: list[dict], assets_payload: list[dict], metadata: dict) -> None:
+    save_session_store(
+        config,
+        {
+            "playlist": [],
+            "practice_asset": None,
+            "image_playlist": playlist,
+            "image_assets": assets_payload,
+            "playlist_seed": metadata.get("random_seed"),
+            "playlist_metadata": metadata,
+            "current_trial": 0,
+            "results": [],
+            "trial_log": [],
+            "experiment_state": "instructions",
+            "practice_completed": False,
+            "baseline_done": False,
+            "eeg_session_dir": None,
+            "phase_log": [],
+            "popup_open": True,
+        },
+    )
+
+
+def _image_category_counts(assets) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for asset in assets:
+        counts[str(asset.category)] = counts.get(str(asset.category), 0) + 1
+    return counts
 def render_home() -> None:
     st.title("视频神经反应实验台")
     st.markdown(experiment_ui.EXPERIMENT_INSTRUCTIONS_MD)
@@ -253,6 +315,19 @@ def render_settings(config: dict) -> None:
         value=int(config.get("session_id", 1)),
         step=1,
     )
+
+    st.markdown("### 范式选择")
+    paradigm_options = tuple(PARADIGM_LABELS)
+    current_paradigm = _selected_paradigm_mode(config)
+    config["task_mode"] = st.radio(
+        "实验范式",
+        paradigm_options,
+        index=paradigm_options.index(current_paradigm),
+        format_func=lambda mode: PARADIGM_LABELS[mode],
+        horizontal=True,
+        help="视频范式复用当前视频实验流程；图片范式按 experiment_image.md 运行图片评分与重复观看流程。",
+    )
+    is_video_paradigm = _is_video_paradigm(config)
 
     st.markdown("### EEG 采集设备")
     devices = AcquirerFactory.list_hardware_devices()
@@ -284,41 +359,64 @@ def render_settings(config: dict) -> None:
     config["sfreq"] = float(st.number_input("采样率 (Hz)", min_value=100.0, value=float(config.get("sfreq", 250.0)), step=50.0))
     config["buffer_sec"] = float(st.number_input("缓冲区时长 (秒)", min_value=30.0, value=float(config.get("buffer_sec", 120.0)), step=10.0))
 
-    st.markdown("### 视频材料库")
-    library_dir_default = str(
-        protocol_cfg.get("video_library_dir")
-        or protocol_cfg.get("video_dir")
-        or "video_library/selected_540_balanced_videos"
-    )
-    protocol_cfg["video_library_dir"] = st.text_input(
-        "视频库目录 (video_library_dir)",
-        value=library_dir_default,
-        help="正式刺激视频目录。推荐使用 video_library/selected_540_balanced_videos。",
-    )
-    mode_options = ("auto", "manifest", "local")
-    current_mode = str(protocol_cfg.get("video_library_mode", "local"))
-    protocol_cfg["video_library_mode"] = st.selectbox(
-        "视频库模式 (video_library_mode)",
-        mode_options,
-        index=mode_options.index(current_mode) if current_mode in mode_options else mode_options.index("local"),
-        help="local=扫描目录中的真实视频文件；正式实验推荐 local。",
-    )
-    try:
-        _library_root, catalog_size, library_mode = _library_summary(config)
-        st.caption(f"视频库已就绪 · 模式 {library_mode} · 可用视频 {catalog_size} 个")
-    except Exception as exc:  # noqa: BLE001
-        st.warning(f"视频库尚未就绪: {exc}")
+    if is_video_paradigm:
+        st.markdown("### 视频材料库")
+        library_dir_default = str(
+            protocol_cfg.get("video_library_dir")
+            or protocol_cfg.get("video_dir")
+            or "video_library/selected_540_balanced_videos"
+        )
+        protocol_cfg["video_library_dir"] = st.text_input(
+            "视频库目录 (video_library_dir)",
+            value=library_dir_default,
+            help="正式刺激视频目录。推荐使用 video_library/selected_540_balanced_videos。",
+        )
+        mode_options = ("auto", "manifest", "local")
+        current_mode = str(protocol_cfg.get("video_library_mode", "local"))
+        protocol_cfg["video_library_mode"] = st.selectbox(
+            "视频库模式 (video_library_mode)",
+            mode_options,
+            index=mode_options.index(current_mode) if current_mode in mode_options else mode_options.index("local"),
+            help="local=扫描目录中的真实视频文件；正式实验推荐 local。",
+        )
+        try:
+            _library_root, catalog_size, library_mode = _library_summary(config)
+            st.caption(f"视频库已就绪 · 模式 {library_mode} · 可用视频 {catalog_size} 个")
+        except Exception as exc:  # noqa: BLE001
+            st.warning(f"视频库尚未就绪: {exc}")
 
-    st.markdown("### 视频 Trial 时间参数")
-    t_col1, t_col2, t_col3, t_col4 = st.columns(4)
-    protocol_cfg["fixation_sec"] = float(t_col1.number_input("注视点 (秒)", min_value=0.5, value=float(protocol_cfg.get("fixation_sec", 1.5)), step=0.5))
-    protocol_cfg["default_video_sec"] = float(t_col2.number_input("默认视频时长 (秒)", min_value=1.0, value=float(protocol_cfg.get("default_video_sec", 8.0)), step=0.5))
-    protocol_cfg["blank_sec"] = float(t_col3.number_input("空屏 (秒)", min_value=0.5, value=float(protocol_cfg.get("blank_sec", 1.0)), step=0.5))
-    protocol_cfg["iti_sec"] = float(t_col4.number_input("ITI (秒)", min_value=0.5, value=float(protocol_cfg.get("iti_sec", 2.0)), step=0.5))
-    protocol_cfg["rating_sec"] = float(st.number_input("评分阶段时长 (秒)", min_value=3.0, value=float(protocol_cfg.get("rating_sec", 10.0)), step=1.0))
-    protocol_cfg["baseline_sec"] = float(st.number_input("静息基线时长 (秒，0=跳过)", min_value=0.0, value=float(protocol_cfg.get("baseline_sec", 60.0)), step=5.0))
-    protocol_cfg["trials_per_session"] = int(st.number_input("正式 Trial 数", min_value=1, value=int(protocol_cfg.get("trials_per_session", 500)), step=1))
-    st.caption("每次打开实验窗口都会重新随机抽取 1 个练习 trial，并从剩余视频中均衡抽取正式 trial。")
+        st.markdown("### 视频 Trial 时间参数")
+        t_col1, t_col2, t_col3, t_col4 = st.columns(4)
+        protocol_cfg["fixation_sec"] = float(t_col1.number_input("注视点 (秒)", min_value=0.5, value=float(protocol_cfg.get("fixation_sec", 1.5)), step=0.5))
+        protocol_cfg["default_video_sec"] = float(t_col2.number_input("默认视频时长 (秒)", min_value=1.0, value=float(protocol_cfg.get("default_video_sec", 8.0)), step=0.5))
+        protocol_cfg["blank_sec"] = float(t_col3.number_input("空屏 (秒)", min_value=0.5, value=float(protocol_cfg.get("blank_sec", 1.0)), step=0.5))
+        protocol_cfg["iti_sec"] = float(t_col4.number_input("ITI (秒)", min_value=0.5, value=float(protocol_cfg.get("iti_sec", 2.0)), step=0.5))
+        protocol_cfg["rating_sec"] = float(st.number_input("评分阶段时长 (秒)", min_value=3.0, value=float(protocol_cfg.get("rating_sec", 10.0)), step=1.0))
+        protocol_cfg["baseline_sec"] = float(st.number_input("静息基线时长 (秒，0=跳过)", min_value=0.0, value=float(protocol_cfg.get("baseline_sec", 60.0)), step=5.0))
+        protocol_cfg["trials_per_session"] = int(st.number_input("正式 Trial 数", min_value=1, value=int(protocol_cfg.get("trials_per_session", 500)), step=1))
+        st.caption("每次打开实验窗口都会重新随机抽取 1 个练习 trial，并从剩余视频中均衡抽取正式 trial。")
+    else:
+        st.markdown("### 图片材料与 Trial 时间参数")
+        protocol_cfg["image_library_dir"] = st.text_input(
+            "图片库目录 (image_library_dir)",
+            value=str(protocol_cfg.get("image_library_dir", "image_library")),
+            help="可直接扫描图片文件；如目录下存在 manifest.csv，会读取 image_id、rel_path、emotion_category、split、has_person 等字段。",
+        )
+        i_col1, i_col2, i_col3 = st.columns(3)
+        protocol_cfg["image_unique_count"] = int(i_col1.number_input("正式图片数", min_value=1, value=int(protocol_cfg.get("image_unique_count", 105)), step=1))
+        protocol_cfg["image_repeats"] = int(i_col2.number_input("重复次数 / Block 数", min_value=1, value=int(protocol_cfg.get("image_repeats", 5)), step=1))
+        protocol_cfg["attention_probability"] = float(i_col3.number_input("重复观看注意力任务概率", min_value=0.0, max_value=1.0, value=float(protocol_cfg.get("attention_probability", 0.10)), step=0.05))
+        t_col1, t_col2, t_col3, t_col4 = st.columns(4)
+        protocol_cfg["image_fixation_min_sec"] = float(t_col1.number_input("注视最短 (秒)", min_value=0.1, value=float(protocol_cfg.get("image_fixation_min_sec", 0.5)), step=0.1))
+        protocol_cfg["image_fixation_max_sec"] = float(t_col2.number_input("注视最长 (秒)", min_value=0.1, value=float(protocol_cfg.get("image_fixation_max_sec", 0.8)), step=0.1))
+        protocol_cfg["image_present_min_sec"] = float(t_col3.number_input("图片最短 (秒)", min_value=0.1, value=float(protocol_cfg.get("image_present_min_sec", 1.0)), step=0.1))
+        protocol_cfg["image_present_max_sec"] = float(t_col4.number_input("图片最长 (秒)", min_value=0.1, value=float(protocol_cfg.get("image_present_max_sec", 1.5)), step=0.1))
+        t_col5, t_col6, t_col7, t_col8 = st.columns(4)
+        protocol_cfg["image_blank_sec"] = float(t_col5.number_input("空屏 (秒)", min_value=0.1, value=float(protocol_cfg.get("image_blank_sec", 0.5)), step=0.1))
+        protocol_cfg["image_rating_item_min_sec"] = float(t_col6.number_input("范式二单题最短 (秒)", min_value=0.5, value=float(protocol_cfg.get("image_rating_item_min_sec", 2.0)), step=0.1))
+        protocol_cfg["image_rating_item_max_sec"] = float(t_col7.number_input("范式二单题最长 (秒)", min_value=0.5, value=float(protocol_cfg.get("image_rating_item_max_sec", 3.0)), step=0.1))
+        protocol_cfg["baseline_sec"] = float(t_col8.number_input("静息基线时长 (秒，0=跳过)", min_value=0.0, value=float(protocol_cfg.get("baseline_sec", 30.0)), step=5.0))
+        st.caption("图片范式标准为 105 张图片：7 个分组，每组 15 张。可先生成图片列表检查是否读取到真实图片。")
     storage_cfg["records_dir"] = st.text_input("EEG 记录目录", value=str(storage_cfg.get("records_dir", "records_storage")))
     storage_cfg["ratings_dir"] = st.text_input("行为评分目录", value=str(storage_cfg.get("ratings_dir", "ratings_storage")))
 
@@ -330,40 +428,72 @@ def render_settings(config: dict) -> None:
     st.divider()
     st.markdown("### 启动实验")
 
-    if st.button("生成播放列表", type="secondary"):
-        try:
-            protocol = VideoProtocolConfig.from_config(config)
-            run, playlist, practice_asset, metadata = _prepare_experiment_run(config)
-            st.session_state.playlist = playlist
-            st.session_state.practice_asset = practice_asset
-            st.session_state.playlist_seed = run.random_seed
-            st.session_state.playlist_metadata = metadata
-            st.session_state.results = []
-            st.session_state.current_trial = 0
-            st.session_state.experiment_state = "instructions"
-            st.session_state.practice_completed = False
-            st.session_state.baseline_done = protocol.baseline_sec <= 0
-            st.session_state.eeg_session_dir = None
-            st.session_state.phase_log = []
-            experiment_ui.persist_session(config)
-            counts_text = "，".join(f"{name}: {count}" for name, count in metadata["category_counts"].items())
-            if run.used_placeholder:
-                st.warning(
-                    f"未检测到完整 540 个视频，已使用 placeholder 黑屏视频生成练习和正式 trial。"
-                    f"原因: {run.fallback_reason}"
-                )
-            else:
-                st.success(
-                    f"已生成练习 1 个、正式 {len(playlist)} 个 trial。分类: {counts_text}"
-                )
-        except Exception as exc:  # noqa: BLE001
-            st.error(f"生成播放列表失败: {exc}")
+    if is_video_paradigm:
+        if st.button("生成播放列表", type="secondary"):
+            try:
+                protocol = VideoProtocolConfig.from_config(config)
+                run, playlist, practice_asset, metadata = _prepare_experiment_run(config)
+                st.session_state.playlist = playlist
+                st.session_state.practice_asset = practice_asset
+                st.session_state.playlist_seed = run.random_seed
+                st.session_state.playlist_metadata = metadata
+                st.session_state.results = []
+                st.session_state.current_trial = 0
+                st.session_state.experiment_state = "instructions"
+                st.session_state.practice_completed = False
+                st.session_state.baseline_done = protocol.baseline_sec <= 0
+                st.session_state.eeg_session_dir = None
+                st.session_state.phase_log = []
+                experiment_ui.persist_session(config)
+                counts_text = "，".join(f"{name}: {count}" for name, count in metadata["category_counts"].items())
+                if run.used_placeholder:
+                    st.warning(
+                        f"未检测到完整 540 个视频，已使用 placeholder 黑屏视频生成练习和正式 trial。"
+                        f"原因: {run.fallback_reason}"
+                    )
+                else:
+                    st.success(
+                        f"已生成练习 1 个、正式 {len(playlist)} 个 trial。分类: {counts_text}"
+                    )
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"生成播放列表失败: {exc}")
 
-    playlist = st.session_state.get("playlist", [])
-    playlist_size = len(playlist)
+        playlist = st.session_state.get("playlist", [])
+        playlist_size = len(playlist)
 
-    if playlist_size == 0:
-        st.info("打开实验窗口时会自动重新随机生成练习和正式播放列表。")
+        if playlist_size == 0:
+            st.info("打开实验窗口时会自动重新随机生成练习和正式播放列表。")
+    else:
+        if st.button("生成图片列表", type="secondary"):
+            try:
+                trials, assets, image_playlist, image_assets, metadata = _prepare_image_experiment_run(config)
+                st.session_state.image_trials = trials
+                st.session_state.image_assets = assets
+                st.session_state.playlist_seed = metadata.get("random_seed")
+                st.session_state.playlist_metadata = metadata
+                st.session_state.current_trial = 0
+                st.session_state.results = []
+                st.session_state.trial_log = []
+                st.session_state.experiment_state = "instructions"
+                _persist_image_run(config, image_playlist, image_assets, metadata)
+                counts_text = "，".join(f"{name}: {count}" for name, count in sorted(_image_category_counts(assets).items()))
+                if metadata.get("used_placeholder"):
+                    st.warning("未检测到真实图片，已生成 placeholder 图片列表。请检查图片库目录。")
+                else:
+                    requested = int(metadata.get("requested_image_count", len(assets)))
+                    scanned = int(metadata.get("scanned_image_count", len(assets)))
+                    if scanned < requested:
+                        st.warning(f"已读取真实图片 {len(assets)} 张，少于配置目标 {requested} 张；本次将按实际图片数运行。分组: {counts_text}")
+                    else:
+                        st.success(f"已生成图片列表：正式图片 {len(assets)} 张，trial {len(trials)} 个。分组: {counts_text}")
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"生成图片列表失败: {exc}")
+        stored = load_session_store(config)
+        image_playlist_size = len(stored.get("image_playlist", []))
+        if image_playlist_size:
+            st.info(f"当前已生成图片列表：{image_playlist_size} 个 trial。")
+        else:
+            st.info("图片范式会在打开实验窗口时生成图片播放列表；建议先点击「生成图片列表」检查是否读取到真实图片。")
 
     _listen_popup_closed()
 
@@ -371,31 +501,51 @@ def render_settings(config: dict) -> None:
         try:
             save_config(config)
             st.session_state.runtime_config = dict(config)
-            protocol = VideoProtocolConfig.from_config(config)
-            run, playlist, practice_asset, metadata = _prepare_experiment_run(config)
-            reset_for_popup(
-                config,
-                playlist,
-                practice_asset=practice_asset,
-                playlist_seed=run.random_seed,
-                playlist_metadata=metadata,
-            )
-            st.session_state.playlist = playlist
-            st.session_state.practice_asset = practice_asset
-            st.session_state.playlist_seed = run.random_seed
-            st.session_state.playlist_metadata = metadata
-            st.session_state.current_trial = 0
-            st.session_state.results = []
-            st.session_state.experiment_state = "instructions"
-            st.session_state.practice_completed = False
-            st.session_state.baseline_done = protocol.baseline_sec <= 0
+            if is_video_paradigm:
+                protocol = VideoProtocolConfig.from_config(config)
+                run, playlist, practice_asset, metadata = _prepare_experiment_run(config)
+                reset_for_popup(
+                    config,
+                    playlist,
+                    practice_asset=practice_asset,
+                    playlist_seed=run.random_seed,
+                    playlist_metadata=metadata,
+                )
+                st.session_state.playlist = playlist
+                st.session_state.practice_asset = practice_asset
+                st.session_state.playlist_seed = run.random_seed
+                st.session_state.playlist_metadata = metadata
+                st.session_state.current_trial = 0
+                st.session_state.results = []
+                st.session_state.experiment_state = "instructions"
+                st.session_state.practice_completed = False
+                st.session_state.baseline_done = protocol.baseline_sec <= 0
+            else:
+                load_task_from_config(config)
+                trials, assets, image_playlist, image_assets, metadata = _prepare_image_experiment_run(config)
+                _persist_image_run(config, image_playlist, image_assets, metadata)
+                st.session_state.playlist = []
+                st.session_state.practice_asset = None
+                st.session_state.image_trials = trials
+                st.session_state.image_assets = assets
+                st.session_state.playlist_seed = metadata.get("random_seed")
+                st.session_state.playlist_metadata = metadata
+                st.session_state.current_trial = 0
+                st.session_state.results = []
+                st.session_state.trial_log = []
+                st.session_state.experiment_state = "instructions"
+                st.session_state.practice_completed = False
+                st.session_state.baseline_done = False
             st.session_state.eeg_manager = None
             st.session_state.eeg_session_dir = None
             _open_experiment_popup()
-            if run.used_placeholder:
-                st.toast("实验窗口已打开：未检测到完整 540 个视频，本次将使用 placeholder 黑屏视频。")
+            if is_video_paradigm:
+                if run.used_placeholder:
+                    st.toast("实验窗口已打开：未检测到完整 540 个视频，本次将使用 placeholder 黑屏视频。")
+                else:
+                    st.toast("实验窗口已打开，本次练习与正式 trial 顺序已重新随机生成。")
             else:
-                st.toast("实验窗口已打开，本次练习与正式 trial 顺序已重新随机生成。")
+                st.toast(f"{PARADIGM_LABELS[config['task_mode']]} 实验窗口已打开。")
         except Exception as exc:  # noqa: BLE001
             st.error(f"打开实验窗口失败: {exc}")
 
@@ -645,6 +795,20 @@ def _inject_gui_nav_styles() -> None:
 
 
 def run_experiment_popup_mode(config: dict) -> None:
+    task_mode = _selected_paradigm_mode(config)
+    if task_mode in IMAGE_PARADIGM_MODES:
+        from tasks import image_paradigms
+
+        popup_ui = importlib.reload(image_paradigms)
+        popup_ui.render_image_experiment_popup(
+            config,
+            task_mode=task_mode,
+            get_eeg_manager=_get_eeg_manager,
+            start_eeg_session=_start_eeg_session,
+            stop_eeg_session=_stop_eeg_session,
+        )
+        return
+
     popup_ui = importlib.reload(experiment_ui)
     popup_ui.render_experiment_popup(
         config,
@@ -696,3 +860,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

@@ -176,15 +176,19 @@ class EegSessionManager:
             raise RuntimeError("EEG session is already running.")
 
         self._session_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self._start_metadata = dict(metadata or {})
+        task_mode = str(self._start_metadata.get("task_mode", "")).strip().lower()
+        session_folder = f"session_{self._session_id:02d}"
+        if task_mode in {"image_a", "image_b"}:
+            session_folder = f"{task_mode}_session_{self._session_id:02d}"
         self._session_dir = (
             self._records_dir
             / self._subject_id
-            / f"session_{self._session_id:02d}"
+            / session_folder
             / self._session_stamp
         )
         self._acquirer.start_stream()
         self._stop_event.clear()
-        self._start_metadata = dict(metadata or {})
         self._thread = threading.Thread(target=self._pull_loop, name="video-eeg-pull", daemon=True)
         self._thread.start()
         self._running = True
@@ -261,6 +265,7 @@ class EegSessionManager:
             "sfreq": self._sfreq,
             "n_channels": int(self._acquirer.metadata.n_channels),
             "device_type": self._acquirer.metadata.name,
+            "eeg_session_dir": str(self._session_dir),
             "trigger_codes": dict(PROTOCOL_EVENT_CODES),
         }
         export_metadata.update(self._start_metadata)

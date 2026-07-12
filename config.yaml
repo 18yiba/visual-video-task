@@ -1,6 +1,6 @@
 subject_id: S001
 session_id: 1
-task_mode: visual
+task_mode: image_b
 device_type: brainco
 hardware_dummy_mode: true
 sfreq: 250.0
@@ -11,11 +11,23 @@ protocol:
   blank_sec: 1.0
   iti_sec: 2.0
   rating_sec: 15.0
-  baseline_sec: 30.0
+  baseline_sec: 0.0
   trials_per_session: 500
   video_library_dir: video_library/selected_540_balanced_videos
   video_library_mode: local
   random_seed: 17
+  image_library_dir: image_library
+  image_unique_count: 4
+  image_repeats: 5
+  attention_probability: 0.5
+  image_attention_sec: 2.0
+  image_fixation_min_sec: 0.5
+  image_fixation_max_sec: 0.8
+  image_present_min_sec: 1.0
+  image_present_max_sec: 1.5
+  image_blank_sec: 0.5
+  image_rating_item_min_sec: 2.0
+  image_rating_item_max_sec: 3.0
 device:
   neuracle_host: 127.0.0.1
   neuracle_port: 8712
