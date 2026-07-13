@@ -2,7 +2,7 @@ subject_id: S001
 session_id: 1
 task_mode: image_b
 device_type: brainco
-hardware_dummy_mode: true
+hardware_dummy_mode: false
 sfreq: 250.0
 buffer_sec: 120.0
 protocol:

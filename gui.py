@@ -605,20 +605,37 @@ def render_probe(config: dict) -> None:
     if st.button("开始探测", type="primary"):
         probe_label = "dummy (模拟)" if bool(config.get("hardware_dummy_mode", False)) else selected_device
         with st.spinner(f"正在连接 {probe_label} ..."):
+            acquirer = None
+            window = None
+            primary_error = None
+            stop_error = None
             try:
                 acquirer = build_acquirer(device_name=selected_device, config=config)
                 acquirer.start_stream()
                 time.sleep(max(duration, 0.1))
                 window, _ = acquirer.get_chunk(2.0)
-                acquirer.stop_stream()
-                st.success("设备连通正常。")
+            except Exception as exc:  # noqa: BLE001
+                primary_error = exc
+            finally:
+                if acquirer is not None:
+                    try:
+                        acquirer.stop_stream()
+                    except Exception as exc:  # noqa: BLE001
+                        stop_error = exc
+
+            if primary_error is not None:
+                st.error(f"\u8fde\u901a\u5931\u8d25: {primary_error}")
+            elif window is not None:
+                st.success("\u8bbe\u5907\u8fde\u901a\u6b63\u5e38\u3002")
+                if stop_error is not None:
+                    st.warning(f"\u6570\u636e\u5df2\u6210\u529f\u83b7\u53d6\uff0c\u4f46\u505c\u6b62 BrainCo \u6570\u636e\u6d41\u65f6\u8bbe\u5907\u7aef\u5df2\u65ad\u5f00\u8fde\u63a5: {stop_error}")
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("Shape", str(window.shape))
                 c2.metric("Mean (uV)", f"{window.mean():.3f}")
                 c3.metric("Std (uV)", f"{window.std():.3f}")
                 c4.metric("Max Abs (uV)", f"{abs(window).max():.3f}")
-            except Exception as exc:  # noqa: BLE001
-                st.error(f"连通失败: {exc}")
+            elif stop_error is not None:
+                st.error(f"\u8fde\u901a\u5931\u8d25: {stop_error}")
 
 
 def render_trigger_reference() -> None:
