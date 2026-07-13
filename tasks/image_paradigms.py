@@ -1533,6 +1533,163 @@ def render_image_experiment_popup(config: dict[str, Any], *, task_mode: str, get
             _close_popup_window()
 
 
+
+def _practice_text(key: str) -> str:
+    texts = {
+        "title": "\u56fe\u7247\u5b9e\u9a8c\u7ec3\u4e60\u8bd5\u6b21",
+        "subtitle": "\u7ec3\u4e60\u4ec5\u7528\u4e8e\u719f\u6089\u6d41\u7a0b\uff0c\u4e0d\u8fdb\u5165\u6b63\u5f0f\u5b9e\u9a8c\u6570\u636e\uff0c\u4e5f\u4e0d\u4f1a\u542f\u52a8 EEG \u91c7\u96c6\u3002",
+        "next": "\u4e0b\u4e00\u9875",
+        "prev": "\u4e0a\u4e00\u9875",
+        "close": "\u7ed3\u675f\u7ec3\u4e60\u5e76\u5173\u95ed\u7a97\u53e3",
+    }
+    return texts[key]
+
+
+def _practice_asset(config: dict[str, Any]) -> ImageAsset:
+    assets = _scan_image_assets(config)
+    if assets:
+        return assets[0]
+    return _placeholder_assets(1)[0]
+
+
+def _practice_image_html(config: dict[str, Any], asset: ImageAsset) -> str:
+    root = _image_root(config)
+    path = root / asset.rel_path if asset.rel_path else root / "__missing__"
+    if not asset.is_placeholder and path.exists():
+        suffix = path.suffix.lower().lstrip(".") or "jpeg"
+        mime = "jpeg" if suffix == "jpg" else suffix
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"<img class='practice-image' src='data:image/{mime};base64,{encoded}' alt='{escape(asset.image_id)}'>"
+    return f"<div class='practice-placeholder'>\u56fe\u7247\u5448\u73b0<br>{escape(asset.image_id)}</div>"
+
+
+def _render_practice_shell(title: str, body: str, *, image_html: str = "") -> None:
+    st.markdown(
+        f"""
+        <style>
+        [data-testid="stMainBlockContainer"], .block-container {{
+            width: 100vw !important;
+            max-width: 100vw !important;
+            min-height: 100dvh !important;
+            padding: clamp(24px, 4vh, 56px) clamp(24px, 6vw, 96px) !important;
+            background: #000 !important;
+            color: #fff !important;
+        }}
+        .practice-page {{
+            min-height: calc(100dvh - 120px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(20px, 4vh, 36px);
+            text-align: center;
+        }}
+        .practice-title {{font-size: clamp(2rem, 5vh, 3.5rem); font-weight: 800; line-height: 1.15;}}
+        .practice-body {{max-width: 980px; color: #dbeafe; font-size: clamp(1.05rem, 2.6vh, 1.45rem); line-height: 1.75; text-align: left;}}
+        .practice-body p {{margin: 0 0 0.8rem;}}
+        .practice-body ul {{margin: 0.2rem 0 0; padding-left: 1.4rem;}}
+        .practice-body li {{margin: 0.35rem 0;}}
+        .practice-symbol {{font-size: clamp(5rem, 18vh, 9rem); font-weight: 800; line-height: 1;}}
+        .practice-image {{max-width: min(76vw, 920px); max-height: 52dvh; object-fit: contain; display: block;}}
+        .practice-placeholder {{width: min(76vw, 920px); height: 46dvh; border: 1px solid #334155; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:1.5rem;}}
+        .practice-nav {{position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%); width: min(720px, calc(100vw - 48px));}}
+        .practice-nav [data-testid="stHorizontalBlock"] {{gap: 18px;}}
+        .practice-nav button {{min-height: 3rem !important; border-radius: 8px !important;}}
+        </style>
+        <div class='practice-page'>
+          {image_html}
+          <div class='practice-title'>{escape(title)}</div>
+          <div class='practice-body'>{body}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_image_practice_popup(config: dict[str, Any], *, task_mode: str) -> None:
+    _inject_styles()
+    if "image_practice_step" not in st.session_state:
+        st.session_state.image_practice_step = 0
+    step = int(st.session_state.image_practice_step)
+    asset = _practice_asset(config)
+    rating_mode = (
+        "\u56fe\u7247\u8303\u5f0f\u4e00\uff1a\u540c\u4e00\u9875\u5b8c\u6210\u6240\u6709\u8bc4\u5206\uff0c\u7136\u540e\u70b9\u51fb\u786e\u8ba4\u8fdb\u5165\u4e0b\u4e00\u5c4f\u3002"
+        if task_mode == "image_a"
+        else "\u56fe\u7247\u8303\u5f0f\u4e8c\uff1a\u8bc4\u5206\u9898\u9010\u4e2a\u5448\u73b0\uff0c\u6bcf\u9898\u9650\u65f6 2-3 \u79d2\uff0c\u8bf7\u5c3d\u5feb\u70b9\u9009\u3002"
+    )
+    pages = [
+        (
+            _practice_text("title"),
+            "<p>" + _practice_text("subtitle") + "</p>"
+            "<ul><li>\u8fd9\u91cc\u53ea\u6f14\u793a 1 \u4e2a trial \u7684\u9875\u9762\u987a\u5e8f\u548c\u64cd\u4f5c\u8981\u6c42\u3002</li>"
+            "<li>\u8bf7\u4f7f\u7528\u9875\u9762\u4e0b\u65b9\u6309\u94ae\u7ffb\u9875\u3002</li></ul>",
+            "",
+        ),
+        (
+            "\u6ce8\u89c6\u70b9",
+            "<p>\u6b63\u5f0f trial \u5f00\u59cb\u65f6\uff0c\u5c4f\u5e55\u4e2d\u592e\u4f1a\u51fa\u73b0 <strong>+</strong>\u3002</p>"
+            "<ul><li>\u8bf7\u628a\u89c6\u7ebf\u653e\u5728\u5c4f\u5e55\u4e2d\u592e\u3002</li><li>\u5c3d\u91cf\u4fdd\u6301\u5934\u90e8\u548c\u8eab\u4f53\u7a33\u5b9a\uff0c\u51cf\u5c11\u7728\u773c\u548c\u8bf4\u8bdd\u3002</li></ul>",
+            "<div class='practice-symbol'>+</div>",
+        ),
+        (
+            "\u56fe\u7247\u5448\u73b0",
+            "<p>\u6ce8\u89c6\u70b9\u540e\u4f1a\u77ed\u65f6\u95f4\u5448\u73b0\u4e00\u5f20\u56fe\u7247\u3002</p>"
+            "<ul><li>\u8bf7\u4fdd\u6301\u6ce8\u89c6\uff0c\u4e0d\u9700\u8981\u5728\u56fe\u7247\u9875\u505a\u4efb\u4f55\u64cd\u4f5c\u3002</li><li>\u8bf7\u6309\u7b2c\u4e00\u611f\u53d7\u8bb0\u4f4f\u81ea\u5df1\u7684\u60c5\u7eea\u548c\u89c6\u89c9\u4f53\u9a8c\u3002</li></ul>",
+            _practice_image_html(config, asset),
+        ),
+        (
+            "\u7a7a\u5c4f\u7f13\u51b2",
+            "<p>\u56fe\u7247\u7ed3\u675f\u540e\u4f1a\u6709\u4e00\u4e2a\u77ed\u6682\u7a7a\u5c4f\u3002</p>"
+            "<ul><li>\u8bf7\u7ee7\u7eed\u6ce8\u89c6\u5c4f\u5e55\u4e2d\u592e\u3002</li><li>\u4e0d\u8981\u5728\u7a7a\u5c4f\u671f\u95f4\u63d0\u524d\u79fb\u52a8\u6216\u601d\u8003\u5176\u4ed6\u56fe\u7247\u3002</li></ul>",
+            "",
+        ),
+        (
+            "\u4e3b\u89c2\u8bc4\u5206",
+            "<p>" + rating_mode + "</p>"
+            "<ul><li><strong>Valence / \u6109\u60a6\u5ea6</strong>\uff1a1=\u975e\u5e38\u6d88\u6781\uff0c3=\u4e2d\u6027\uff0c5=\u975e\u5e38\u79ef\u6781\u3002</li>"
+            "<li><strong>Arousal / \u5524\u9192\u5ea6</strong>\uff1a1=\u975e\u5e38\u5e73\u9759\uff0c3=\u4e2d\u7b49\uff0c5=\u975e\u5e38\u5174\u594b\u6216\u7d27\u5f20\u3002</li>"
+            "<li><strong>Interest / \u5174\u8da3\u5ea6</strong>\uff1a1=\u975e\u5e38\u65e0\u8da3\uff0c3=\u4e2d\u6027\uff0c5=\u975e\u5e38\u6709\u8da3\u3002</li>"
+            "<li><strong>Visual Preference / \u89c6\u89c9\u611f\u53d7</strong>\uff1a1=\u975e\u5e38\u4e0d\u559c\u6b22\uff0c3=\u4e2d\u6027\uff0c5=\u975e\u5e38\u559c\u6b22\u3002</li></ul>",
+            "",
+        ),
+        (
+            "\u6ce8\u610f\u529b\u4efb\u52a1",
+            "<p>\u5728\u91cd\u590d\u89c2\u770b\u9636\u6bb5\uff0c\u5c11\u6570 trial \u4f1a\u51fa\u73b0\u7b80\u5355\u6ce8\u610f\u529b\u4efb\u52a1\u3002</p>"
+            "<ul><li>\u9898\u76ee\uff1a\u56fe\u7247\u4e2d\u662f\u5426\u6709\u4eba\u7269\uff1f</li><li>\u8bf7\u7528\u9f20\u6807\u70b9\u51fb\u201c\u662f\u201d\u6216\u201c\u5426\u201d\u3002</li><li>\u6b63\u5f0f\u5b9e\u9a8c\u4e2d\u8bf7\u5728 2 \u79d2\u5185\u5c3d\u5feb\u4f5c\u7b54\u3002</li></ul>",
+            "<div class='practice-symbol'>?</div>",
+        ),
+        (
+            "ITI / trial \u95f4\u9694",
+            "<p>\u6bcf\u4e2a trial \u7ed3\u675f\u540e\u4f1a\u8fdb\u5165\u77ed\u6682\u9ed1\u5c4f\u95f4\u9694\u3002</p>"
+            "<ul><li>\u8bf7\u7ee7\u7eed\u4fdd\u6301\u6ce8\u89c6\u548c\u653e\u677e\u3002</li><li>\u95f4\u9694\u7ed3\u675f\u540e\u4f1a\u81ea\u52a8\u8fdb\u5165\u4e0b\u4e00\u4e2a trial\u3002</li></ul>",
+            "",
+        ),
+        (
+            "\u7ec3\u4e60\u5b8c\u6210",
+            "<p>\u4f60\u5df2\u7ecf\u4e86\u89e3\u4e86\u4e00\u4e2a trial \u7684\u9875\u9762\u987a\u5e8f\u548c\u4f5c\u7b54\u8981\u6c42\u3002</p>"
+            "<p>\u8fd9\u4e2a\u7ec3\u4e60\u4e0d\u4f1a\u5199\u5165\u6b63\u5f0f\u5b9e\u9a8c\u6570\u636e\uff0c\u4e5f\u4e0d\u4f1a\u5f71\u54cd\u6b63\u5f0f\u5b9e\u9a8c\u7684\u64ad\u653e\u5217\u8868\u3002</p>",
+            "<div class='practice-symbol'>\u2713</div>",
+        ),
+    ]
+    step = max(0, min(step, len(pages) - 1))
+    title, body, image_html = pages[step]
+    _render_practice_shell(title, body, image_html=image_html)
+    st.markdown("<div class='practice-nav'>", unsafe_allow_html=True)
+    prev_col, next_col = st.columns(2)
+    with prev_col:
+        if st.button(_practice_text("prev"), use_container_width=True, disabled=step <= 0):
+            st.session_state.image_practice_step = max(0, step - 1)
+            st.rerun()
+    with next_col:
+        if step >= len(pages) - 1:
+            if st.button(_practice_text("close"), type="primary", use_container_width=True):
+                _close_popup_window()
+        elif st.button(_practice_text("next"), type="primary", use_container_width=True):
+            st.session_state.image_practice_step = min(len(pages) - 1, step + 1)
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_image_placeholder_popup(config: dict[str, Any], *, task_mode: str) -> None:
     render_image_experiment_popup(
         config,

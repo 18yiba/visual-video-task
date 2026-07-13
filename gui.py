@@ -80,6 +80,10 @@ def _is_experiment_popup() -> bool:
     return st.query_params.get("mode", "") == "experiment"
 
 
+def _is_image_practice_popup() -> bool:
+    return st.query_params.get("mode", "") == "image_practice"
+
+
 def _set_gui_nav_mode(page: str) -> None:
     st.session_state.gui_nav_mode = page
 
@@ -214,6 +218,34 @@ def _open_experiment_popup() -> None:
             "resizable=yes"
           ].join(",");
           const win = window.open(url, "VideoEEG_" + token, features);
+          if (win) win.focus();
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _open_image_practice_popup() -> None:
+    components.html(
+        """
+        <script>
+        (function () {
+          const base = window.parent.location.href.split("?")[0];
+          const token = Date.now();
+          const url = base + "?mode=image_practice&run=" + token;
+          const features = [
+            "popup=yes",
+            "width=1280",
+            "height=900",
+            "menubar=no",
+            "toolbar=no",
+            "location=no",
+            "status=no",
+            "scrollbars=yes",
+            "resizable=yes"
+          ].join(",");
+          const win = window.open(url, "ImagePractice_" + token, features);
           if (win) win.focus();
         })();
         </script>
@@ -496,6 +528,12 @@ def render_settings(config: dict) -> None:
             st.info("图片范式会在打开实验窗口时生成图片播放列表；建议先点击「生成图片列表」检查是否读取到真实图片。")
 
     _listen_popup_closed()
+
+    if (not is_video_paradigm) and st.button("\u6253\u5f00\u7ec3\u4e60\u8bd5\u6b21\u7a97\u53e3", type="secondary", key="image_practice_open"):
+        save_config(config)
+        st.session_state.runtime_config = dict(config)
+        _open_image_practice_popup()
+        st.toast("\u7ec3\u4e60\u8bd5\u6b21\u7a97\u53e3\u5df2\u6253\u5f00\u3002")
 
     if st.button("打开实验窗口", type="primary"):
         try:
@@ -817,6 +855,17 @@ def run_experiment_popup_mode(config: dict) -> None:
         stop_eeg_session=_stop_eeg_session,
     )
 
+def run_image_practice_popup_mode(config: dict) -> None:
+    task_mode = _selected_paradigm_mode(config)
+    if task_mode not in IMAGE_PARADIGM_MODES:
+        st.error("\u7ec3\u4e60\u5f39\u7a97\u4ec5\u652f\u6301\u56fe\u7247\u8303\u5f0f\u4e00\u548c\u56fe\u7247\u8303\u5f0f\u4e8c\u3002")
+        return
+    from tasks import image_paradigms
+
+    popup_ui = importlib.reload(image_paradigms)
+    popup_ui.render_image_practice_popup(config, task_mode=task_mode)
+
+
 
 def main() -> None:
     config = load_config()
@@ -825,6 +874,10 @@ def main() -> None:
 
     if _is_experiment_popup():
         run_experiment_popup_mode(config)
+        return
+
+    if _is_image_practice_popup():
+        run_image_practice_popup_mode(config)
         return
 
     init_session_state(config)
