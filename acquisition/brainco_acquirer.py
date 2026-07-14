@@ -125,24 +125,10 @@ class BrainCoAcquirer(AbstractAcquirer):
             self._register_sdk_callbacks()
 
             try:
-                self._run_sdk_call(self._client.start_data_stream, parser)
-                buffer_len = max(int(self.metadata.sfreq * min(self._buffer_sec, 60.0)), 1024)
-                sdk.set_cfg(buffer_len, max(256, int(self.metadata.sfreq)), 256)
-                config_msg_id = self._run_sdk_call(
-                    self._client.set_eeg_config,
-                    getattr(sdk.EegSampleRate, _SAMPLE_RATE_TO_ENUM[int(self.metadata.sfreq)]),
-                    getattr(sdk.EegSignalGain, _GAIN_TO_ENUM[self._eeg_gain]),
-                    getattr(sdk.EegSignalSource, self._signal_source),
-                )
-                # Some BrainCo firmware/SDK combinations apply EEG config successfully
-                # but never surface a matching msg response callback for this command.
-                # Treat missing config acks like start_eeg_stream: warn and continue,
-                # then rely on actual EEG sample arrival as the final success criterion.
-                self._wait_for_command_response(config_msg_id, "set_eeg_config", allow_missing=True)
-                sdk.clear_eeg_buffer()
-                start_msg_id = self._run_sdk_call(self._client.start_eeg_stream)
-                self._wait_for_command_response(start_msg_id, "start_eeg_stream", allow_missing=True)
-                self._wait_for_samples()
+                if hasattr(self._client, "start_stream"):
+                    self._start_stream_unified(parser)
+                else:
+                    self._start_stream_legacy(parser)
                 break
             except Exception as exc:
                 last_error = exc
@@ -167,6 +153,45 @@ class BrainCoAcquirer(AbstractAcquirer):
             self.metadata.sfreq,
             self.metadata.n_channels,
         )
+
+    def _start_stream_unified(self, parser: Any) -> None:
+        """Use the SDK's recommended one-key stream startup when available."""
+
+        assert self._sdk is not None
+        assert self._client is not None
+        buffer_len = max(int(self.metadata.sfreq * min(self._buffer_sec, 60.0)), 1024)
+        self._sdk.set_cfg(buffer_len, max(256, int(self.metadata.sfreq)), 256)
+        self._sdk.clear_eeg_buffer()
+        self._run_sdk_call(
+            self._client.start_stream,
+            parser,
+            fs=getattr(self._sdk.EegSampleRate, _SAMPLE_RATE_TO_ENUM[int(self.metadata.sfreq)]),
+            gain=getattr(self._sdk.EegSignalGain, _GAIN_TO_ENUM[self._eeg_gain]),
+            signal=getattr(self._sdk.EegSignalSource, self._signal_source),
+        )
+        self._wait_for_samples()
+
+    def _start_stream_legacy(self, parser: Any) -> None:
+        assert self._sdk is not None
+        assert self._client is not None
+        self._run_sdk_call(self._client.start_data_stream, parser)
+        buffer_len = max(int(self.metadata.sfreq * min(self._buffer_sec, 60.0)), 1024)
+        self._sdk.set_cfg(buffer_len, max(256, int(self.metadata.sfreq)), 256)
+        config_msg_id = self._run_sdk_call(
+            self._client.set_eeg_config,
+            getattr(self._sdk.EegSampleRate, _SAMPLE_RATE_TO_ENUM[int(self.metadata.sfreq)]),
+            getattr(self._sdk.EegSignalGain, _GAIN_TO_ENUM[self._eeg_gain]),
+            getattr(self._sdk.EegSignalSource, self._signal_source),
+        )
+        # Some BrainCo firmware/SDK combinations apply EEG config successfully
+        # but never surface a matching msg response callback for this command.
+        # Treat missing config acks like start_eeg_stream: warn and continue,
+        # then rely on actual EEG sample arrival as the final success criterion.
+        self._wait_for_command_response(config_msg_id, "set_eeg_config", allow_missing=True)
+        self._sdk.clear_eeg_buffer()
+        start_msg_id = self._run_sdk_call(self._client.start_eeg_stream)
+        self._wait_for_command_response(start_msg_id, "start_eeg_stream", allow_missing=True)
+        self._wait_for_samples()
 
     def stop_stream(self) -> None:
         sdk = self._sdk
@@ -265,6 +290,20 @@ class BrainCoAcquirer(AbstractAcquirer):
 
     async def _discover_device_async(self) -> tuple[str, int]:
         assert self._sdk is not None
+        scan_devices = getattr(self._sdk, "scan_devices", None)
+        if scan_devices is not None:
+            try:
+                devices = await asyncio.wait_for(
+                    self._coerce_sdk_awaitable(scan_devices()),
+                    timeout=self._scan_timeout_sec,
+                )
+                target = self._first_valid_discovered_target(devices)
+                if target is not None:
+                    return target
+            except asyncio.TimeoutError:
+                LOGGER.warning("BrainCo scan_devices() timed out; falling back to mdns discovery.")
+            except Exception as exc:
+                LOGGER.warning("BrainCo scan_devices() failed; falling back to mdns discovery: %s", exc)
         try:
             scan_result = await asyncio.wait_for(
                 self._coerce_sdk_awaitable(self._sdk.mdns_start_scan()),
@@ -303,6 +342,9 @@ class BrainCoAcquirer(AbstractAcquirer):
             zeroconf_resolved = await self._discover_device_via_zeroconf_async()
             if zeroconf_resolved is not None:
                 return zeroconf_resolved
+            callback_resolved = await self._discover_device_via_callback_async()
+            if callback_resolved is not None:
+                return callback_resolved
             raise RuntimeError(
                 "BrainCo auto-discovery found the device address "
                 f"{missing_port_addr!r} but no port. Set device.brainco_port in config.yaml."
@@ -314,6 +356,19 @@ class BrainCoAcquirer(AbstractAcquirer):
         if callback_resolved is not None:
             return callback_resolved
         raise RuntimeError(f"BrainCo auto-discovery returned invalid target(s): {candidates!r}")
+
+    def _first_valid_discovered_target(self, devices: Any) -> tuple[str, int] | None:
+        if devices is None:
+            return None
+        if isinstance(devices, Sequence) and not isinstance(devices, (str, bytes, bytearray)):
+            candidates = list(devices)
+        else:
+            candidates = [devices]
+        for candidate in candidates:
+            target = self._coerce_discovered_target(candidate)
+            if target is not None:
+                return target
+        return None
 
     async def _stop_sdk_mdns_scan_async(self) -> None:
         assert self._sdk is not None
@@ -542,6 +597,8 @@ class BrainCoAcquirer(AbstractAcquirer):
         self._sdk.set_connection_state_callback(self._handle_connection_state_callback)
         self._sdk.set_received_data_callback(self._handle_received_data_callback)
         self._sdk.set_msg_resp_callback(self._handle_message_response_callback)
+        if hasattr(self._sdk, "set_eeg_data_callback"):
+            self._sdk.set_eeg_data_callback(self._handle_eeg_data_callback)
 
     def _clear_sdk_callbacks(self) -> None:
         assert self._sdk is not None
@@ -555,6 +612,11 @@ class BrainCoAcquirer(AbstractAcquirer):
             pass
         try:
             self._sdk.set_msg_resp_callback(self._noop_callback)
+        except Exception:
+            pass
+        try:
+            if hasattr(self._sdk, "set_eeg_data_callback"):
+                self._sdk.set_eeg_data_callback(self._noop_callback)
         except Exception:
             pass
 
@@ -578,6 +640,16 @@ class BrainCoAcquirer(AbstractAcquirer):
                 self._pending_msg_responses.setdefault(message_id, deque()).append(tuple(args))
         if args:
             LOGGER.debug("BrainCo message response callback: %s", ", ".join(repr(arg) for arg in args))
+
+    def _handle_eeg_data_callback(self, *args: Any) -> None:
+        for value in args:
+            try:
+                data = self._normalize_buffer(value, allow_empty=True)
+            except Exception:
+                continue
+            if data.shape[1] > 0:
+                self._append_eeg_samples(data, from_callback=True)
+                return
 
     def _append_eeg_samples(self, data: np.ndarray, *, from_callback: bool) -> None:
         if data.shape[1] == 0:
@@ -736,9 +808,9 @@ class BrainCoAcquirer(AbstractAcquirer):
             return await value
         return value
 
-    def _run_sdk_call(self, func: Any, *args: Any) -> Any:
+    def _run_sdk_call(self, func: Any, *args: Any, **kwargs: Any) -> Any:
         async def runner() -> Any:
-            return await self._coerce_sdk_awaitable(func(*args))
+            return await self._coerce_sdk_awaitable(func(*args, **kwargs))
 
         return self._run_coroutine(runner(), timeout=self._ready_timeout_sec)
 

@@ -13,6 +13,7 @@ authors = [
   { name = "NCCLab" }
 ]
 dependencies = [
+  "psychopy",
   "bc-ecap-sdk",
   "brainflow",
   "click",

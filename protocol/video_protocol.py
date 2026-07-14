@@ -178,15 +178,27 @@ class EegSessionManager:
         self._session_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self._start_metadata = dict(metadata or {})
         task_mode = str(self._start_metadata.get("task_mode", "")).strip().lower()
+        session_layout = str(self._start_metadata.get("session_dir_layout", "")).strip().lower()
+        timestamp_label = str(self._start_metadata.get("timestamp_label", "")).strip()
+        if timestamp_label:
+            self._session_stamp = timestamp_label
         session_folder = f"session_{self._session_id:02d}"
         if task_mode in {"image_a", "image_b"}:
             session_folder = f"{task_mode}_session_{self._session_id:02d}"
-        self._session_dir = (
-            self._records_dir
-            / self._subject_id
-            / session_folder
-            / self._session_stamp
-        )
+        if session_layout == "subject_timestamp_session":
+            self._session_dir = (
+                self._records_dir
+                / self._subject_id
+                / self._session_stamp
+                / f"session_{self._session_id:02d}"
+            )
+        else:
+            self._session_dir = (
+                self._records_dir
+                / self._subject_id
+                / session_folder
+                / self._session_stamp
+            )
         self._acquirer.start_stream()
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._pull_loop, name="video-eeg-pull", daemon=True)
