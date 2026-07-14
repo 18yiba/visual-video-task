@@ -415,7 +415,7 @@ class ImageBRunner:
         rating_onset = time.perf_counter()
         for item_index, dimension in enumerate(RATING_DIMENSIONS, start=1):
             key = str(dimension["key"])
-            limit_sec = self._jitter("image_rating_item", 2.0, 3.0)
+            limit_sec = self._jitter("image_rating_item", 4.0, 5.0)
             value, rt_ms, no_keypress, onset, offset = self._run_rating_item(
                 trial=trial,
                 dimension=dimension,
@@ -454,7 +454,7 @@ class ImageBRunner:
     ) -> tuple[int, int | None, bool, float, float]:
         manager = self._require_manager()
         selected = 3
-        moved = False
+        responded = False
         rt_ms: int | None = None
         start = time.perf_counter()
         self._clear_keyboard()
@@ -470,16 +470,18 @@ class ImageBRunner:
             self._check_abort()
             self._draw_rating_screen(dimension, selected, limit_sec - (time.perf_counter() - start))
             self.win.flip()
-            keys = self.keyboard.getKeys(["f", "j"], waitRelease=False, clear=True)
+            keys = self.keyboard.getKeys(["f", "j", "space"], waitRelease=False, clear=True)
             if keys:
+                responded = True
                 if rt_ms is None:
                     rt_ms = int((time.perf_counter() - start) * 1000)
-                moved = True
                 key_name = keys[-1].name.lower()
                 if key_name == "f":
                     selected = max(1, selected - 1)
                 elif key_name == "j":
                     selected = min(5, selected + 1)
+                elif key_name == "space":
+                    break
         offset = time.perf_counter()
         self.win.callOnFlip(
             manager.emit,
@@ -489,12 +491,12 @@ class ImageBRunner:
             item_key=dimension["key"],
             item_index=item_index,
             rating_value=selected,
-            no_keypress=not moved,
+            no_keypress=not responded,
         )
         self._draw_rating_screen(dimension, selected, 0.0)
         self.win.flip()
         core.wait(0.08)
-        return selected, rt_ms, not moved, start, offset
+        return selected, rt_ms, not responded, start, offset
 
     def _run_attention_task(self, trial: ImageTrial) -> dict[str, Any]:
         manager = self._require_manager()
@@ -561,8 +563,8 @@ class ImageBRunner:
         if session_type == "labeling":
             body = (
                 "图片标注轮次。\n\n"
-                "每张图片结束后会逐题评分。\n"
-                "每题默认值为 3；按 F 向左调整，按 J 向右调整。\n"
+                "每张图片结束后会逐题评分，每道题限时2-3秒。\n"
+                "每题默认值为 3；按 F 向左调整，按 J 向右调整，按空格确认并进入下一题。\n"
                 "时间结束后，当前选项会自动保存。\n\n"
                 "按空格键开始。"
             )
@@ -603,6 +605,7 @@ class ImageBRunner:
             self.placeholder.draw()
         else:
             stim.draw()
+        self.fixation.draw()
         self._schedule_callbacks(on_start)
         self.win.flip()
         core.wait(max(0.0, duration_sec))
@@ -654,7 +657,7 @@ class ImageBRunner:
         self._draw_rating_controls(
             dimension,
             selected,
-            hint=f"F 向左   J 向右        剩余 {max(0.0, remaining_sec):.1f} 秒",
+            hint=f"F 向左   J 向右   空格确认        剩余 {max(0.0, remaining_sec):.1f} 秒",
         )
 
     def _draw_rating_controls(self, dimension: dict[str, Any], selected: int, *, hint: str) -> None:
