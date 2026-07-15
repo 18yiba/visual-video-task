@@ -85,6 +85,9 @@ class BrainCoAcquirer(AbstractAcquirer):
         self._response_event = threading.Event()
         self._msg_resp_lock = threading.Lock()
         self._eeg_cache = np.empty((n_channels, 0), dtype=np.float32)
+        self._cache_capacity = max(int(self.metadata.sfreq * self._buffer_sec), 1)
+        self._cache_write_index = 0
+        self._cache_valid_samples = 0
         self._pending_msg_responses: dict[int, deque[tuple[Any, ...]]] = {}
         self._generic_msg_responses: deque[tuple[Any, ...]] = deque()
         self._raw_packet_count = 0
@@ -108,7 +111,9 @@ class BrainCoAcquirer(AbstractAcquirer):
             self._first_sample_event.clear()
             self._response_event.clear()
             with self._cache_lock:
-                self._eeg_cache = np.empty((self.metadata.n_channels, 0), dtype=np.float32)
+                self._eeg_cache = np.empty((self.metadata.n_channels, self._cache_capacity), dtype=np.float32)
+                self._cache_write_index = 0
+                self._cache_valid_samples = 0
             with self._msg_resp_lock:
                 self._pending_msg_responses.clear()
                 self._generic_msg_responses.clear()
@@ -255,7 +260,12 @@ class BrainCoAcquirer(AbstractAcquirer):
         if self._total_samples_seen <= self._last_chunk_total_samples:
             raise RuntimeError("BrainCo stream produced no new samples for realtime chunking.")
         with self._cache_lock:
-            eeg = np.asarray(self._eeg_cache[: self.metadata.n_channels, -required:], dtype=np.float32)
+            end = self._cache_write_index
+            start = (end - required) % self._cache_capacity
+            if start < end:
+                eeg = self._eeg_cache[:, start:end].copy()
+            else:
+                eeg = np.concatenate((self._eeg_cache[:, start:], self._eeg_cache[:, :end]), axis=1)
         self._last_chunk_total_samples = self._total_samples_seen
         timestamps = np.arange(required, dtype=np.float64) / self.metadata.sfreq
         return eeg, timestamps
@@ -648,17 +658,31 @@ class BrainCoAcquirer(AbstractAcquirer):
             except Exception:
                 continue
             if data.shape[1] > 0:
-                self._append_eeg_samples(data, from_callback=True)
+                # The SDK callback and get_eeg_buffer expose the same samples.
+                # Recording is driven by get_eeg_buffer, so do not cache a second copy here.
+                self._callback_sample_count += int(data.shape[1])
+                self._first_sample_event.set()
                 return
 
     def _append_eeg_samples(self, data: np.ndarray, *, from_callback: bool) -> None:
         if data.shape[1] == 0:
             return
-        max_samples = max(int(self.metadata.sfreq * self._buffer_sec), data.shape[1], 1)
         with self._cache_lock:
-            self._eeg_cache = np.concatenate([self._eeg_cache, data], axis=1)
-            if self._eeg_cache.shape[1] > max_samples:
-                self._eeg_cache = self._eeg_cache[:, -max_samples:]
+            if self._eeg_cache.shape[1] != self._cache_capacity:
+                self._eeg_cache = np.empty(
+                    (self.metadata.n_channels, self._cache_capacity), dtype=np.float32
+                )
+                self._cache_write_index = 0
+                self._cache_valid_samples = 0
+            incoming = np.asarray(data[:, -self._cache_capacity :], dtype=np.float32)
+            count = int(incoming.shape[1])
+            first = min(count, self._cache_capacity - self._cache_write_index)
+            self._eeg_cache[:, self._cache_write_index : self._cache_write_index + first] = incoming[:, :first]
+            remaining = count - first
+            if remaining:
+                self._eeg_cache[:, :remaining] = incoming[:, first:]
+            self._cache_write_index = (self._cache_write_index + count) % self._cache_capacity
+            self._cache_valid_samples = min(self._cache_valid_samples + count, self._cache_capacity)
             self._total_samples_seen += int(data.shape[1])
         if from_callback:
             self._callback_sample_count += int(data.shape[1])
@@ -666,7 +690,7 @@ class BrainCoAcquirer(AbstractAcquirer):
 
     def _cache_sample_count(self) -> int:
         with self._cache_lock:
-            return int(self._eeg_cache.shape[1])
+            return self._cache_valid_samples
 
     def _wait_for_command_response(self, msg_id: Any, label: str, *, allow_missing: bool = False) -> None:
         if not isinstance(msg_id, int) or msg_id <= 0:

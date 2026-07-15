@@ -158,6 +158,7 @@ class EegSessionManager:
         self._session_dir: Path | None = None
         self._running = False
         self._start_metadata: dict[str, Any] = {}
+        self._background_error: BaseException | None = None
 
     @property
     def running(self) -> bool:
@@ -170,6 +171,10 @@ class EegSessionManager:
     @property
     def recorder(self) -> SessionRecorder:
         return self._recorder
+
+    @property
+    def background_error(self) -> BaseException | None:
+        return self._background_error
 
     def start(self, *, metadata: dict[str, Any] | None = None) -> Path:
         if self._running:
@@ -200,7 +205,9 @@ class EegSessionManager:
                 / self._session_stamp
             )
         self._acquirer.start_stream()
+        self._recorder.start_spooling(self._session_dir)
         self._stop_event.clear()
+        self._background_error = None
         self._thread = threading.Thread(target=self._pull_loop, name="video-eeg-pull", daemon=True)
         self._thread.start()
         self._running = True
@@ -254,7 +261,8 @@ class EegSessionManager:
         if not self._running:
             return self._session_dir
 
-        self.emit("session_end", subject_id=self._subject_id, session_id=self._session_id)
+        if self._background_error is None:
+            self.emit("session_end", subject_id=self._subject_id, session_id=self._session_id)
         self._stop_event.set()
         if self._thread is not None:
             self._thread.join(timeout=2.0)
@@ -262,8 +270,9 @@ class EegSessionManager:
 
         try:
             self._recorder.pull()
-        except RuntimeError:
-            pass
+        except BaseException as exc:
+            if self._background_error is None:
+                self._background_error = exc
         self._acquirer.stop_stream()
         self._running = False
 
@@ -283,10 +292,14 @@ class EegSessionManager:
         export_metadata.update(self._start_metadata)
         if metadata:
             export_metadata.update(metadata)
+        if self._background_error is not None:
+            export_metadata["termination_reason"] = "eeg_background_error"
+            export_metadata["background_error"] = repr(self._background_error)
         self._recorder.export(self._session_dir, metadata=export_metadata)
         return self._session_dir
 
     def emit(self, event_name: str, **payload: Any) -> None:
+        self.raise_if_background_failed()
         code = PROTOCOL_EVENT_CODES.get(event_name)
         if code is None:
             raise ValueError(f"Unknown protocol event: {event_name}")
@@ -294,14 +307,18 @@ class EegSessionManager:
         self._recorder.add_event(event_name, marker_code=code, **payload)
 
     def _pull_loop(self) -> None:
-        while not self._stop_event.is_set():
-            try:
+        try:
+            while not self._stop_event.is_set():
                 self._recorder.pull()
-            except RuntimeError:
-                if self._stop_event.is_set():
-                    break
-                raise
-            time.sleep(0.01)
+                time.sleep(0.01)
+        except BaseException as exc:
+            if not self._stop_event.is_set():
+                self._background_error = exc
+                self._stop_event.set()
+
+    def raise_if_background_failed(self) -> None:
+        if self._background_error is not None:
+            raise RuntimeError(f"EEG 后台采集失败：{self._background_error}") from self._background_error
 
     @staticmethod
     def _sleep(duration_sec: float, *, heartbeat: Heartbeat = None) -> None:

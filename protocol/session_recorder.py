@@ -29,6 +29,8 @@ class SessionRecorder:
         self._sfreq = float(sfreq)
         self._n_channels = int(n_channels)
         self._chunks: list[np.ndarray] = []
+        self._spool_path: Path | None = None
+        self._spool_handle: Any | None = None
         self._events: list[SessionEvent] = []
         self._sample_count = 0
         self._started_at = time.monotonic()
@@ -48,9 +50,19 @@ class SessionRecorder:
         if samples.ndim != 2 or samples.shape[0] < self._n_channels:
             raise RuntimeError(f"Unexpected incremental EEG shape: {samples.shape}")
         eeg = np.asarray(samples[: self._n_channels], dtype=np.float32)
-        self._chunks.append(eeg)
+        if self._spool_handle is not None:
+            np.ascontiguousarray(eeg.T).tofile(self._spool_handle)
+            self._spool_handle.flush()
+        else:
+            self._chunks.append(eeg.copy())
         self._sample_count += int(eeg.shape[1])
         return eeg
+
+    def start_spooling(self, output_dir: Path) -> None:
+        """Stream samples to a bounded-memory temporary file for this session."""
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self._spool_path = output_dir / ".continuous_eeg.f32.tmp"
+        self._spool_handle = self._spool_path.open("wb")
 
     def add_event(self, name: str, **payload: Any) -> None:
         self._events.append(
@@ -64,8 +76,33 @@ class SessionRecorder:
 
     def export(self, output_dir: Path, *, metadata: dict[str, Any]) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
-        eeg = self.to_array()
-        np.save(output_dir / "continuous_eeg.npy", eeg)
+        try:
+            self.pull()
+        except BaseException:
+            # Preserve everything already spooled when acquisition has failed.
+            if self._sample_count <= 0:
+                raise
+        if self._spool_handle is not None:
+            self._spool_handle.close()
+            self._spool_handle = None
+        if self._spool_path is not None and self._spool_path.exists() and self._sample_count > 0:
+            raw = np.memmap(self._spool_path, dtype=np.float32, mode="r", shape=(self._sample_count, self._n_channels))
+            target = np.lib.format.open_memmap(
+                output_dir / "continuous_eeg.npy", mode="w+", dtype=np.float32,
+                shape=(self._n_channels, self._sample_count),
+            )
+            block = max(1, int(self._sfreq * 10))
+            for start in range(0, self._sample_count, block):
+                end = min(start + block, self._sample_count)
+                target[:, start:end] = raw[start:end].T
+            target.flush()
+            del target, raw
+            self._spool_path.unlink()
+        elif self._spool_path is not None and self._spool_path.exists():
+            np.save(output_dir / "continuous_eeg.npy", np.empty((self._n_channels, 0), dtype=np.float32))
+            self._spool_path.unlink()
+        else:
+            np.save(output_dir / "continuous_eeg.npy", self.to_array())
         with (output_dir / "events.json").open("w", encoding="utf-8") as handle:
             json.dump([asdict(event) for event in self._events], handle, ensure_ascii=False, indent=2)
         with (output_dir / "metadata.json").open("w", encoding="utf-8") as handle:

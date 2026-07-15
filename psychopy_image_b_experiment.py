@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from datetime import datetime
 from functools import partial
+import json
 from pathlib import Path
 import random
 import re
 import sys
 import time
+import traceback
 from typing import Any, Callable
 
 import numpy as np
@@ -171,6 +174,12 @@ def main(argv: list[str] | None = None) -> int:
         base_dir=project_dir,
         image_count=image_count,
     )
+    resume_state = find_resume_state(
+        records_dir,
+        subject_id=str(config["subject_id"]),
+        session_id=int(config["session_id"]),
+        trials=trials,
+    )
     win = visual.Window(fullscr=exp_info["fullscreen"], color=BACKGROUND, units="height", allowGUI=not exp_info["fullscreen"])
     runner = ImageBRunner(
         win=win,
@@ -181,6 +190,7 @@ def main(argv: list[str] | None = None) -> int:
         trials=trials,
         assets=assets,
         playlist_metadata=playlist_metadata,
+        resume_state=resume_state,
     )
     try:
         runner.run()
@@ -204,9 +214,9 @@ def _startup_dialog(config: dict[str, Any], args: argparse.Namespace) -> dict[st
             "timestamp_label": default_timestamp,
         }
     dlg = gui.Dlg(title="PsychoPy Image_B 脑电实验")
-    dlg.addText("每次只运行一个实验轮次。第 1-2 轮为图片标注；第 3-5 轮为去噪采集。")
+    dlg.addText("每次只运行一个实验轮次。第 1-2 轮为图片标注；第 3-10 轮为去噪采集。")
     dlg.addField("被试编号", str(config.get("subject_id", "S001")))
-    dlg.addField("实验轮次编号（1-5）", default_session)
+    dlg.addField("实验轮次编号（1-10）", default_session)
     dlg.addField("任务类型（自动）", _session_type_label(session_type_for_id(default_session)))
     dlg.addField("时间批次后缀/完整标签", default_timestamp)
     dlg.addField("脑电设备", str(config.get("device_type", "brainco")), choices=["brainco", "neuracle"])
@@ -241,6 +251,7 @@ class ImageBRunner:
         trials: list[ImageTrial],
         assets: list[ImageAsset],
         playlist_metadata: dict[str, Any],
+        resume_state: dict[str, Any] | None = None,
     ) -> None:
         self.win = win
         self.mouse = mouse
@@ -250,11 +261,14 @@ class ImageBRunner:
         self.trials = trials
         self.assets = assets
         self.playlist_metadata = playlist_metadata
+        self.resume_state = dict(resume_state or {})
         self.protocol = VideoProtocolConfig.from_config(config)
         self.manager: EegSessionManager | None = None
-        self.rating_rows: list[dict[str, Any]] = []
-        self.trial_rows: list[dict[str, Any]] = []
+        self.rating_rows: list[dict[str, Any]] = list(self.resume_state.get("rating_rows", []))
+        self.trial_rows: list[dict[str, Any]] = list(self.resume_state.get("trial_rows", []))
         self.completed = False
+        self.termination_reason = "running"
+        self._run_traceback = ""
         self.connection_summary: dict[str, Any] = {}
         self.rng = random.Random(int(self.playlist_metadata.get("random_seed", 17)) + int(config.get("session_id", 1)))
         self.message = visual.TextStim(
@@ -274,20 +288,54 @@ class ImageBRunner:
     def run(self) -> None:
         try:
             self._show_instructions()
-            self._run_practice()
+            if self.resume_state:
+                self._show_text(
+                    f"检测到上次中断记录：已完成 trial {self.resume_state['completed_trial']}。\n\n"
+                    f"本次将从 trial {self.resume_state['next_trial']} 继续，不重复练习和基线。\n\n"
+                    "按空格键继续。"
+                )
+            else:
+                self._run_practice()
             self._show_text("即将进行脑电连接检查。\n\n请确认脑电设备已开启并准备好。\n\n按空格键继续。")
             self.connection_summary = self._check_eeg_connection()
             self._show_text(self._connection_success_text())
             self._start_eeg()
             self._run_formal()
             self.completed = True
+            self.termination_reason = "completed"
         except ExperimentAbort:
+            self.termination_reason = "operator_abort"
             self._show_text("实验已中止，正在保存已采集的数据。", wait_for_key=False, duration=1.0)
         except Exception as exc:
+            self.termination_reason = "python_exception"
+            self._run_traceback = traceback.format_exc()
             self._show_text(f"实验运行出错：\n{_format_eeg_error(exc, self.config)}\n\n按空格键退出。")
         finally:
-            session_dir = self._stop_and_export()
+            if self.manager is not None and self.manager.background_error is not None:
+                self.termination_reason = "eeg_background_error"
+            try:
+                session_dir = self._stop_and_export()
+            except Exception as exc:
+                self._run_traceback = traceback.format_exc()
+                if self.manager is not None and self.manager.session_dir is not None:
+                    (self.manager.session_dir / "crash_report.txt").write_text(
+                        self._run_traceback, encoding="utf-8"
+                    )
+                self._show_text(f"脑电数据安全保存失败：\n{_format_eeg_error(exc, self.config)}\n\n按空格键退出。")
+                session_dir = None
+            if session_dir is not None and self.manager is not None and self.manager.background_error is not None:
+                if not self._run_traceback:
+                    error = self.manager.background_error
+                    self._run_traceback = "".join(
+                        traceback.format_exception(type(error), error, error.__traceback__)
+                    )
+                self._show_text(
+                    "脑电后台采集发生错误，已安全停止并保存此前数据：\n"
+                    f"{_format_eeg_error(self.manager.background_error, self.config)}\n\n按空格键继续。"
+                )
             if session_dir is not None:
+                if self._run_traceback:
+                    (session_dir / "crash_report.txt").write_text(self._run_traceback, encoding="utf-8")
                 self._show_text(f"数据已保存：\n{session_dir}\n\n按空格键退出。")
 
     def _check_eeg_connection(self) -> dict[str, Any]:
@@ -325,7 +373,7 @@ class ImageBRunner:
             subject_id=str(self.config.get("subject_id", "S001")),
             session_id=int(self.config.get("session_id", 1)),
         )
-        self.manager.start(
+        session_dir = self.manager.start(
             metadata={
                 "task_mode": "image_b",
                 "session_dir_layout": "subject_timestamp_session",
@@ -340,11 +388,25 @@ class ImageBRunner:
                 "psychopy_runner": True,
             }
         )
+        (session_dir / ".resume_manifest.json").write_text(
+            json.dumps(
+                {
+                    "subject_id": self.config.get("subject_id"),
+                    "session_id": self.config.get("session_id"),
+                    "task_mode": "image_b",
+                    "image_trials": len(self.trials),
+                    "completed": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
     def _run_formal(self) -> None:
         manager = self._require_manager()
         baseline_sec = float(self.protocol.baseline_sec)
-        if baseline_sec > 0:
+        if baseline_sec > 0 and not self.resume_state:
             self._show_phase(
                 "+",
                 "基线采集，请保持静止。",
@@ -352,7 +414,10 @@ class ImageBRunner:
                 on_start=[(manager.emit, ("baseline_start",), {"duration_sec": baseline_sec})],
                 on_end=[(manager.emit, ("baseline_end",), {"duration_sec": baseline_sec})],
             )
+        next_trial = int(self.resume_state.get("next_trial", 1))
         for trial in self.trials:
+            if trial.trial_idx < next_trial:
+                continue
             self._check_abort()
             self._run_trial(trial)
 
@@ -360,7 +425,7 @@ class ImageBRunner:
         manager = self._require_manager()
         eeg_session_dir = str(manager.session_dir) if manager.session_dir else None
         fixation_sec = self._jitter("image_fixation", 0.5, 0.8)
-        image_sec = self._jitter("image_present", 1.0, 1.5)
+        image_sec = self._jitter("image_present", 2, 3)
         self._show_fixation(
             fixation_sec,
             on_start=[
@@ -395,6 +460,18 @@ class ImageBRunner:
             ],
         )
         self.trial_rows.append(make_trial_log_row(self.config, trial, extra=extra_log, eeg_session_dir=eeg_session_dir))
+        self._write_resume_checkpoint()
+
+    def _write_resume_checkpoint(self) -> None:
+        manager = self._require_manager()
+        if manager.session_dir is None:
+            return
+        events = list(getattr(manager.recorder, "events", []))
+        ratings, trials, trial_columns = build_output_rows(self.rating_rows, self.trial_rows, events)
+        write_rows_csv(manager.session_dir / ".trial_log.checkpoint.csv", trials, trial_columns)
+        if str(self.config.get("session_type")) == "labeling":
+            columns = list(ratings[0].keys()) if ratings else []
+            write_rows_csv(manager.session_dir / ".behavioral_ratings.checkpoint.csv", ratings, columns)
 
     def _run_rating_trial(self, trial: ImageTrial, *, eeg_session_dir: str | None) -> None:
         manager = self._require_manager()
@@ -415,7 +492,7 @@ class ImageBRunner:
         rating_onset = time.perf_counter()
         for item_index, dimension in enumerate(RATING_DIMENSIONS, start=1):
             key = str(dimension["key"])
-            limit_sec = self._jitter("image_rating_item", 4.0, 5.0)
+            limit_sec = self._jitter("image_rating_item", 2.5, 4.0)
             value, rt_ms, no_keypress, onset, offset = self._run_rating_item(
                 trial=trial,
                 dimension=dimension,
@@ -870,6 +947,7 @@ class ImageBRunner:
                 "timestamp_label": self.config.get("timestamp_label"),
                 "rating_trials": len(self.rating_rows),
                 "trial_log_rows": len(self.trial_rows),
+                "termination_reason": self.termination_reason,
             }
         )
         if session_dir is None:
@@ -882,7 +960,110 @@ class ImageBRunner:
             write_rows_csv(session_dir / "behavioral_ratings.csv", ratings, list(ratings[0].keys()) if ratings else [])
         write_rows_csv(session_dir / "trial_log.csv", trials, trial_columns)
         write_playlist_json(session_dir / "image_playlist.json", self.trials)
+        for checkpoint in (
+            session_dir / ".trial_log.checkpoint.csv",
+            session_dir / ".behavioral_ratings.checkpoint.csv",
+            session_dir / ".resume_manifest.json",
+        ):
+            if checkpoint.exists():
+                checkpoint.unlink()
         return session_dir
+
+
+def find_resume_state(
+    records_dir: Path,
+    *,
+    subject_id: str,
+    session_id: int,
+    trials: list[ImageTrial],
+) -> dict[str, Any] | None:
+    """Return the latest compatible incomplete Image B session checkpoint."""
+
+    subject_root = records_dir / subject_id
+    if not subject_root.exists() or not trials:
+        return None
+    metadata_paths = sorted(
+        [*subject_root.rglob("metadata.json"), *subject_root.rglob(".resume_manifest.json")],
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    expected_images = {trial.trial_idx: trial.asset.image_id for trial in trials}
+    visited_dirs: set[Path] = set()
+    for metadata_path in metadata_paths:
+        session_dir = metadata_path.parent
+        if session_dir in visited_dirs:
+            continue
+        visited_dirs.add(session_dir)
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            continue
+        if str(metadata.get("task_mode", "")).lower() != "image_b":
+            continue
+        if int(metadata.get("session_id", -1)) != int(session_id) or bool(metadata.get("completed", False)):
+            continue
+        if int(metadata.get("image_trials", len(trials))) != len(trials):
+            continue
+        trial_path = session_dir / "trial_log.csv"
+        if not trial_path.exists():
+            trial_path = session_dir / ".trial_log.checkpoint.csv"
+        trial_rows = _read_csv_rows(trial_path)
+        if not trial_rows:
+            continue
+        by_index: dict[int, dict[str, Any]] = {}
+        compatible = True
+        for row in trial_rows:
+            try:
+                trial_idx = int(row.get("trial_idx", 0))
+            except (TypeError, ValueError):
+                compatible = False
+                break
+            if trial_idx not in expected_images or str(row.get("image_id", "")) != expected_images[trial_idx]:
+                compatible = False
+                break
+            by_index[trial_idx] = row
+        if not compatible:
+            continue
+        completed_trial = 0
+        while completed_trial + 1 in by_index:
+            completed_trial += 1
+        if completed_trial <= 0 or completed_trial >= len(trials):
+            continue
+        rating_path = session_dir / "behavioral_ratings.csv"
+        if not rating_path.exists():
+            rating_path = session_dir / ".behavioral_ratings.checkpoint.csv"
+        completed_rows = [by_index[idx] for idx in range(1, completed_trial + 1)]
+        completed_ids = {str(idx) for idx in range(1, completed_trial + 1)}
+        rating_rows = [row for row in _read_csv_rows(rating_path) if str(row.get("trial_idx")) in completed_ids]
+        return {
+            "source_dir": session_dir,
+            "completed_trial": completed_trial,
+            "next_trial": completed_trial + 1,
+            "trial_rows": completed_rows,
+            "rating_rows": rating_rows,
+        }
+    return None
+
+
+def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
+    if not path.exists() or path.stat().st_size <= 0:
+        return []
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            rows: list[dict[str, Any]] = []
+            for raw_row in csv.DictReader(handle):
+                row: dict[str, Any] = {
+                    key: (None if value == "" else value)
+                    for key, value in raw_row.items()
+                }
+                try:
+                    row["trial_idx"] = int(row["trial_idx"])
+                except (KeyError, TypeError, ValueError):
+                    pass
+                rows.append(row)
+            return rows
+    except (OSError, csv.Error):
+        return []
 
 
 def normalize_timestamp_label(value: str | None, *, now: datetime | None = None) -> str:

@@ -14,7 +14,7 @@ from typing import Any
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 RATING_VALUES = (1, 2, 3, 4, 5)
 LABELING_SESSIONS = {1, 2}
-DENOISE_SESSIONS = {3, 4, 5}
+DENOISE_SESSIONS = {3, 4, 5, 6, 7, 8, 9, 10}
 VALID_IMAGE_SESSIONS = LABELING_SESSIONS | DENOISE_SESSIONS
 TIMESTAMP_LABEL_PATTERN = re.compile(r"^\d{8}_[A-Za-z0-9_-]+$")
 
@@ -119,7 +119,7 @@ def session_type_for_id(session_id: int) -> str:
         return "labeling"
     if session_id in DENOISE_SESSIONS:
         return "denoise"
-    raise ValueError("Image_B session_id must be 1-5: 1-2 labeling, 3-5 denoise.")
+    raise ValueError("Image_B session_id must be 1-10: 1-2 labeling, 3-10 denoise.")
 
 
 def subject_image_set_path(records_dir: Path, subject_id: str) -> Path:
