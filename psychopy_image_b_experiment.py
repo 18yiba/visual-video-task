@@ -155,24 +155,26 @@ def main(argv: list[str] | None = None) -> int:
         if status != 0:
             return status
     _load_psychopy()
-    exp_info = _startup_dialog(config, args)
+    records_dir = project_dir / Path(str(config.get("storage", {}).get("records_dir", "records_storage")))
+    exp_info = _startup_dialog(config, args, records_dir=records_dir)
     if exp_info is None:
         return 0
     config["subject_id"] = exp_info["subject_id"]
     config["session_id"] = exp_info["session_id"]
     config["session_type"] = session_type_for_id(exp_info["session_id"])
+    config["image_set_label"] = normalize_image_set_label(exp_info["image_set_label"])
     config["device_type"] = exp_info["device_type"]
     config["hardware_dummy_mode"] = exp_info["hardware_dummy_mode"]
-    config["timestamp_label"] = normalize_timestamp_label(exp_info["timestamp_label"])
-    records_dir = project_dir / Path(str(config.get("storage", {}).get("records_dir", "records_storage")))
-    configured_image_count = int(
-        protocol_value(
-            config,
-            "images_per_experiment",
-            protocol_value(config, "image_unique_count", 105),
-        )
+    config["timestamp_label"] = unique_timestamp_label(
+        records_dir,
+        subject_id=str(config["subject_id"]),
+        session_id=int(config["session_id"]),
+        image_set_label=str(config["image_set_label"]),
+        preferred=exp_info.get("timestamp_label"),
     )
-    image_count = exp_info["max_trials"] if exp_info["max_trials"] > 0 else configured_image_count
+    # A zero dialog value means "use the configured count for a new subject,
+    # or the existing fixed subject image set for a returning subject".
+    image_count = exp_info["max_trials"] if exp_info["max_trials"] > 0 else None
     trials, assets, playlist_metadata = build_session_playlist(
         config,
         subject_id=str(config["subject_id"]),
@@ -186,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
         subject_id=str(config["subject_id"]),
         session_id=int(config["session_id"]),
         trials=trials,
+        image_set_label=str(config["image_set_label"]),
     )
     win = visual.Window(fullscr=exp_info["fullscreen"], color=BACKGROUND, units="height", allowGUI=not exp_info["fullscreen"])
     runner = ImageBRunner(
@@ -207,13 +210,22 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _startup_dialog(config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any] | None:
+def _startup_dialog(
+    config: dict[str, Any],
+    args: argparse.Namespace,
+    *,
+    records_dir: Path,
+) -> dict[str, Any] | None:
     default_session = int(config.get("session_id", 1))
-    default_timestamp = normalize_timestamp_label(args.timestamp_label or next_timestamp_label())
+    default_timestamp = normalize_timestamp_label(args.timestamp_label) if args.timestamp_label else None
+    default_subject = str(config.get("subject_id", "S001"))
+    configured_label = normalize_image_set_label(str(config.get("image_set_label", "default")))
+    default_image_set_label = find_last_image_set_label(records_dir, default_subject) or configured_label
     if args.no_dialog:
         return {
-            "subject_id": str(config.get("subject_id", "S001")),
+            "subject_id": default_subject,
             "session_id": default_session,
+            "image_set_label": default_image_set_label,
             "device_type": str(config.get("device_type", "brainco")),
             "hardware_dummy_mode": bool(config.get("hardware_dummy_mode", False)),
             "fullscreen": not bool(args.windowed),
@@ -222,10 +234,10 @@ def _startup_dialog(config: dict[str, Any], args: argparse.Namespace) -> dict[st
         }
     dlg = gui.Dlg(title="PsychoPy Image_B 脑电实验")
     dlg.addText("每次只运行一个实验轮次。第 1-2 轮为图片标注；第 3-10 轮为去噪采集。")
-    dlg.addField("被试编号", str(config.get("subject_id", "S001")))
+    dlg.addField("被试编号", default_subject)
     dlg.addField("实验轮次编号（1-10）", default_session)
     dlg.addField("任务类型（自动）", _session_type_label(session_type_for_id(default_session)))
-    dlg.addField("时间批次后缀/完整标签", default_timestamp)
+    dlg.addField("业务/图片集标签", default_image_set_label)
     dlg.addField("脑电设备", str(config.get("device_type", "brainco")), choices=["brainco", "neuracle"])
     dlg.addField("使用模拟脑电", bool(config.get("hardware_dummy_mode", False)))
     dlg.addField("全屏显示", not bool(args.windowed))
@@ -235,10 +247,15 @@ def _startup_dialog(config: dict[str, Any], args: argparse.Namespace) -> dict[st
         return None
     session_id = int(values[1])
     session_type_for_id(session_id)
+    selected_subject = str(values[0]).strip() or "S001"
+    entered_label = normalize_image_set_label(str(values[3]))
+    if selected_subject != default_subject and entered_label == default_image_set_label:
+        entered_label = find_last_image_set_label(records_dir, selected_subject) or entered_label
     return {
-        "subject_id": str(values[0]).strip() or "S001",
+        "subject_id": selected_subject,
         "session_id": session_id,
-        "timestamp_label": normalize_timestamp_label(str(values[3]).strip()),
+        "image_set_label": entered_label,
+        "timestamp_label": default_timestamp,
         "device_type": str(values[4]).strip().lower(),
         "hardware_dummy_mode": _coerce_bool(values[5]),
         "fullscreen": _coerce_bool(values[6]),
@@ -385,6 +402,7 @@ class ImageBRunner:
                 "task_mode": "image_b",
                 "session_dir_layout": "subject_timestamp_session",
                 "timestamp_label": self.config.get("timestamp_label"),
+                "image_set_label": self.config.get("image_set_label"),
                 "session_type": self.config.get("session_type"),
                 "image_trials": len(self.trials),
                 "image_unique_count": len(self.assets),
@@ -400,6 +418,7 @@ class ImageBRunner:
                 {
                     "subject_id": self.config.get("subject_id"),
                     "session_id": self.config.get("session_id"),
+                    "image_set_label": self.config.get("image_set_label"),
                     "task_mode": "image_b",
                     "image_trials": len(self.trials),
                     "completed": False,
@@ -983,6 +1002,7 @@ def find_resume_state(
     subject_id: str,
     session_id: int,
     trials: list[ImageTrial],
+    image_set_label: str = "default",
 ) -> dict[str, Any] | None:
     """Return the latest compatible incomplete Image B session checkpoint."""
 
@@ -1006,6 +1026,8 @@ def find_resume_state(
         except (OSError, ValueError, TypeError):
             continue
         if str(metadata.get("task_mode", "")).lower() != "image_b":
+            continue
+        if normalize_image_set_label(str(metadata.get("image_set_label", "default"))) != image_set_label:
             continue
         if int(metadata.get("session_id", -1)) != int(session_id) or bool(metadata.get("completed", False)):
             continue
@@ -1087,7 +1109,48 @@ def normalize_timestamp_label(value: str | None, *, now: datetime | None = None)
 
 def next_timestamp_label(*, now: datetime | None = None) -> str:
     current = now or datetime.now()
-    return f"{current:%Y%m%d}_{current:%H%M}"
+    return f"{current:%Y%m%d}_{current:%H%M%S}"
+
+
+def normalize_image_set_label(value: str | None) -> str:
+    label = str(value or "default").strip() or "default"
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", label):
+        raise ValueError("图片集标签只能包含字母、数字、下划线或连字符。")
+    return label
+
+
+def find_last_image_set_label(records_dir: Path, subject_id: str) -> str | None:
+    subject_root = records_dir / str(subject_id)
+    if not subject_root.exists():
+        return None
+    candidates = [*subject_root.rglob("metadata.json"), *subject_root.rglob(".resume_manifest.json")]
+    for path in sorted(candidates, key=lambda item: item.stat().st_mtime, reverse=True):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            return normalize_image_set_label(str(payload.get("image_set_label", "default")))
+        except (OSError, ValueError, TypeError):
+            continue
+    return None
+
+
+def unique_timestamp_label(
+    records_dir: Path,
+    *,
+    subject_id: str,
+    session_id: int,
+    image_set_label: str = "default",
+    preferred: str | None = None,
+) -> str:
+    """Create a valid session label without ever reusing an existing save directory."""
+
+    label = normalize_image_set_label(image_set_label)
+    base = normalize_timestamp_label(preferred) if preferred else f"{next_timestamp_label()}_{label}"
+    candidate = base
+    suffix = 2
+    while (records_dir / subject_id / candidate / f"session_{int(session_id):02d}").exists():
+        candidate = f"{base}_{suffix:02d}"
+        suffix += 1
+    return candidate
 
 
 def _apply_cli_eeg_overrides(config: dict[str, Any], args: argparse.Namespace) -> None:

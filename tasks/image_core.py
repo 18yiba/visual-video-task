@@ -122,8 +122,11 @@ def session_type_for_id(session_id: int) -> str:
     raise ValueError("Image_B session_id must be 1-10: 1-2 labeling, 3-10 denoise.")
 
 
-def subject_image_set_path(records_dir: Path, subject_id: str) -> Path:
-    return records_dir / str(subject_id) / "subject_image_set.json"
+def subject_image_set_path(records_dir: Path, subject_id: str, image_set_label: str = "") -> Path:
+    root = records_dir / str(subject_id)
+    if not image_set_label or image_set_label == "default":
+        return root / "subject_image_set.json"
+    return root / f"subject_image_set_{image_set_label}.json"
 
 
 def scan_image_assets(config: dict[str, Any], *, base_dir: Path | None = None) -> list[ImageAsset]:
@@ -166,7 +169,14 @@ def build_session_playlist(
     if target_images <= 0:
         raise ValueError("Image count must be positive.")
 
-    set_path = subject_image_set_path(records_dir, subject_id)
+    image_set_label = str(config.get("image_set_label", "default")).strip() or "default"
+    set_path = subject_image_set_path(records_dir, subject_id, image_set_label)
+    legacy_set_path = subject_image_set_path(records_dir, subject_id)
+    nested_set_path = records_dir / str(subject_id) / image_set_label / "subject_image_set.json"
+    if not set_path.exists() and nested_set_path.exists():
+        set_path = nested_set_path
+    if image_set_label == "default" and not set_path.exists() and legacy_set_path.exists():
+        set_path = legacy_set_path
     scanned_assets = scan_image_assets(config, base_dir=base_dir)
     scanned_count = len(scanned_assets)
     if scanned_count == 0:
@@ -178,7 +188,7 @@ def build_session_playlist(
     if set_path.exists():
         assets = load_subject_image_set(set_path)
     elif session_id == 1:
-        rng = random.Random(seed)
+        rng = random.Random(f"{seed}:{subject_id}:{image_set_label}")
         assets = list(scanned_assets)
         rng.shuffle(assets)
         assets = assets[:target_images]
@@ -201,6 +211,10 @@ def build_session_playlist(
 
     if not assets:
         raise RuntimeError(f"Subject image set is empty: {set_path}")
+    if image_count is None and not generated_subject_set:
+        # Once a subject set exists it is authoritative unless the operator
+        # explicitly enters a non-zero override in the startup dialog.
+        target_images = len(assets)
     if target_images > len(assets):
         raise ValueError(
             f"Requested {target_images} images for this experiment, but the subject image set contains only {len(assets)}."
@@ -226,6 +240,7 @@ def build_session_playlist(
 
     metadata = {
         "task_mode": str(config.get("task_mode", "image_b")),
+        "image_set_label": image_set_label,
         "session_id": session_id,
         "session_type": session_type,
         "image_unique_count": len(session_assets),

@@ -1,5 +1,6 @@
 subject_id: S004
 session_id: 1
+image_set_label: default
 task_mode: image_b
 device_type: brainco
 hardware_dummy_mode: false
