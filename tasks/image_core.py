@@ -5,11 +5,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import csv
 import json
+import os
 import random
 import re
 import secrets
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 RATING_VALUES = (1, 2, 3, 4, 5)
@@ -343,6 +345,8 @@ def trial_base(
     trial: ImageTrial,
     *,
     eeg_session_dir: str | None = None,
+    eeg_part: int | None = None,
+    eeg_file: str | None = None,
 ) -> dict[str, Any]:
     return {
         "subject_id": config.get("subject_id"),
@@ -360,6 +364,8 @@ def trial_base(
         "repeat_idx": trial.repeat_idx,
         "trial_type": trial.trial_type,
         "eeg_session_dir": eeg_session_dir,
+        "eeg_part": eeg_part,
+        "eeg_file": eeg_file,
     }
 
 
@@ -371,8 +377,16 @@ def make_rating_row(
     item_timings: dict[str, dict[str, Any]],
     timed_out: bool,
     eeg_session_dir: str | None = None,
+    eeg_part: int | None = None,
+    eeg_file: str | None = None,
 ) -> dict[str, Any]:
-    row = trial_base(config, trial, eeg_session_dir=eeg_session_dir)
+    row = trial_base(
+        config,
+        trial,
+        eeg_session_dir=eeg_session_dir,
+        eeg_part=eeg_part,
+        eeg_file=eeg_file,
+    )
     row.update(ratings)
     row.update({"rating_timed_out": timed_out, "rating_confirm_click": False})
     for dimension in RATING_DIMENSIONS:
@@ -392,8 +406,16 @@ def make_trial_log_row(
     *,
     extra: dict[str, Any] | None = None,
     eeg_session_dir: str | None = None,
+    eeg_part: int | None = None,
+    eeg_file: str | None = None,
 ) -> dict[str, Any]:
-    row = trial_base(config, trial, eeg_session_dir=eeg_session_dir)
+    row = trial_base(
+        config,
+        trial,
+        eeg_session_dir=eeg_session_dir,
+        eeg_part=eeg_part,
+        eeg_file=eeg_file,
+    )
     row.update(
         {
             "attention_task_presented": trial.attention_task_presented,
@@ -434,10 +456,17 @@ def write_rows_csv(path: Path, rows: list[dict[str, Any]], columns: list[str]) -
             if key not in columns and key not in extra:
                 extra.append(key)
     fieldnames = columns + extra
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
+    temp_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        with temp_path.open("x", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(rows)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+    finally:
+        temp_path.unlink(missing_ok=True)
     return path
 
 
@@ -500,6 +529,8 @@ def ordered_trial_columns() -> list[str]:
         "iti_offset",
         *rating_columns(),
         "eeg_session_dir",
+        "eeg_part",
+        "eeg_file",
     ]
 
 

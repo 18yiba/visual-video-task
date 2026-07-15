@@ -190,6 +190,10 @@ def main(argv: list[str] | None = None) -> int:
         trials=trials,
         image_set_label=str(config["image_set_label"]),
     )
+    if resume_state:
+        config["timestamp_label"] = str(
+            resume_state.get("timestamp_label") or Path(resume_state["source_dir"]).parent.name
+        )
     win = visual.Window(fullscr=exp_info["fullscreen"], color=BACKGROUND, units="height", allowGUI=not exp_info["fullscreen"])
     runner = ImageBRunner(
         win=win,
@@ -397,6 +401,8 @@ class ImageBRunner:
             subject_id=str(self.config.get("subject_id", "S001")),
             session_id=int(self.config.get("session_id", 1)),
         )
+        resume_output_dir = Path(self.resume_state["source_dir"]) if self.resume_state else None
+        segment_start_trial = int(self.resume_state.get("next_trial", 1))
         session_dir = self.manager.start(
             metadata={
                 "task_mode": "image_b",
@@ -411,7 +417,10 @@ class ImageBRunner:
                 "subject_image_set_path": self.playlist_metadata.get("subject_image_set_path"),
                 "eeg_connection_check": self.connection_summary,
                 "psychopy_runner": True,
-            }
+                "segment_start_trial": segment_start_trial,
+                "resumed": bool(self.resume_state),
+            },
+            output_dir=resume_output_dir,
         )
         (session_dir / ".resume_manifest.json").write_text(
             json.dumps(
@@ -450,6 +459,8 @@ class ImageBRunner:
     def _run_trial(self, trial: ImageTrial) -> None:
         manager = self._require_manager()
         eeg_session_dir = str(manager.session_dir) if manager.session_dir else None
+        eeg_part = manager.eeg_part
+        eeg_file = manager.eeg_filename
         fixation_sec = self._jitter("image_fixation", 0.5, 0.8)
         image_sec = self._jitter("image_present", 2, 3)
         self._show_fixation(
@@ -469,7 +480,12 @@ class ImageBRunner:
         )
         extra_log: dict[str, Any] = {}
         if trial.trial_type == "rating":
-            self._run_rating_trial(trial, eeg_session_dir=eeg_session_dir)
+            self._run_rating_trial(
+                trial,
+                eeg_session_dir=eeg_session_dir,
+                eeg_part=eeg_part,
+                eeg_file=eeg_file,
+            )
         else:
             self._flip_blank([(manager.emit, ("image_off",), {"trial_idx": trial.trial_idx, "image_id": trial.asset.image_id})])
             if trial.attention_task_presented:
@@ -485,7 +501,16 @@ class ImageBRunner:
                 (manager.end_trial, (), {"trial_idx": trial.trial_idx, "video_name": trial.asset.image_id}),
             ],
         )
-        self.trial_rows.append(make_trial_log_row(self.config, trial, extra=extra_log, eeg_session_dir=eeg_session_dir))
+        self.trial_rows.append(
+            make_trial_log_row(
+                self.config,
+                trial,
+                extra=extra_log,
+                eeg_session_dir=eeg_session_dir,
+                eeg_part=eeg_part,
+                eeg_file=eeg_file,
+            )
+        )
         self._write_resume_checkpoint()
 
     def _write_resume_checkpoint(self) -> None:
@@ -499,7 +524,14 @@ class ImageBRunner:
             columns = list(ratings[0].keys()) if ratings else []
             write_rows_csv(manager.session_dir / ".behavioral_ratings.checkpoint.csv", ratings, columns)
 
-    def _run_rating_trial(self, trial: ImageTrial, *, eeg_session_dir: str | None) -> None:
+    def _run_rating_trial(
+        self,
+        trial: ImageTrial,
+        *,
+        eeg_session_dir: str | None,
+        eeg_part: int,
+        eeg_file: str,
+    ) -> None:
         manager = self._require_manager()
         self._show_phase(
             "",
@@ -542,6 +574,8 @@ class ImageBRunner:
             item_timings=item_timings,
             timed_out=False,
             eeg_session_dir=eeg_session_dir,
+            eeg_part=eeg_part,
+            eeg_file=eeg_file,
         )
         row["rating_onset"] = rating_onset
         row["rating_offset"] = rating_offset
@@ -974,6 +1008,11 @@ class ImageBRunner:
                 "rating_trials": len(self.rating_rows),
                 "trial_log_rows": len(self.trial_rows),
                 "termination_reason": self.termination_reason,
+                "segment_start_trial": int(self.resume_state.get("next_trial", 1)),
+                "segment_end_trial": max(
+                    (int(row.get("trial_idx", 0)) for row in self.trial_rows),
+                    default=0,
+                ),
             }
         )
         if session_dir is None:
@@ -1010,7 +1049,11 @@ def find_resume_state(
     if not subject_root.exists() or not trials:
         return None
     metadata_paths = sorted(
-        [*subject_root.rglob("metadata.json"), *subject_root.rglob(".resume_manifest.json")],
+        [
+            *subject_root.rglob("eeg_segments.json"),
+            *subject_root.rglob("metadata.json"),
+            *subject_root.rglob(".resume_manifest.json"),
+        ],
         key=lambda path: path.stat().st_mtime,
         reverse=True,
     )
@@ -1037,8 +1080,6 @@ def find_resume_state(
         if not trial_path.exists():
             trial_path = session_dir / ".trial_log.checkpoint.csv"
         trial_rows = _read_csv_rows(trial_path)
-        if not trial_rows:
-            continue
         by_index: dict[int, dict[str, Any]] = {}
         compatible = True
         for row in trial_rows:
@@ -1056,20 +1097,31 @@ def find_resume_state(
         completed_trial = 0
         while completed_trial + 1 in by_index:
             completed_trial += 1
-        if completed_trial <= 0 or completed_trial >= len(trials):
+        if completed_trial >= len(trials):
             continue
         rating_path = session_dir / "behavioral_ratings.csv"
         if not rating_path.exists():
             rating_path = session_dir / ".behavioral_ratings.checkpoint.csv"
         completed_rows = [by_index[idx] for idx in range(1, completed_trial + 1)]
+        for row in completed_rows:
+            if not row.get("eeg_part"):
+                row["eeg_part"] = 1
+            if not row.get("eeg_file"):
+                row["eeg_file"] = "continuous_eeg.npy"
         completed_ids = {str(idx) for idx in range(1, completed_trial + 1)}
         rating_rows = [row for row in _read_csv_rows(rating_path) if str(row.get("trial_idx")) in completed_ids]
+        for row in rating_rows:
+            if not row.get("eeg_part"):
+                row["eeg_part"] = 1
+            if not row.get("eeg_file"):
+                row["eeg_file"] = "continuous_eeg.npy"
         return {
             "source_dir": session_dir,
             "completed_trial": completed_trial,
             "next_trial": completed_trial + 1,
             "trial_rows": completed_rows,
             "rating_rows": rating_rows,
+            "timestamp_label": metadata.get("timestamp_label") or session_dir.parent.name,
         }
     return None
 
@@ -1087,6 +1139,10 @@ def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
                 }
                 try:
                     row["trial_idx"] = int(row["trial_idx"])
+                except (KeyError, TypeError, ValueError):
+                    pass
+                try:
+                    row["eeg_part"] = int(row["eeg_part"])
                 except (KeyError, TypeError, ValueError):
                     pass
                 rows.append(row)
@@ -1123,7 +1179,11 @@ def find_last_image_set_label(records_dir: Path, subject_id: str) -> str | None:
     subject_root = records_dir / str(subject_id)
     if not subject_root.exists():
         return None
-    candidates = [*subject_root.rglob("metadata.json"), *subject_root.rglob(".resume_manifest.json")]
+    candidates = [
+        *subject_root.rglob("eeg_segments.json"),
+        *subject_root.rglob("metadata.json"),
+        *subject_root.rglob(".resume_manifest.json"),
+    ]
     for path in sorted(candidates, key=lambda item: item.stat().st_mtime, reverse=True):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))

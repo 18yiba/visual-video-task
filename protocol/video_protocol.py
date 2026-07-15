@@ -176,7 +176,15 @@ class EegSessionManager:
     def background_error(self) -> BaseException | None:
         return self._background_error
 
-    def start(self, *, metadata: dict[str, Any] | None = None) -> Path:
+    @property
+    def eeg_part(self) -> int:
+        return self._recorder.part_index
+
+    @property
+    def eeg_filename(self) -> str:
+        return self._recorder.eeg_filename
+
+    def start(self, *, metadata: dict[str, Any] | None = None, output_dir: Path | None = None) -> Path:
         if self._running:
             raise RuntimeError("EEG session is already running.")
 
@@ -190,7 +198,9 @@ class EegSessionManager:
         session_folder = f"session_{self._session_id:02d}"
         if task_mode in {"image_a", "image_b"}:
             session_folder = f"{task_mode}_session_{self._session_id:02d}"
-        if session_layout == "subject_timestamp_session":
+        if output_dir is not None:
+            self._session_dir = Path(output_dir)
+        elif session_layout == "subject_timestamp_session":
             self._session_dir = (
                 self._records_dir
                 / self._subject_id
@@ -288,6 +298,10 @@ class EegSessionManager:
             "device_type": self._acquirer.metadata.name,
             "eeg_session_dir": str(self._session_dir),
             "trigger_codes": dict(PROTOCOL_EVENT_CODES),
+            "eeg_part": self._recorder.part_index,
+            "eeg_file": self._recorder.eeg_filename,
+            "events_file": self._recorder.events_filename,
+            "metadata_file": self._recorder.metadata_filename,
         }
         export_metadata.update(self._start_metadata)
         if metadata:
