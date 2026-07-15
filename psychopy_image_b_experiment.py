@@ -165,7 +165,14 @@ def main(argv: list[str] | None = None) -> int:
     config["hardware_dummy_mode"] = exp_info["hardware_dummy_mode"]
     config["timestamp_label"] = normalize_timestamp_label(exp_info["timestamp_label"])
     records_dir = project_dir / Path(str(config.get("storage", {}).get("records_dir", "records_storage")))
-    image_count = exp_info["max_trials"] if exp_info["max_trials"] > 0 else None
+    configured_image_count = int(
+        protocol_value(
+            config,
+            "images_per_experiment",
+            protocol_value(config, "image_unique_count", 105),
+        )
+    )
+    image_count = exp_info["max_trials"] if exp_info["max_trials"] > 0 else configured_image_count
     trials, assets, playlist_metadata = build_session_playlist(
         config,
         subject_id=str(config["subject_id"]),

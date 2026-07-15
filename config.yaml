@@ -1,10 +1,10 @@
-subject_id: S001
+subject_id: S004
 session_id: 1
 task_mode: image_b
 device_type: brainco
 hardware_dummy_mode: false
 sfreq: 250.0
-buffer_sec: 120.0
+buffer_sec: 80.0
 protocol:
   fixation_sec: 1.5
   default_video_sec: 8.0
@@ -17,17 +17,18 @@ protocol:
   video_library_mode: local
   random_seed: 17
   image_library_dir: image_library
+  images_per_experiment: 105
   image_unique_count: 4
   image_repeats: 5
-  attention_probability: 0.5
+  attention_probability: 0.05
   image_attention_sec: 2.0
   image_fixation_min_sec: 0.5
   image_fixation_max_sec: 0.8
   image_present_min_sec: 1.0
   image_present_max_sec: 1.5
   image_blank_sec: 0.5
-  image_rating_item_min_sec: 2.0
-  image_rating_item_max_sec: 3.0
+  image_rating_item_min_sec: 3.0
+  image_rating_item_max_sec: 4.0
 device:
   neuracle_host: 127.0.0.1
   neuracle_port: 8712

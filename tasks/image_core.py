@@ -158,7 +158,11 @@ def build_session_playlist(
     session_id = int(session_id)
     session_type = session_type_for_id(session_id)
     seed = int(random_seed if random_seed is not None else protocol_value(config, "random_seed", 17))
-    target_images = int(image_count if image_count is not None else protocol_value(config, "image_unique_count", 105))
+    target_images = int(
+        image_count
+        if image_count is not None
+        else protocol_value(config, "images_per_experiment", protocol_value(config, "image_unique_count", 105))
+    )
     if target_images <= 0:
         raise ValueError("Image count must be positive.")
 
@@ -197,11 +201,12 @@ def build_session_playlist(
 
     if not assets:
         raise RuntimeError(f"Subject image set is empty: {set_path}")
-    if image_count is not None and int(image_count) != len(assets):
-        # The stored subject set is authoritative after session 1.
-        target_images = len(assets)
+    if target_images > len(assets):
+        raise ValueError(
+            f"Requested {target_images} images for this experiment, but the subject image set contains only {len(assets)}."
+        )
 
-    session_assets = list(assets)
+    session_assets = list(assets[:target_images])
     rng = random.Random(seed + session_id * 1009)
     rng.shuffle(session_assets)
     attention_probability = float(protocol_value(config, "attention_probability", 0.10))
