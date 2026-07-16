@@ -19,6 +19,8 @@ import numpy as np
 
 from protocol.video_protocol import EegSessionManager, VideoProtocolConfig
 from tasks.image_core import (
+    FORMAL_500_PROTOCOL,
+    PILOT_105_PROTOCOL,
     RATING_DIMENSIONS,
     RATING_VALUES,
     TIMESTAMP_LABEL_PATTERN,
@@ -26,9 +28,11 @@ from tasks.image_core import (
     ImageTrial,
     build_output_rows,
     build_session_playlist,
+    default_image_set_label,
     image_path,
     make_rating_row,
     make_trial_log_row,
+    normalize_experiment_protocol,
     protocol_value,
     session_type_for_id,
     write_playlist_json,
@@ -180,6 +184,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="运行单个 Image_B PsychoPy 脑电实验。")
     parser.add_argument("--config", type=Path, default=None, help="config.yaml 路径。")
     parser.add_argument("--max-trials", type=int, default=0, help="本轮图片/试次数；0 表示使用配置或被试固定图片集合。")
+    parser.add_argument(
+        "--experiment-protocol",
+        choices=[FORMAL_500_PROTOCOL, PILOT_105_PROTOCOL],
+        default="",
+        help="formal500=正式500张五轮协议；pilot105=105张单轮预实验。",
+    )
     parser.add_argument("--timestamp-label", type=str, default="", help="批次标签 yyyymmdd_xxxx；也可只输入 xxxx 自动补当天日期。")
     parser.add_argument("--windowed", action="store_true", help="窗口模式运行，而不是全屏。")
     parser.add_argument("--no-dialog", action="store_true", help="跳过 PsychoPy 启动对话框。")
@@ -231,8 +241,11 @@ def main(argv: list[str] | None = None) -> int:
     if exp_info is None:
         return 0
     config["subject_id"] = exp_info["subject_id"]
+    config["experiment_protocol"] = normalize_experiment_protocol(exp_info["experiment_protocol"])
     config["session_id"] = exp_info["session_id"]
-    config["session_type"] = session_type_for_id(exp_info["session_id"])
+    config["session_type"] = session_type_for_id(
+        exp_info["session_id"], config["experiment_protocol"]
+    )
     config["image_set_label"] = normalize_image_set_label(exp_info["image_set_label"])
     config["device_type"] = exp_info["device_type"]
     config["hardware_dummy_mode"] = exp_info["hardware_dummy_mode"]
@@ -243,8 +256,7 @@ def main(argv: list[str] | None = None) -> int:
         image_set_label=str(config["image_set_label"]),
         preferred=exp_info.get("timestamp_label"),
     )
-    # A zero dialog value means "use the configured count for a new subject,
-    # or the existing fixed subject image set for a returning subject".
+    # A zero dialog value means "use the selected protocol's fixed image count".
     image_count = exp_info["max_trials"] if exp_info["max_trials"] > 0 else None
     trials, assets, playlist_metadata = build_session_playlist(
         config,
@@ -291,16 +303,29 @@ def _startup_dialog(
     *,
     records_dir: Path,
 ) -> dict[str, Any] | None:
+    configured_protocol = normalize_experiment_protocol(config.get("experiment_protocol", FORMAL_500_PROTOCOL))
+    default_protocol = normalize_experiment_protocol(args.experiment_protocol or configured_protocol)
     default_session = int(config.get("session_id", 1))
+    try:
+        session_type_for_id(default_session, default_protocol)
+    except ValueError:
+        default_session = 1
     default_timestamp = normalize_timestamp_label(args.timestamp_label) if args.timestamp_label else None
     default_subject = str(config.get("subject_id", "S001"))
-    configured_label = normalize_image_set_label(str(config.get("image_set_label", "default")))
-    default_image_set_label = find_last_image_set_label(records_dir, default_subject) or configured_label
+    configured_label = normalize_image_set_label(
+        str(config.get("image_set_label") or default_image_set_label(default_protocol))
+    )
+    dialog_image_set_label = (
+        configured_label
+        if default_protocol == configured_protocol
+        else default_image_set_label(default_protocol)
+    )
     if args.no_dialog:
         return {
             "subject_id": default_subject,
+            "experiment_protocol": default_protocol,
             "session_id": default_session,
-            "image_set_label": default_image_set_label,
+            "image_set_label": dialog_image_set_label,
             "device_type": str(config.get("device_type", "brainco")),
             "hardware_dummy_mode": bool(config.get("hardware_dummy_mode", False)),
             "fullscreen": not bool(args.windowed),
@@ -308,11 +333,11 @@ def _startup_dialog(
             "timestamp_label": default_timestamp,
         }
     dlg = gui.Dlg(title="PsychoPy Image_B 脑电实验")
-    dlg.addText("每次只运行一个实验轮次。第 1-2 轮为图片标注；第 3-10 轮为去噪采集。")
+    dlg.addText("正式协议：第1轮评分，第2-5轮重复观看；预实验：105张评分，共1轮。")
     dlg.addField("被试编号", default_subject)
-    dlg.addField("实验轮次编号（1-10）", default_session)
-    dlg.addField("任务类型（自动）", _session_type_label(session_type_for_id(default_session)))
-    dlg.addField("业务/图片集标签", default_image_set_label)
+    dlg.addField("实验协议", default_protocol, choices=[FORMAL_500_PROTOCOL, PILOT_105_PROTOCOL])
+    dlg.addField("实验轮次编号", default_session)
+    dlg.addField("业务/图片集标签", dialog_image_set_label)
     dlg.addField("脑电设备", str(config.get("device_type", "brainco")), choices=["brainco", "neuracle"])
     dlg.addField("使用模拟脑电", bool(config.get("hardware_dummy_mode", False)))
     dlg.addField("全屏显示", not bool(args.windowed))
@@ -320,14 +345,16 @@ def _startup_dialog(
     values = dlg.show()
     if not dlg.OK:
         return None
-    session_id = int(values[1])
-    session_type_for_id(session_id)
+    selected_protocol = normalize_experiment_protocol(values[1])
+    session_id = int(values[2])
+    session_type_for_id(session_id, selected_protocol)
     selected_subject = str(values[0]).strip() or "S001"
     entered_label = normalize_image_set_label(str(values[3]))
-    if selected_subject != default_subject and entered_label == default_image_set_label:
-        entered_label = find_last_image_set_label(records_dir, selected_subject) or entered_label
+    if selected_protocol != default_protocol and entered_label == dialog_image_set_label:
+        entered_label = default_image_set_label(selected_protocol)
     return {
         "subject_id": selected_subject,
+        "experiment_protocol": selected_protocol,
         "session_id": session_id,
         "image_set_label": entered_label,
         "timestamp_label": default_timestamp,
@@ -393,7 +420,7 @@ class ImageBRunner:
                     f"本次将从 trial {self.resume_state['next_trial']} 继续，不重复练习和基线。\n\n"
                     "按空格键继续。"
                 )
-            else:
+            elif self._should_run_practice():
                 self._run_practice()
             self._show_text("即将进行脑电连接检查。\n\n请确认脑电设备已开启并准备好。\n\n按空格键继续。")
             self.connection_summary = self._check_eeg_connection()
@@ -493,6 +520,7 @@ class ImageBRunner:
         session_dir = self.manager.start(
             metadata={
                 "task_mode": "image_b",
+                "experiment_protocol": self.config.get("experiment_protocol"),
                 "session_dir_layout": "subject_timestamp_session",
                 "timestamp_label": self.config.get("timestamp_label"),
                 "image_set_label": self.config.get("image_set_label"),
@@ -524,6 +552,7 @@ class ImageBRunner:
                 {
                     "subject_id": self.config.get("subject_id"),
                     "session_id": self.config.get("session_id"),
+                    "experiment_protocol": self.config.get("experiment_protocol"),
                     "image_set_label": self.config.get("image_set_label"),
                     "task_mode": "image_b",
                     "image_trials": len(self.trials),
@@ -547,11 +576,80 @@ class ImageBRunner:
                 on_end=[(manager.emit, ("baseline_end",), {"duration_sec": baseline_sec})],
             )
         next_trial = int(self.resume_state.get("next_trial", 1))
-        for trial in self.trials:
-            if trial.trial_idx < next_trial:
-                continue
+        pending_trials = [trial for trial in self.trials if trial.trial_idx >= next_trial]
+        active_block: int | None = None
+        for trial in pending_trials:
             self._check_abort()
+            if trial.block_idx != active_block:
+                if active_block is not None:
+                    manager.emit(
+                        "block_end",
+                        block_idx=active_block,
+                        completed_trials=trial.trial_idx - 1,
+                    )
+                    self._run_block_break(active_block, trial.block_idx, trial.trial_idx - 1)
+                active_block = trial.block_idx
+                manager.emit(
+                    "block_start",
+                    block_idx=active_block,
+                    block_trial_idx=trial.block_trial_idx,
+                    trial_idx=trial.trial_idx,
+                    resumed=bool(self.resume_state),
+                )
             self._run_trial(trial)
+        if active_block is not None:
+            manager.emit(
+                "block_end",
+                block_idx=active_block,
+                completed_trials=len(self.trials),
+            )
+
+    def _run_block_break(self, completed_block: int, next_block: int, completed_trials: int) -> None:
+        manager = self._require_manager()
+        session_type = str(self.config.get("session_type", "denoise"))
+        prefix = "image_rating_block_break" if session_type == "labeling" else "image_repeat_block_break"
+        default_min = 60.0 if session_type == "labeling" else 30.0
+        default_max = 60.0 if session_type == "labeling" else 45.0
+        min_sec = max(0.0, float(protocol_value(self.config, f"{prefix}_min_sec", default_min)))
+        max_sec = max(min_sec, float(protocol_value(self.config, f"{prefix}_max_sec", default_max)))
+        manager.emit(
+            "block_rest_start",
+            completed_block=completed_block,
+            next_block=next_block,
+            completed_trials=completed_trials,
+            planned_min_sec=min_sec,
+            planned_max_sec=max_sec,
+        )
+        started = time.perf_counter()
+        self._clear_keyboard()
+        while True:
+            self._check_abort()
+            elapsed = time.perf_counter() - started
+            if elapsed < min_sec:
+                status = f"请休息，{max(0, int(min_sec - elapsed + 0.999))} 秒后可以继续。"
+            elif max_sec > min_sec:
+                status = "休息时间已满足。\n按空格键继续；若不操作将自动进入下一组。"
+                if self.keyboard.getKeys(["space"], waitRelease=False, clear=True):
+                    break
+            else:
+                break
+            if elapsed >= max_sec:
+                break
+            self.message.text = (
+                f"已完成 {completed_trials}/{len(self.trials)} 张\n"
+                f"Block {completed_block}/{self.playlist_metadata.get('block_count', 1)} 完成\n\n"
+                f"{status}\n\n下一组：Block {next_block}"
+            )
+            self.message.draw()
+            self.win.flip()
+            core.wait(0.05)
+        actual_sec = time.perf_counter() - started
+        manager.emit(
+            "block_rest_end",
+            completed_block=completed_block,
+            next_block=next_block,
+            actual_duration_sec=actual_sec,
+        )
 
     def _run_trial(self, trial: ImageTrial) -> None:
         manager = self._require_manager()
@@ -791,25 +889,46 @@ class ImageBRunner:
             self._practice_attention_task()
         self._show_text("练习结束。\n\n按空格键继续。")
 
+    def _should_run_practice(self) -> bool:
+        protocol_name = normalize_experiment_protocol(
+            self.config.get("experiment_protocol", FORMAL_500_PROTOCOL)
+        )
+        session_id = int(self.config.get("session_id", 1))
+        return protocol_name == PILOT_105_PROTOCOL or session_id in {1, 2}
+
     def _show_instructions(self) -> None:
         session_id = int(self.config.get("session_id", 1))
-        session_type = str(self.config.get("session_type", session_type_for_id(session_id)))
+        protocol_name = normalize_experiment_protocol(
+            self.config.get("experiment_protocol", FORMAL_500_PROTOCOL)
+        )
+        session_type = str(
+            self.config.get("session_type", session_type_for_id(session_id, protocol_name))
+        )
+        block_count = int(self.playlist_metadata.get("block_count", 1))
+        block_size = int(self.playlist_metadata.get("block_size", len(self.trials)))
         if session_type == "labeling":
             body = (
                 "图片标注轮次。\n\n"
-                "每张图片结束后会逐题评分，每道题限时2-3秒。\n"
+                "每张图片结束后会逐题评分。\n"
                 "每题默认值为 3；按 F 向左调整，按 J 向右调整，按空格确认并进入下一题。\n"
                 "时间结束后，当前选项会自动保存。\n\n"
+                f"本轮共 {len(self.trials)} 张，分为 {block_count} 个Block，每个Block最多 {block_size} 张。\n\n"
                 "按空格键开始。"
             )
         else:
             body = (
                 "脑电去噪采集轮次。\n\n"
                 "请注视每张图片并尽量保持静止。\n"
-                "如出现注意力问题，按 F 表示“否”，按 J 表示“是”。\n\n"
+                "如出现注意力问题，按 F 表示“否”，按 J 表示“是”。\n"
+                f"本轮共 {len(self.trials)} 张，分为 {block_count} 个Block，每个Block最多 {block_size} 张。\n\n"
                 "按空格键开始。"
             )
-        self._show_text(f"被试编号：{self.config.get('subject_id')}\n实验轮次：{session_id}（{_session_type_label(session_type)}）\n\n{body}")
+        protocol_label = "500张正式实验" if protocol_name == FORMAL_500_PROTOCOL else "105张预实验"
+        self._show_text(
+            f"被试编号：{self.config.get('subject_id')}\n"
+            f"协议：{protocol_label}\n"
+            f"实验轮次：{session_id}（{_session_type_label(session_type)}）\n\n{body}"
+        )
 
     def _show_fixation(
         self,
@@ -1100,6 +1219,7 @@ class ImageBRunner:
         session_dir = self.manager.stop_and_export(
             metadata={
                 "completed": self.completed,
+                "experiment_protocol": self.config.get("experiment_protocol"),
                 "session_type": self.config.get("session_type"),
                 "timestamp_label": self.config.get("timestamp_label"),
                 "rating_trials": len(self.rating_rows),

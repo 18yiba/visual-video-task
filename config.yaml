@@ -1,6 +1,7 @@
 subject_id: S004
+experiment_protocol: pilot105
 session_id: 1
-image_set_label: default
+image_set_label: image_b_pilot105_v1
 task_mode: image_b
 device_type: brainco
 hardware_dummy_mode: false
@@ -17,8 +18,22 @@ protocol:
   video_library_dir: video_library/selected_540_balanced_videos
   video_library_mode: local
   random_seed: 17
-  image_library_dir: image_library
-  images_per_experiment: 105
+  # pilot105 only reads real photographs; formal500 only reads AIGC images.
+  pilot_image_library_dir: image_library/pilot
+  formal_image_library_dir: image_library/formal
+  # Legacy fallback for older code paths.
+  image_library_dir: image_library/pilot
+  # New standalone PsychoPy protocols.
+  images_per_subject: 500
+  pilot_images_per_subject: 105
+  images_per_experiment: 500
+  block_size: 100
+  pilot_block_size: 105
+  image_rating_block_break_min_sec: 60.0
+  image_rating_block_break_max_sec: 60.0
+  image_repeat_block_break_min_sec: 30.0
+  image_repeat_block_break_max_sec: 45.0
+  # Legacy Streamlit multi-repeat settings (not used by the standalone runner).
   image_unique_count: 4
   image_repeats: 5
   attention_probability: 0.05

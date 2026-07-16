@@ -15,11 +15,48 @@ For a separate Python environment, install `requirements-psychopy.txt`.
 The script reads `config.yaml` by default. At startup it asks for:
 
 - `subject_id`
+- `experiment_protocol`: `formal500` or `pilot105`
 - `session_id`
 - `device_type`: `brainco` or `neuracle`
 - `hardware_dummy_mode`
 - fullscreen/windowed mode
 - optional max trial count for short tests
+
+## Image experiment protocols
+
+`formal500` is the five-session formal protocol:
+
+- session 1: rate all 500 images once;
+- sessions 2-5: view the same 500 images four more times without ratings;
+- every session contains five blocks of 100 images;
+- rating block breaks are 60 seconds; repeated-viewing breaks allow continuation
+  after 30 seconds and auto-continue at 45 seconds;
+- the original image groups rotate across sessions, so every image appears in
+  block positions 1-5 once across the five exposures.
+
+`pilot105` is the one-session feasibility pilot. It contains 105 rated images
+in one block. The two protocols use separate fixed subject-set labels by
+default (`image_b_500_v2` and `image_b_pilot105_v1`), so a saved 105-image set
+cannot accidentally become the formal participant's 500-image set.
+
+The source libraries are also physically separated:
+
+```text
+image_library/
+├── pilot/       # 105 real photographs + its manifest.json
+└── formal/      # 500+ AIGC images + its own manifest.json
+```
+
+`pilot105` never scans `formal`, and `formal500` never scans `pilot`.
+
+The current `pilot` library contains 105 images, while `formal` is
+still empty, so `config.yaml`
+currently preselects `pilot105`. After the library reaches at least 500 images,
+select `formal500` in the startup dialog or run:
+
+```powershell
+python psychopy_image_b_experiment.py --experiment-protocol formal500
+```
 
 Practice screens do not start EEG. The formal experiment starts continuous EEG
 through the existing `EegSessionManager`, sends existing marker codes, and saves:

@@ -22,6 +22,8 @@ PROTOCOL_EVENT_CODES = {
     # Block breaks (optional long rest)
     "block_start": 120,
     "block_end": 121,
+    "block_rest_start": 122,
+    "block_rest_end": 123,
     # Trial phase markers — video-EEG protocol
     "fixation_on": 130,
     "fixation_off": 131,
@@ -52,6 +54,8 @@ TRIGGER_REFERENCE = {
     111: "baseline_end — 静息基线结束",
     120: "block_start — block 开始",
     121: "block_end — block 结束",
+    122: "block_rest_start — block 间休息开始",
+    123: "block_rest_end — block 间休息结束",
     130: "fixation_on — 注视十字出现",
     131: "fixation_off — 注视十字结束",
     132: "video_on/image_on — 视频或图片开始呈现",

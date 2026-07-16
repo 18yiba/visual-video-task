@@ -15,9 +15,9 @@ from uuid import uuid4
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 RATING_VALUES = (1, 2, 3, 4, 5)
-LABELING_SESSIONS = {1, 2}
-DENOISE_SESSIONS = {3, 4, 5, 6, 7, 8, 9, 10}
-VALID_IMAGE_SESSIONS = LABELING_SESSIONS | DENOISE_SESSIONS
+FORMAL_500_PROTOCOL = "formal500"
+PILOT_105_PROTOCOL = "pilot105"
+FORMAL_DENOISE_SESSIONS = {2, 3, 4, 5}
 TIMESTAMP_LABEL_PATTERN = re.compile(r"^\d{8}_[A-Za-z0-9_-]+$")
 
 RATING_DIMENSIONS = [
@@ -105,7 +105,19 @@ def protocol_value(config: dict[str, Any], key: str, default: Any) -> Any:
 
 
 def image_root(config: dict[str, Any], *, base_dir: Path | None = None) -> Path:
-    root = Path(str(protocol_value(config, "image_library_dir", "image_library")))
+    experiment_protocol = normalize_experiment_protocol(
+        config.get("experiment_protocol", FORMAL_500_PROTOCOL)
+    )
+    library_key = (
+        "pilot_image_library_dir"
+        if experiment_protocol == PILOT_105_PROTOCOL
+        else "formal_image_library_dir"
+    )
+    configured_root = str(protocol_value(config, library_key, "")).strip()
+    root = Path(
+        configured_root
+        or str(protocol_value(config, "image_library_dir", "image_library"))
+    )
     if root.is_absolute() or base_dir is None:
         return root
     return base_dir / root
@@ -115,13 +127,38 @@ def image_path(config: dict[str, Any], asset: ImageAsset, *, base_dir: Path | No
     return image_root(config, base_dir=base_dir) / asset.rel_path
 
 
-def session_type_for_id(session_id: int) -> str:
+def normalize_experiment_protocol(value: Any) -> str:
+    text = str(value or FORMAL_500_PROTOCOL).strip().lower().replace("-", "").replace("_", "")
+    aliases = {
+        "formal": FORMAL_500_PROTOCOL,
+        "formal500": FORMAL_500_PROTOCOL,
+        "500": FORMAL_500_PROTOCOL,
+        "pilot": PILOT_105_PROTOCOL,
+        "pilot105": PILOT_105_PROTOCOL,
+        "105": PILOT_105_PROTOCOL,
+    }
+    if text not in aliases:
+        raise ValueError("experiment_protocol must be formal500 or pilot105.")
+    return aliases[text]
+
+
+def default_image_set_label(experiment_protocol: str) -> str:
+    protocol_name = normalize_experiment_protocol(experiment_protocol)
+    if protocol_name == PILOT_105_PROTOCOL:
+        return "image_b_pilot105_v1"
+    return "image_b_500_v2"
+
+
+def session_type_for_id(session_id: int, experiment_protocol: str = FORMAL_500_PROTOCOL) -> str:
     session_id = int(session_id)
-    if session_id in LABELING_SESSIONS:
+    protocol_name = normalize_experiment_protocol(experiment_protocol)
+    if session_id == 1:
         return "labeling"
-    if session_id in DENOISE_SESSIONS:
+    if protocol_name == FORMAL_500_PROTOCOL and session_id in FORMAL_DENOISE_SESSIONS:
         return "denoise"
-    raise ValueError("Image_B session_id must be 1-10: 1-2 labeling, 3-10 denoise.")
+    if protocol_name == PILOT_105_PROTOCOL:
+        raise ValueError("Image_B pilot105 only supports session 1 (labeling).")
+    raise ValueError("Image_B formal500 session_id must be 1-5: 1 labeling, 2-5 repeated viewing.")
 
 
 def subject_image_set_path(records_dir: Path, subject_id: str, image_set_label: str = "") -> Path:
@@ -161,17 +198,25 @@ def build_session_playlist(
     """Build the single-session Image_B playlist and maintain subject image set."""
 
     session_id = int(session_id)
-    session_type = session_type_for_id(session_id)
+    experiment_protocol = normalize_experiment_protocol(config.get("experiment_protocol", FORMAL_500_PROTOCOL))
+    session_type = session_type_for_id(session_id, experiment_protocol)
     seed = int(random_seed if random_seed is not None else protocol_value(config, "random_seed", 17))
+    configured_images = int(
+        protocol_value(config, "pilot_images_per_subject", 105)
+        if experiment_protocol == PILOT_105_PROTOCOL
+        else protocol_value(config, "images_per_subject", protocol_value(config, "images_per_experiment", 500))
+    )
     target_images = int(
         image_count
         if image_count is not None
-        else protocol_value(config, "images_per_experiment", protocol_value(config, "image_unique_count", 105))
+        else configured_images
     )
     if target_images <= 0:
         raise ValueError("Image count must be positive.")
 
-    image_set_label = str(config.get("image_set_label", "default")).strip() or "default"
+    image_set_label = str(
+        config.get("image_set_label") or default_image_set_label(experiment_protocol)
+    ).strip()
     set_path = subject_image_set_path(records_dir, subject_id, image_set_label)
     legacy_set_path = subject_image_set_path(records_dir, subject_id)
     nested_set_path = records_dir / str(subject_id) / image_set_label / "subject_image_set.json"
@@ -213,35 +258,56 @@ def build_session_playlist(
 
     if not assets:
         raise RuntimeError(f"Subject image set is empty: {set_path}")
-    if image_count is None and not generated_subject_set:
-        # Once a subject set exists it is authoritative unless the operator
-        # explicitly enters a non-zero override in the startup dialog.
-        target_images = len(assets)
+    if image_count is None and not generated_subject_set and len(assets) != configured_images:
+        raise ValueError(
+            f"Image set {set_path} contains {len(assets)} images, but protocol {experiment_protocol} "
+            f"requires {configured_images}. Use the protocol-specific image_set_label instead of reusing an old set."
+        )
     if target_images > len(assets):
         raise ValueError(
             f"Requested {target_images} images for this experiment, but the subject image set contains only {len(assets)}."
         )
 
     session_assets = list(assets[:target_images])
-    rng = random.Random(seed + session_id * 1009)
-    rng.shuffle(session_assets)
+    block_size = int(
+        protocol_value(config, "pilot_block_size", 105)
+        if experiment_protocol == PILOT_105_PROTOCOL
+        else protocol_value(config, "block_size", 100)
+    )
+    if block_size <= 0:
+        raise ValueError("Image block size must be positive.")
+    source_blocks = [
+        session_assets[start : start + block_size]
+        for start in range(0, len(session_assets), block_size)
+    ]
+    # Rotate the original image groups across sessions so every image moves
+    # through early and late blocks over the five formal exposures.
+    rotation = (session_id - 1) % max(1, len(source_blocks))
+    ordered_blocks = source_blocks[rotation:] + source_blocks[:rotation]
+    rng = random.Random(f"{seed}:{subject_id}:{image_set_label}:session:{session_id}")
     attention_probability = float(protocol_value(config, "attention_probability", 0.10))
     trials: list[ImageTrial] = []
-    for idx, asset in enumerate(session_assets, start=1):
-        trials.append(
-            ImageTrial(
-                block_idx=1,
-                trial_idx=idx,
-                block_trial_idx=idx,
-                repeat_idx=session_id,
-                trial_type="rating" if session_type == "labeling" else "eeg_denoise",
-                asset=asset,
-                attention_task_presented=(session_type == "denoise" and rng.random() < attention_probability),
+    trial_idx = 1
+    for block_idx, block_assets in enumerate(ordered_blocks, start=1):
+        block_assets = list(block_assets)
+        rng.shuffle(block_assets)
+        for block_trial_idx, asset in enumerate(block_assets, start=1):
+            trials.append(
+                ImageTrial(
+                    block_idx=block_idx,
+                    trial_idx=trial_idx,
+                    block_trial_idx=block_trial_idx,
+                    repeat_idx=session_id,
+                    trial_type="rating" if session_type == "labeling" else "eeg_denoise",
+                    asset=asset,
+                    attention_task_presented=(session_type == "denoise" and rng.random() < attention_probability),
+                )
             )
-        )
+            trial_idx += 1
 
     metadata = {
         "task_mode": str(config.get("task_mode", "image_b")),
+        "experiment_protocol": experiment_protocol,
         "image_set_label": image_set_label,
         "session_id": session_id,
         "session_type": session_type,
@@ -249,6 +315,9 @@ def build_session_playlist(
         "requested_image_count": target_images,
         "scanned_image_count": scanned_count,
         "formal_trials": len(trials),
+        "block_size": block_size,
+        "block_count": len(ordered_blocks),
+        "block_rotation": rotation,
         "random_seed": seed,
         "subject_image_set_path": str(set_path),
         "generated_subject_image_set": generated_subject_set,
@@ -350,6 +419,7 @@ def trial_base(
 ) -> dict[str, Any]:
     return {
         "subject_id": config.get("subject_id"),
+        "experiment_protocol": config.get("experiment_protocol"),
         "session_id": config.get("session_id"),
         "session_type": config.get("session_type"),
         "timestamp_label": config.get("timestamp_label"),
@@ -492,6 +562,7 @@ def rating_timing_columns() -> list[str]:
 def ordered_trial_columns() -> list[str]:
     return [
         "subject_id",
+        "experiment_protocol",
         "session_id",
         "session_type",
         "timestamp_label",
