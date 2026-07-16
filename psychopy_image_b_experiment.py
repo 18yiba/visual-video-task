@@ -34,7 +34,6 @@ from tasks.image_core import (
     write_playlist_json,
     write_rows_csv,
 )
-
 core: Any = None
 event: Any = None
 gui: Any = None
@@ -48,6 +47,7 @@ ACCENT = "#3b82f6"
 MUTED = "#94a3b8"
 SELECTED = "#1d4ed8"
 DEFAULT_CONFIG_FILENAME = "config.yaml"
+_LSL_MARKER_BACKENDS: dict[tuple[str, str, str], Any] = {}
 
 
 class ExperimentAbort(Exception):
@@ -94,29 +94,86 @@ def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
         "n_channels": 32 if selected == "brainco" else 64,
         "buffer_sec": float(config.get("buffer_sec", 120.0)),
     }
+    factory_name = selected
     if selected == "neuracle":
         kwargs["neuracle_host"] = str(device_cfg.get("neuracle_host", "127.0.0.1"))
         kwargs["neuracle_port"] = int(device_cfg.get("neuracle_port", 8712))
     elif selected == "brainco":
-        kwargs["brainco_addr"] = str(device_cfg.get("brainco_addr", ""))
-        kwargs["brainco_port"] = int(device_cfg.get("brainco_port", 0))
-        kwargs["auto_discover"] = bool(device_cfg.get("brainco_auto_discover", True))
-        kwargs["scan_timeout_sec"] = float(device_cfg.get("brainco_scan_timeout_sec", 6.0))
-        kwargs["ready_timeout_sec"] = float(device_cfg.get("brainco_ready_timeout_sec", 20.0))
-        kwargs["start_retries"] = int(device_cfg.get("brainco_start_retries", 2))
-        kwargs["eeg_gain"] = int(device_cfg.get("brainco_gain", 6))
-        kwargs["signal_source"] = str(device_cfg.get("brainco_signal_source", "NORMAL"))
-        kwargs["device_id"] = str(device_cfg.get("brainco_device_id", "eeg-cap"))
-    return AcquirerFactory.create(selected, **kwargs)
+        transport = str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
+        if transport == "bcigo":
+            factory_name = "brainco_bcigo"
+            kwargs["backend_name"] = "brainco_bcigo"
+        elif transport == "lsl":
+            factory_name = "brainco_lsl"
+            kwargs.update(
+                {
+                    "stream_name": str(device_cfg.get("brainco_lsl_stream_name", "")),
+                    "stream_type": str(device_cfg.get("brainco_lsl_stream_type", "EEG")),
+                    "source_id": str(device_cfg.get("brainco_lsl_source_id", "")),
+                    "resolve_timeout_sec": float(
+                        device_cfg.get("brainco_lsl_resolve_timeout_sec", 15.0)
+                    ),
+                    "ready_timeout_sec": float(
+                        device_cfg.get("brainco_lsl_ready_timeout_sec", 10.0)
+                    ),
+                    "backend_name": "brainco_lsl",
+                }
+            )
+        elif transport == "sdk":
+            kwargs["brainco_addr"] = str(device_cfg.get("brainco_addr", ""))
+            kwargs["brainco_port"] = int(device_cfg.get("brainco_port", 0))
+            kwargs["auto_discover"] = bool(device_cfg.get("brainco_auto_discover", True))
+            kwargs["scan_timeout_sec"] = float(device_cfg.get("brainco_scan_timeout_sec", 6.0))
+            kwargs["ready_timeout_sec"] = float(device_cfg.get("brainco_ready_timeout_sec", 20.0))
+            kwargs["start_retries"] = int(device_cfg.get("brainco_start_retries", 2))
+            kwargs["eeg_gain"] = int(device_cfg.get("brainco_gain", 6))
+            kwargs["signal_source"] = str(device_cfg.get("brainco_signal_source", "NORMAL"))
+            kwargs["device_id"] = str(device_cfg.get("brainco_device_id", "eeg-cap"))
+        else:
+            raise RuntimeError("device.brainco_transport 必须是 bcigo、lsl 或 sdk。")
+    return AcquirerFactory.create(factory_name, **kwargs)
 
 
 def build_marker_backend(config: dict[str, Any]) -> Any:
-    from utils.markers import NoOpMarkerBackend, TriggerBoxMarkerBackend
+    from utils.markers import (
+        CompositeMarkerBackend,
+        LSLMarkerBackend,
+        NoOpMarkerBackend,
+        TriggerBoxMarkerBackend,
+    )
 
-    serial_port = str(dict(config.get("device", {})).get("trigger_serial_port", "")).strip()
+    device_cfg = dict(config.get("device", {}))
+    backends: list[Any] = []
+    serial_port = str(device_cfg.get("trigger_serial_port", "")).strip()
     if serial_port:
-        return TriggerBoxMarkerBackend(serial_port)
-    return NoOpMarkerBackend()
+        backends.append(TriggerBoxMarkerBackend(serial_port))
+    brainco_marker = (
+        str(config.get("device_type", "")).strip().lower() == "brainco"
+        and str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
+        in {"bcigo", "lsl"}
+    )
+    if bool(device_cfg.get("lsl_marker_enabled", brainco_marker)):
+        marker_identity = (
+            str(device_cfg.get("lsl_marker_stream_name", "visual-video-task-Markers")),
+            str(device_cfg.get("lsl_marker_stream_type", "Markers")),
+            str(device_cfg.get("lsl_marker_source_id", "visual-video-task-marker")),
+        )
+        marker_backend = _LSL_MARKER_BACKENDS.get(marker_identity)
+        if marker_backend is None:
+            marker_backend = LSLMarkerBackend(
+                stream_name=marker_identity[0],
+                stream_type=marker_identity[1],
+                source_id=marker_identity[2],
+            )
+            # Reuse the same outlet after preflight so BCIGo keeps its selected
+            # Marker stream while the participant dialog and experiment open.
+            _LSL_MARKER_BACKENDS[marker_identity] = marker_backend
+        backends.append(marker_backend)
+    if not backends:
+        return NoOpMarkerBackend()
+    if len(backends) == 1:
+        return backends[0]
+    return CompositeMarkerBackend(*backends)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -134,6 +191,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--brainco-port", type=int, default=0, help="BrainCo 设备端口；指定后会关闭自动发现。")
     parser.add_argument("--brainco-scan-timeout", type=float, default=0.0, help="BrainCo 自动发现超时时间，单位秒。")
     parser.add_argument("--brainco-ready-timeout", type=float, default=0.0, help="BrainCo 启动数据流等待时间，单位秒。")
+    parser.add_argument(
+        "--brainco-transport",
+        choices=["bcigo", "lsl", "sdk"],
+        default="",
+        help="bcigo=BCIGo 录 EDF 且实验发 Marker；lsl=接收 EEG LSL；sdk=直连设备。",
+    )
+    parser.add_argument("--brainco-lsl-name", type=str, default="", help="BCIGo LSL EEG streamName；留空按类型自动匹配。")
+    parser.add_argument("--brainco-lsl-source-id", type=str, default="", help="BCIGo LSL EEG sourceId；有同名流时用于精确匹配。")
+    parser.add_argument(
+        "--brainco-lsl-timeout",
+        type=float,
+        default=0.0,
+        help="等待 BCIGo Marker 消费者或 EEG LSL 流的超时时间，单位秒。",
+    )
     parser.add_argument("--eeg-check-only", action="store_true", help="只在命令行检查脑电连接，检查结束后退出。")
     parser.add_argument("--preflight-eeg", action="store_true", help="启动 PsychoPy 窗口前先在命令行检查脑电连接。")
     return parser.parse_args(argv)
@@ -364,10 +435,17 @@ class ImageBRunner:
             if session_dir is not None:
                 if self._run_traceback:
                     (session_dir / "crash_report.txt").write_text(self._run_traceback, encoding="utf-8")
-                self._show_text(f"数据已保存：\n{session_dir}\n\n按空格键退出。")
+                bcigo_text = ""
+                if _uses_bcigo_external_recording(self.config):
+                    bcigo_text = (
+                        "\n\nBCIGo 可继续录制下一个 session；请在全部 session 完成后再停止录制。"
+                    )
+                self._show_text(f"数据已保存：\n{session_dir}{bcigo_text}\n\n按空格键退出。")
 
     def _check_eeg_connection(self) -> dict[str, Any]:
         try:
+            if _uses_bcigo_external_recording(self.config):
+                return _probe_bcigo_marker_connection(self.config)
             return _probe_eeg_connection(self.config)
         except Exception as exc:
             self._show_text(f"脑电连接检查失败：\n{_format_eeg_error(exc, self.config)}\n\n按空格键退出。")
@@ -379,6 +457,14 @@ class ImageBRunner:
 
     def _connection_success_text(self) -> str:
         info = self.connection_summary
+        if info.get("recording_mode") == "bcigo_external_edf":
+            return (
+                "BCIGo Marker 连接检查通过。\n\n"
+                "EEG 由 BCIGo 持续写入 EDF；本程序不会停止或复制该 EDF。\n"
+                f"Marker 流：{info.get('marker_stream')}\n"
+                "首次 session 前开始一次 BCIGo 录制，之后可连续运行多个 session。\n\n"
+                "按空格键开始正式实验。"
+            )
         return (
             "脑电连接检查通过。\n\n"
             f"设备：{info.get('device')}\n"
@@ -400,6 +486,7 @@ class ImageBRunner:
             records_dir=records_dir,
             subject_id=str(self.config.get("subject_id", "S001")),
             session_id=int(self.config.get("session_id", 1)),
+            record_local_eeg=not _uses_bcigo_external_recording(self.config),
         )
         resume_output_dir = Path(self.resume_state["source_dir"]) if self.resume_state else None
         segment_start_trial = int(self.resume_state.get("next_trial", 1))
@@ -419,6 +506,16 @@ class ImageBRunner:
                 "psychopy_runner": True,
                 "segment_start_trial": segment_start_trial,
                 "resumed": bool(self.resume_state),
+                "eeg_recording_mode": (
+                    "bcigo_external_edf"
+                    if _uses_bcigo_external_recording(self.config)
+                    else "local_continuous_eeg"
+                ),
+                "bcigo_recording_scope": (
+                    "continuous_across_sessions"
+                    if _uses_bcigo_external_recording(self.config)
+                    else None
+                ),
             },
             output_dir=resume_output_dir,
         )
@@ -1103,18 +1200,23 @@ def find_resume_state(
         if not rating_path.exists():
             rating_path = session_dir / ".behavioral_ratings.checkpoint.csv"
         completed_rows = [by_index[idx] for idx in range(1, completed_trial + 1)]
+        default_eeg_file = (
+            None
+            if str(metadata.get("eeg_recording_mode", "")) == "bcigo_external_edf"
+            else "continuous_eeg.npy"
+        )
         for row in completed_rows:
             if not row.get("eeg_part"):
                 row["eeg_part"] = 1
-            if not row.get("eeg_file"):
-                row["eeg_file"] = "continuous_eeg.npy"
+            if not row.get("eeg_file") and default_eeg_file:
+                row["eeg_file"] = default_eeg_file
         completed_ids = {str(idx) for idx in range(1, completed_trial + 1)}
         rating_rows = [row for row in _read_csv_rows(rating_path) if str(row.get("trial_idx")) in completed_ids]
         for row in rating_rows:
             if not row.get("eeg_part"):
                 row["eeg_part"] = 1
-            if not row.get("eeg_file"):
-                row["eeg_file"] = "continuous_eeg.npy"
+            if not row.get("eeg_file") and default_eeg_file:
+                row["eeg_file"] = default_eeg_file
         return {
             "source_dir": session_dir,
             "completed_trial": completed_trial,
@@ -1233,7 +1335,26 @@ def _apply_cli_eeg_overrides(config: dict[str, Any], args: argparse.Namespace) -
         device_cfg["brainco_scan_timeout_sec"] = float(args.brainco_scan_timeout)
     if float(getattr(args, "brainco_ready_timeout", 0.0) or 0.0) > 0:
         device_cfg["brainco_ready_timeout_sec"] = float(args.brainco_ready_timeout)
+    if str(getattr(args, "brainco_transport", "")).strip():
+        device_cfg["brainco_transport"] = str(args.brainco_transport).strip().lower()
+    if str(getattr(args, "brainco_lsl_name", "")).strip():
+        device_cfg["brainco_lsl_stream_name"] = str(args.brainco_lsl_name).strip()
+    if str(getattr(args, "brainco_lsl_source_id", "")).strip():
+        device_cfg["brainco_lsl_source_id"] = str(args.brainco_lsl_source_id).strip()
+    if float(getattr(args, "brainco_lsl_timeout", 0.0) or 0.0) > 0:
+        device_cfg["brainco_lsl_resolve_timeout_sec"] = float(args.brainco_lsl_timeout)
+        device_cfg["bcigo_marker_wait_timeout_sec"] = float(args.brainco_lsl_timeout)
     config["device"] = device_cfg
+
+
+def _uses_bcigo_external_recording(config: dict[str, Any]) -> bool:
+    if bool(config.get("hardware_dummy_mode", False)):
+        return False
+    return (
+        str(config.get("device_type", "brainco")).strip().lower() == "brainco"
+        and str(config.get("device", {}).get("brainco_transport", "sdk")).strip().lower()
+        == "bcigo"
+    )
 
 
 def _run_eeg_cli_check(config: dict[str, Any], *, wait_for_enter: bool) -> int:
@@ -1245,17 +1366,47 @@ def _run_eeg_cli_check(config: dict[str, Any], *, wait_for_enter: bool) -> int:
     print(f"设备类型：{selected}")
     print(f"采样率：{float(config.get('sfreq', 250.0))} Hz")
     if selected == "brainco":
-        print(f"BrainCo 自动发现：{bool(device_cfg.get('brainco_auto_discover', True))}")
-        print(f"BrainCo 手动地址：{device_cfg.get('brainco_addr') or '<未设置>'}")
-        print(f"BrainCo 手动端口：{device_cfg.get('brainco_port') or '<未设置>'}")
-        print(f"BrainCo 扫描超时：{float(device_cfg.get('brainco_scan_timeout_sec', 6.0))} 秒")
-        print(f"BrainCo 就绪超时：{float(device_cfg.get('brainco_ready_timeout_sec', 20.0))} 秒")
+        transport = str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
+        print(f"BrainCo 传输方式：{transport}")
+        if transport in {"bcigo", "lsl"}:
+            if transport == "bcigo":
+                print("BCIGo 模式：BCIGo 直接录制 EEG/EDF，本程序只发送 LSL Marker。")
+            else:
+                print(f"EEG LSL streamName：{device_cfg.get('brainco_lsl_stream_name') or '<按 EEG 类型自动匹配>'}")
+                print(f"BCIGo LSL streamType：{device_cfg.get('brainco_lsl_stream_type', 'EEG')}")
+                print(f"BCIGo LSL sourceId：{device_cfg.get('brainco_lsl_source_id') or '<未限定>'}")
+            print(f"实验 Marker streamName：{device_cfg.get('lsl_marker_stream_name', 'visual-video-task-Markers')}")
+            print(f"实验 Marker sourceId：{device_cfg.get('lsl_marker_source_id', 'visual-video-task-marker')}")
+        else:
+            print(f"BrainCo 自动发现：{bool(device_cfg.get('brainco_auto_discover', True))}")
+            print(f"BrainCo 手动地址：{device_cfg.get('brainco_addr') or '<未设置>'}")
+            print(f"BrainCo 手动端口：{device_cfg.get('brainco_port') or '<未设置>'}")
+            print(f"BrainCo 扫描超时：{float(device_cfg.get('brainco_scan_timeout_sec', 6.0))} 秒")
+            print(f"BrainCo 就绪超时：{float(device_cfg.get('brainco_ready_timeout_sec', 20.0))} 秒")
     elif selected == "neuracle":
         print(f"Neuracle 地址：{device_cfg.get('neuracle_host', '127.0.0.1')}")
         print(f"Neuracle 端口：{device_cfg.get('neuracle_port', 8712)}")
-    print("正在启动数据流并读取 1 秒脑电数据...")
+    marker_backend: Any | None = None
+    if (
+        selected == "brainco"
+        and str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
+        in {"bcigo", "lsl"}
+        and bool(device_cfg.get("lsl_marker_enabled", True))
+    ):
+        # Keep this reference alive for the whole preflight. BCIGo can scan and
+        # select the experiment Marker stream while we wait for its EEG stream.
+        marker_backend = build_marker_backend(config)
+        print("实验 Marker LSL 流已发布；现在可在 BCIGo 中点击“扫描”。")
+    if _uses_bcigo_external_recording(config):
+        print("正在等待 BCIGo 扫描并连接 Marker 流...")
+    else:
+        print("正在启动数据流并读取 1 秒脑电数据...")
     try:
-        info = _probe_eeg_connection(config)
+        info = (
+            _probe_bcigo_marker_connection(config, marker_backend=marker_backend)
+            if _uses_bcigo_external_recording(config)
+            else _probe_eeg_connection(config)
+        )
     except Exception as exc:
         print("\n脑电连接检查失败：")
         print(_format_eeg_error(exc, config))
@@ -1266,12 +1417,54 @@ def _run_eeg_cli_check(config: dict[str, Any], *, wait_for_enter: bool) -> int:
     print(f"设备：{info.get('device')}")
     print(f"通道数：{info.get('channels')}")
     print(f"采样率：{info.get('sfreq')} Hz")
-    print(f"样本数：{info.get('samples')}")
-    print(f"均值/标准差：{info.get('mean'):.3f} / {info.get('std'):.3f}")
+    if info.get("recording_mode") == "bcigo_external_edf":
+        print("EEG 录制：BCIGo 外部 EDF")
+        print(f"Marker 流：{info.get('marker_stream')}")
+        print("本程序不再等待不存在的 EEG LSL Outlet。")
+    else:
+        print(f"样本数：{info.get('samples')}")
+        if info.get("stream_identity"):
+            print(f"LSL 流：{info['stream_identity']}")
+        print(f"均值/标准差：{info.get('mean'):.3f} / {info.get('std'):.3f}")
     print("=" * 60)
     if wait_for_enter:
-        input("确认连接正常。按 Enter 启动 PsychoPy 实验窗口，或按 Ctrl+C 取消。")
+        input(
+            "确认 BCIGo 正在录制（可沿用上一 session 的连续录制）。"
+            "按 Enter 启动 PsychoPy 实验窗口，或按 Ctrl+C 取消。"
+        )
+    # Deliberately keep the marker outlet alive until after the optional prompt.
+    _ = marker_backend
     return 0
+
+
+def _probe_bcigo_marker_connection(
+    config: dict[str, Any],
+    *,
+    marker_backend: Any | None = None,
+) -> dict[str, Any]:
+    device_cfg = dict(config.get("device", {}))
+    backend = marker_backend or build_marker_backend(config)
+    if not hasattr(backend, "wait_for_consumers"):
+        raise RuntimeError("BCIGo 模式需要启用 LSL Marker。")
+    timeout_sec = float(device_cfg.get("bcigo_marker_wait_timeout_sec", 60.0))
+    if not backend.wait_for_consumers(timeout_sec):
+        raise RuntimeError(
+            "BCIGo 未连接实验 Marker 流。请在 BCIGo 的第三方软件页面点击扫描，"
+            "选择 visual-video-task-Markers。"
+        )
+    marker_stream = {
+        "name": str(device_cfg.get("lsl_marker_stream_name", "visual-video-task-Markers")),
+        "type": str(device_cfg.get("lsl_marker_stream_type", "Markers")),
+        "source_id": str(device_cfg.get("lsl_marker_source_id", "visual-video-task-marker")),
+    }
+    return {
+        "device": "brainco_bcigo",
+        "channels": 32,
+        "sfreq": float(config.get("sfreq", 250.0)),
+        "samples": None,
+        "recording_mode": "bcigo_external_edf",
+        "marker_stream": marker_stream,
+    }
 
 
 def _probe_eeg_connection(config: dict[str, Any], *, window_sec: float = 1.0, timeout_sec: float = 8.0) -> dict[str, Any]:
@@ -1289,6 +1482,7 @@ def _probe_eeg_connection(config: dict[str, Any], *, window_sec: float = 1.0, ti
             "channels": int(acquirer.metadata.n_channels),
             "sfreq": float(acquirer.metadata.sfreq),
             "samples": int(eeg.shape[1]),
+            "stream_identity": getattr(acquirer, "stream_identity", None),
             "mean": mean,
             "std": std,
         }
@@ -1329,6 +1523,36 @@ def _session_type_label(session_type: str) -> str:
 def _format_eeg_error(exc: Exception, config: dict[str, Any]) -> str:
     message = str(exc)
     device = str(config.get("device_type", "brainco")).strip().lower()
+    device_cfg = dict(config.get("device", {}))
+    brainco_transport = str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
+    if isinstance(exc, ModuleNotFoundError) and getattr(exc, "name", "") == "pylsl":
+        return (
+            "当前 PsychoPy 环境缺少 BCIGo LSL 依赖：pylsl。\n\n"
+            "请运行：python -m pip install pylsl"
+        )
+    if device == "brainco" and brainco_transport == "bcigo":
+        return (
+            f"BCIGo 尚未连接实验 Marker 流：{message}\n\n"
+            "处理方式：\n"
+            "1. 保持本命令运行；它正在发布 visual-video-task-Markers。\n"
+            "2. 在 BCIGo 的“第三方软件”页面点击扫描并选择该 Marker 流。\n"
+            "3. BCIGo 显示已连接后开始录制；程序会自动继续。\n"
+            "说明：BCIGo 直接录制 EEG/EDF，本程序不再等待 EEG LSL 流。"
+        )
+    if device == "brainco" and brainco_transport == "lsl" and (
+        "lsl" in message.lower() or "stream" in message.lower()
+    ):
+        return (
+            f"未能连接 BCIGo LSL 实时 EEG：{message}\n\n"
+            "处理方式：\n"
+            "1. 在 BCIGo 中连接脑电帽并开启“LSL 实时数据流”。\n"
+            "2. 确认 BCIGo 已开始实时转发 EEG，而不只是停留在设置页面。\n"
+            "3. 运行 --preflight-eeg --brainco-lsl-timeout 60；命令显示 Marker 已发布后，"
+            "在 BCIGo 中点击扫描并选择 visual-video-task-Markers。\n"
+            "4. 如果检测到多个 EEG 流，请用 "
+            "--brainco-lsl-name 和 --brainco-lsl-source-id 精确指定。\n"
+            "5. BCIGo 开始录制后，在命令行按 Enter 进入实验。"
+        )
     if isinstance(exc, ModuleNotFoundError) and getattr(exc, "name", "") == "bc_ecap_sdk":
         return (
             "当前 PsychoPy 运行环境缺少 BrainCo SDK：bc_ecap_sdk。\n\n"
@@ -1342,7 +1566,7 @@ def _format_eeg_error(exc: Exception, config: dict[str, Any]) -> str:
             "BrainCo SDK 加载失败：bc_ecap_sdk 不可用。\n\n"
             "请确认是在已安装 BrainCo SDK 的 PsychoPy 环境中运行。"
         )
-    if device == "brainco" and ("timed out" in message.lower() or "timeout" in message.lower()):
+    if device == "brainco" and brainco_transport == "sdk" and ("timed out" in message.lower() or "timeout" in message.lower()):
         return (
             f"BrainCo SDK 已加载，但设备连接或数据流启动超时：{message}\n\n"
             "处理方式：\n"
@@ -1351,7 +1575,7 @@ def _format_eeg_error(exc: Exception, config: dict[str, Any]) -> str:
             "3. 可临时把 device.brainco_scan_timeout_sec 调大到 15，把 device.brainco_ready_timeout_sec 调大到 30。\n"
             "4. 重新运行：python psychopy_image_b_experiment.py --eeg-check-only --real-eeg --device-type brainco。"
         )
-    if device == "brainco" and ("found no devices" in message.lower() or "auto-discovery" in message.lower()):
+    if device == "brainco" and brainco_transport == "sdk" and ("found no devices" in message.lower() or "auto-discovery" in message.lower()):
         port_hint = ""
         found_addr = re.search(r"device address '([^']+)' but no port", message)
         if found_addr:
@@ -1376,7 +1600,7 @@ def _format_eeg_error(exc: Exception, config: dict[str, Any]) -> str:
 
 def _doctor() -> int:
     checks: list[tuple[str, bool, str]] = []
-    for module_name in ["psychopy", "numpy", "yaml", "bc_ecap_sdk"]:
+    for module_name in ["psychopy", "numpy", "yaml", "pylsl", "bcigo_sdk", "bc_ecap_sdk"]:
         try:
             __import__(module_name)
             checks.append((module_name, True, "OK"))

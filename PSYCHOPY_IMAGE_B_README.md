@@ -38,3 +38,28 @@ python psychopy_image_b_experiment.py --max-trials 4 --windowed
 ```
 
 Press `Escape` to abort and export whatever has already been collected.
+
+## BrainCo BCIGo over LSL
+
+The default BrainCo transport is now BCIGo external EDF recording. BCIGo owns
+the EEG hardware connection; the experiment publishes the LSL Marker stream.
+BCIGo does not publish an EEG LSL Outlet in this workflow.
+
+1. Connect the cap in BCIGo and enable `LSL 实时数据流`.
+2. Run the command-line preflight below. It keeps the Marker stream alive while
+   waiting up to 60 seconds for BCIGo to subscribe.
+3. When the command says the Marker stream is published, scan for it in
+   BCIGo and select `visual-video-task-Markers` (source ID
+   `visual-video-task-marker`).
+4. Start recording once before the first session. Keep that recording running
+   across subsequent sessions, and stop it only after all sessions are complete.
+   The experiment never stops or copies BCIGo's EDF. Each local session stores
+   behavioral files and the event timeline, while `session_start` and
+   `session_end` markers delimit sessions in the shared EDF.
+
+```powershell
+D:\ProgramData\miniconda3\envs\psychopy_env\python.exe psychopy_image_b_experiment.py --preflight-eeg --real-eeg --device-type brainco --brainco-transport bcigo --brainco-lsl-timeout 60
+```
+
+Set `device.brainco_transport: lsl` only when another tool truly publishes an
+EEG LSL Outlet. Set it to `sdk` only for direct device access without BCIGo.

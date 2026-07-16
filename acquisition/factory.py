@@ -37,7 +37,8 @@ class AcquirerFactory:
     @classmethod
     def list_hardware_devices(cls) -> list[str]:
         """Real acquisition backends only (excludes the internal dummy backend)."""
-        return [name for name in cls.list_devices() if name != "dummy"]
+        hidden_backends = {"dummy", "brainco_lsl", "brainco_bcigo"}
+        return [name for name in cls.list_devices() if name not in hidden_backends]
 
 
 def register_default_acquirers() -> None:
@@ -48,8 +49,12 @@ def register_default_acquirers() -> None:
 
     from acquisition.brainco_acquirer import BrainCoAcquirer
     from acquisition.dummy_acquirer import DummyAcquirer #added
+    from acquisition.external_recorder_acquirer import ExternalRecorderAcquirer
+    from acquisition.lsl_acquirer import LSLAcquirer
     from acquisition.neuracle_acquirer import NeuracleAcquirer
 
     AcquirerFactory.register("brainco", BrainCoAcquirer)
+    AcquirerFactory.register("brainco_bcigo", ExternalRecorderAcquirer)
+    AcquirerFactory.register("brainco_lsl", LSLAcquirer)
     AcquirerFactory.register("dummy", DummyAcquirer) #added
     AcquirerFactory.register("neuracle", NeuracleAcquirer)

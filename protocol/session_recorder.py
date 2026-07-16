@@ -19,7 +19,7 @@ from acquisition.base import AbstractAcquirer
 @dataclass(slots=True)
 class SessionEvent:
     name: str
-    sample_index: int
+    sample_index: int | None
     relative_time_sec: float
     payload: dict[str, Any]
 
@@ -27,10 +27,18 @@ class SessionEvent:
 class SessionRecorder:
     """Collect continuous EEG and aligned events during one protocol session."""
 
-    def __init__(self, acquirer: AbstractAcquirer, *, sfreq: float, n_channels: int) -> None:
+    def __init__(
+        self,
+        acquirer: AbstractAcquirer,
+        *,
+        sfreq: float,
+        n_channels: int,
+        event_only: bool = False,
+    ) -> None:
         self._acquirer = acquirer
         self._sfreq = float(sfreq)
         self._n_channels = int(n_channels)
+        self._event_only = bool(event_only)
         self._chunks: list[np.ndarray] = []
         self._spool_path: Path | None = None
         self._spool_handle: Any | None = None
@@ -67,6 +75,8 @@ class SessionRecorder:
         return self._metadata_filename
 
     def pull(self) -> np.ndarray:
+        if self._event_only:
+            return np.empty((self._n_channels, 0), dtype=np.float32)
         samples, _timestamps = self._acquirer.get_new_samples()
         if samples.size == 0:
             return np.empty((self._n_channels, 0), dtype=np.float32)
@@ -88,6 +98,11 @@ class SessionRecorder:
         self._eeg_filename, self._events_filename, self._metadata_filename = self._part_filenames(
             self._part_index
         )
+        if self._event_only:
+            self._eeg_filename = ""
+            self._spool_path = None
+            self._spool_handle = None
+            return
         if self._part_index == 1:
             spool_name = ".continuous_eeg.f32.tmp"
         else:
@@ -99,7 +114,7 @@ class SessionRecorder:
         self._events.append(
             SessionEvent(
                 name=name,
-                sample_index=self._sample_count,
+                sample_index=None if self._event_only else self._sample_count,
                 relative_time_sec=time.monotonic() - self._started_at,
                 payload=dict(payload),
             )
@@ -107,17 +122,20 @@ class SessionRecorder:
 
     def export(self, output_dir: Path, *, metadata: dict[str, Any]) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            self.pull()
-        except BaseException:
-            # Preserve everything already spooled when acquisition has failed.
-            if self._sample_count <= 0:
-                raise
+        if not self._event_only:
+            try:
+                self.pull()
+            except BaseException:
+                # Preserve everything already spooled when acquisition has failed.
+                if self._sample_count <= 0:
+                    raise
         if self._spool_handle is not None:
             self._spool_handle.close()
             self._spool_handle = None
-        eeg_path = output_dir / self._eeg_filename
-        if self._spool_path is not None and self._spool_path.exists() and self._sample_count > 0:
+        eeg_path = output_dir / self._eeg_filename if self._eeg_filename else None
+        if self._event_only:
+            pass
+        elif self._spool_path is not None and self._spool_path.exists() and self._sample_count > 0:
             raw = np.memmap(self._spool_path, dtype=np.float32, mode="r", shape=(self._sample_count, self._n_channels))
             writing_path = output_dir / f".{self._eeg_filename}.{uuid4().hex}.writing"
             target = np.lib.format.open_memmap(
@@ -131,15 +149,18 @@ class SessionRecorder:
             target.flush()
             del target, raw
             try:
+                assert eeg_path is not None
                 os.link(writing_path, eeg_path)
             finally:
                 writing_path.unlink(missing_ok=True)
             self._spool_path.unlink()
         elif self._spool_path is not None and self._spool_path.exists():
+            assert eeg_path is not None
             with eeg_path.open("xb") as handle:
                 np.save(handle, np.empty((self._n_channels, 0), dtype=np.float32))
             self._spool_path.unlink()
         else:
+            assert eeg_path is not None
             with eeg_path.open("xb") as handle:
                 np.save(handle, self.to_array())
         with (output_dir / self._events_filename).open("x", encoding="utf-8") as handle:
@@ -148,11 +169,14 @@ class SessionRecorder:
         segment_metadata.update(
             {
                 "eeg_part": self._part_index,
-                "eeg_file": self._eeg_filename,
+                "eeg_file": self._eeg_filename or None,
                 "events_file": self._events_filename,
                 "metadata_file": self._metadata_filename,
                 "sample_count": self._sample_count,
-                "sample_index_origin": "segment_local",
+                "sample_index_origin": (
+                    "unavailable_external_recorder" if self._event_only else "segment_local"
+                ),
+                "local_eeg_recorded": not self._event_only,
             }
         )
         with (output_dir / self._metadata_filename).open("x", encoding="utf-8") as handle:
@@ -218,7 +242,7 @@ class SessionRecorder:
             {
                 "part": self._part_index,
                 "status": "finalized",
-                "eeg_file": self._eeg_filename,
+                "eeg_file": self._eeg_filename or None,
                 "events_file": self._events_filename,
                 "metadata_file": self._metadata_filename,
                 "sample_count": self._sample_count,
@@ -227,7 +251,10 @@ class SessionRecorder:
                 "start_trial": metadata.get("segment_start_trial"),
                 "end_trial": metadata.get("segment_end_trial"),
                 "termination_reason": metadata.get("termination_reason"),
-                "sample_index_origin": "segment_local",
+                "sample_index_origin": (
+                    "unavailable_external_recorder" if self._event_only else "segment_local"
+                ),
+                "local_eeg_recorded": not self._event_only,
             }
         )
         segments.sort(key=lambda item: int(item.get("part", 0)))

@@ -121,6 +121,63 @@ class TriggerBoxMarkerBackend(MarkerBackend):
         self._trigger_box.output_event_data(int(label))
 
 
+class LSLMarkerBackend(MarkerBackend):
+    """Publish integer experiment markers for BCIGo/LabRecorder."""
+
+    def __init__(
+        self,
+        stream_name: str = "visual-video-task-Markers",
+        stream_type: str = "Markers",
+        source_id: str = "visual-video-task-marker",
+    ) -> None:
+        from pylsl import StreamInfo, StreamOutlet
+
+        info = StreamInfo(
+            str(stream_name).strip() or "visual-video-task-Markers",
+            str(stream_type).strip() or "Markers",
+            1,
+            0.0,
+            "int32",
+            str(source_id).strip() or "visual-video-task-marker",
+        )
+        channels = info.desc().append_child("channels")
+        channels.append_child("channel").append_child_value("label", "event_code")
+        self._outlet = StreamOutlet(info)
+
+    def send(self, label: int, timestamp: float | None = None) -> None:
+        if timestamp is None:
+            self._outlet.push_sample([int(label)])
+        else:
+            self._outlet.push_sample([int(label)], float(timestamp))
+
+    def have_consumers(self) -> bool:
+        """Return whether BCIGo (or another recorder) subscribed to this stream."""
+
+        return bool(self._outlet.have_consumers())
+
+    def wait_for_consumers(self, timeout_sec: float) -> bool:
+        """Wait until BCIGo has selected and opened the Marker stream."""
+
+        return bool(self._outlet.wait_for_consumers(float(timeout_sec)))
+
+
+class CompositeMarkerBackend(MarkerBackend):
+    """Fan one marker out to multiple synchronized sinks."""
+
+    def __init__(self, *backends: MarkerBackend) -> None:
+        self._backends = tuple(backends)
+
+    def send(self, label: int, timestamp: float | None = None) -> None:
+        for backend in self._backends:
+            backend.send(label, timestamp=timestamp)
+
+    def wait_for_consumers(self, timeout_sec: float) -> bool:
+        waitable = [
+            backend for backend in self._backends if hasattr(backend, "wait_for_consumers")
+        ]
+        return all(backend.wait_for_consumers(timeout_sec) for backend in waitable)
+
+
 class LSLCommandOutlet:
     """LSL stream used to publish decoded MI commands."""
 

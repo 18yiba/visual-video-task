@@ -140,6 +140,7 @@ class EegSessionManager:
         records_dir: Path,
         subject_id: str,
         session_id: int,
+        record_local_eeg: bool = True,
     ) -> None:
         self._acquirer = acquirer
         self._marker_backend = marker_backend
@@ -147,10 +148,12 @@ class EegSessionManager:
         self._records_dir = records_dir
         self._subject_id = subject_id
         self._session_id = int(session_id)
+        self._record_local_eeg = bool(record_local_eeg)
         self._recorder = SessionRecorder(
             acquirer,
             sfreq=self._sfreq,
             n_channels=int(acquirer.metadata.n_channels),
+            event_only=not self._record_local_eeg,
         )
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -214,12 +217,18 @@ class EegSessionManager:
                 / session_folder
                 / self._session_stamp
             )
-        self._acquirer.start_stream()
+        if self._record_local_eeg:
+            self._acquirer.start_stream()
         self._recorder.start_spooling(self._session_dir)
         self._stop_event.clear()
         self._background_error = None
-        self._thread = threading.Thread(target=self._pull_loop, name="video-eeg-pull", daemon=True)
-        self._thread.start()
+        if self._record_local_eeg:
+            self._thread = threading.Thread(
+                target=self._pull_loop,
+                name="video-eeg-pull",
+                daemon=True,
+            )
+            self._thread.start()
         self._running = True
         self.emit("session_start", subject_id=self._subject_id, session_id=self._session_id)
         return self._session_dir
@@ -278,12 +287,13 @@ class EegSessionManager:
             self._thread.join(timeout=2.0)
             self._thread = None
 
-        try:
-            self._recorder.pull()
-        except BaseException as exc:
-            if self._background_error is None:
-                self._background_error = exc
-        self._acquirer.stop_stream()
+        if self._record_local_eeg:
+            try:
+                self._recorder.pull()
+            except BaseException as exc:
+                if self._background_error is None:
+                    self._background_error = exc
+            self._acquirer.stop_stream()
         self._running = False
 
         if self._session_dir is None:
@@ -299,7 +309,8 @@ class EegSessionManager:
             "eeg_session_dir": str(self._session_dir),
             "trigger_codes": dict(PROTOCOL_EVENT_CODES),
             "eeg_part": self._recorder.part_index,
-            "eeg_file": self._recorder.eeg_filename,
+            "eeg_file": self._recorder.eeg_filename or None,
+            "local_eeg_recorded": self._record_local_eeg,
             "events_file": self._recorder.events_filename,
             "metadata_file": self._recorder.metadata_filename,
         }

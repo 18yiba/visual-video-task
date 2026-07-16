@@ -21,7 +21,14 @@ from acquisition.factory import AcquirerFactory, register_default_acquirers
 from protocol.video_protocol import EegSessionManager, VideoProtocolConfig, build_playlist_from_config
 from utils.video_library import serialize_playlist
 from tasks.task_factory import load_task_from_config
-from utils.markers import TRIGGER_REFERENCE, TriggerBoxMarkerBackend, NoOpMarkerBackend
+from utils.markers import (
+    TRIGGER_REFERENCE,
+    CompositeMarkerBackend,
+    LSLMarkerBackend,
+    MarkerBackend,
+    NoOpMarkerBackend,
+    TriggerBoxMarkerBackend,
+)
 
 LOGGER = logging.getLogger(__name__)
 CONSOLE = Console()
@@ -59,6 +66,17 @@ _DEFAULT_CONFIG_TEMPLATE: dict[str, Any] = {
         "brainco_gain": 6,
         "brainco_signal_source": "NORMAL",
         "brainco_device_id": "eeg-cap",
+        "brainco_transport": "bcigo",
+        "bcigo_marker_wait_timeout_sec": 60.0,
+        "brainco_lsl_stream_name": "",
+        "brainco_lsl_stream_type": "EEG",
+        "brainco_lsl_source_id": "",
+        "brainco_lsl_resolve_timeout_sec": 15.0,
+        "brainco_lsl_ready_timeout_sec": 10.0,
+        "lsl_marker_enabled": True,
+        "lsl_marker_stream_name": "visual-video-task-Markers",
+        "lsl_marker_stream_type": "Markers",
+        "lsl_marker_source_id": "visual-video-task-marker",
         "trigger_serial_port": "",
     },
     "storage": {
@@ -162,24 +180,68 @@ def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
     if device_name == "neuracle":
         kwargs["neuracle_host"] = str(device_cfg.get("neuracle_host", "127.0.0.1"))
         kwargs["neuracle_port"] = int(device_cfg.get("neuracle_port", 8712))
+    factory_name = device_name
     if device_name == "brainco":
-        kwargs["brainco_addr"] = str(device_cfg.get("brainco_addr", ""))
-        kwargs["brainco_port"] = int(device_cfg.get("brainco_port", 0))
-        kwargs["auto_discover"] = bool(device_cfg.get("brainco_auto_discover", True))
-        kwargs["scan_timeout_sec"] = float(device_cfg.get("brainco_scan_timeout_sec", 6.0))
-        kwargs["ready_timeout_sec"] = float(device_cfg.get("brainco_ready_timeout_sec", 20.0))
-        kwargs["start_retries"] = int(device_cfg.get("brainco_start_retries", 2))
-        kwargs["eeg_gain"] = int(device_cfg.get("brainco_gain", 6))
-        kwargs["signal_source"] = str(device_cfg.get("brainco_signal_source", "NORMAL"))
-        kwargs["device_id"] = str(device_cfg.get("brainco_device_id", "eeg-cap"))
-    return AcquirerFactory.create(device_name, **kwargs)
+        transport = str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
+        if transport == "bcigo":
+            factory_name = "brainco_bcigo"
+            kwargs["backend_name"] = "brainco_bcigo"
+        elif transport == "lsl":
+            factory_name = "brainco_lsl"
+            kwargs.update(
+                {
+                    "stream_name": str(device_cfg.get("brainco_lsl_stream_name", "")),
+                    "stream_type": str(device_cfg.get("brainco_lsl_stream_type", "EEG")),
+                    "source_id": str(device_cfg.get("brainco_lsl_source_id", "")),
+                    "resolve_timeout_sec": float(
+                        device_cfg.get("brainco_lsl_resolve_timeout_sec", 15.0)
+                    ),
+                    "ready_timeout_sec": float(
+                        device_cfg.get("brainco_lsl_ready_timeout_sec", 10.0)
+                    ),
+                    "backend_name": "brainco_lsl",
+                }
+            )
+        elif transport == "sdk":
+            kwargs["brainco_addr"] = str(device_cfg.get("brainco_addr", ""))
+            kwargs["brainco_port"] = int(device_cfg.get("brainco_port", 0))
+            kwargs["auto_discover"] = bool(device_cfg.get("brainco_auto_discover", True))
+            kwargs["scan_timeout_sec"] = float(device_cfg.get("brainco_scan_timeout_sec", 6.0))
+            kwargs["ready_timeout_sec"] = float(device_cfg.get("brainco_ready_timeout_sec", 20.0))
+            kwargs["start_retries"] = int(device_cfg.get("brainco_start_retries", 2))
+            kwargs["eeg_gain"] = int(device_cfg.get("brainco_gain", 6))
+            kwargs["signal_source"] = str(device_cfg.get("brainco_signal_source", "NORMAL"))
+            kwargs["device_id"] = str(device_cfg.get("brainco_device_id", "eeg-cap"))
+        else:
+            raise ValueError("device.brainco_transport must be 'bcigo', 'lsl', or 'sdk'.")
+    return AcquirerFactory.create(factory_name, **kwargs)
 
 
 def build_marker_backend(config: dict[str, Any]) -> Any:
-    serial_port = str(config.get("device", {}).get("trigger_serial_port", "")).strip()
+    device_cfg = dict(config.get("device", {}))
+    backends: list[MarkerBackend] = []
+    serial_port = str(device_cfg.get("trigger_serial_port", "")).strip()
     if serial_port:
-        return TriggerBoxMarkerBackend(serial_port)
-    return NoOpMarkerBackend()
+        backends.append(TriggerBoxMarkerBackend(serial_port))
+    brainco_marker = (
+        str(config.get("device_type", "")).strip().lower() == "brainco"
+        and str(device_cfg.get("brainco_transport", "sdk")).strip().lower() in {"bcigo", "lsl"}
+    )
+    if bool(device_cfg.get("lsl_marker_enabled", brainco_marker)):
+        backends.append(
+            LSLMarkerBackend(
+                stream_name=str(
+                    device_cfg.get("lsl_marker_stream_name", "visual-video-task-Markers")
+                ),
+                stream_type=str(device_cfg.get("lsl_marker_stream_type", "Markers")),
+                source_id=str(device_cfg.get("lsl_marker_source_id", "visual-video-task-marker")),
+            )
+        )
+    if not backends:
+        return NoOpMarkerBackend()
+    if len(backends) == 1:
+        return backends[0]
+    return CompositeMarkerBackend(*backends)
 
 
 @click.group(invoke_without_command=True)
@@ -268,6 +330,15 @@ def dry_run(app: AppContext, trials: int) -> None:
         records_dir=records_dir,
         subject_id=str(config["subject_id"]),
         session_id=int(config.get("session_id", 1)),
+        record_local_eeg=(
+            not (
+                str(config.get("device_type", "")).strip().lower() == "brainco"
+                and str(config.get("device", {}).get("brainco_transport", "sdk"))
+                .strip()
+                .lower()
+                == "bcigo"
+            )
+        ),
     )
     session_dir = manager.start(metadata={"dry_run": True, "trials": trials})
     app.console.print(f"[cyan]Session started[/cyan] {session_dir}")

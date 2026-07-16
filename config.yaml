@@ -42,6 +42,19 @@ device:
   brainco_gain: 6
   brainco_signal_source: NORMAL
   brainco_device_id: eeg-cap
+  # bcigo: BCIGo records EEG/EDF and consumes our LSL markers (recommended).
+  # lsl: only use if a separate tool really publishes an EEG LSL Outlet; sdk: direct device access.
+  brainco_transport: bcigo
+  bcigo_marker_wait_timeout_sec: 60.0
+  brainco_lsl_stream_name: ''
+  brainco_lsl_stream_type: EEG
+  brainco_lsl_source_id: ''
+  brainco_lsl_resolve_timeout_sec: 15.0
+  brainco_lsl_ready_timeout_sec: 10.0
+  lsl_marker_enabled: true
+  lsl_marker_stream_name: visual-video-task-Markers
+  lsl_marker_stream_type: Markers
+  lsl_marker_source_id: visual-video-task-marker
   trigger_serial_port: ''
 storage:
   records_dir: records_storage
