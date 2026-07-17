@@ -156,7 +156,11 @@ def build_marker_backend(config: dict[str, Any]) -> Any:
         and str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
         in {"bcigo", "lsl"}
     )
-    if bool(device_cfg.get("lsl_marker_enabled", brainco_marker)):
+    # The LSL marker outlet belongs to the BrainCo/BCIGo transport only.
+    # Neuracle keeps using its Collect/JellyFish TCP forwarding path (and an
+    # optional serial trigger box) even when the shared config enables BCIGo
+    # markers.
+    if brainco_marker and bool(device_cfg.get("lsl_marker_enabled", True)):
         marker_identity = (
             str(device_cfg.get("lsl_marker_stream_name", "visual-video-task-Markers")),
             str(device_cfg.get("lsl_marker_stream_type", "Markers")),
