@@ -419,16 +419,30 @@ class DataServerThread:
     Users only need to call this class.
     """
 
-    def __init__(self, sample_rate: int = 1000, t_buffer: float = 60):
+    def __init__(
+        self,
+        sample_rate: int = 1000,
+        t_buffer: float = 60,
+        enable_save_buffer: bool = True,
+        record_timestamps: bool = True,
+    ):
         """
         Initialize.
         :param sample_rate: Sampling rate
         :param t_buffer: Buffer length (seconds)
+        :param enable_save_buffer: Keep the legacy full-session verification
+            buffer used by ``save()``. Disable when another recorder already
+            persists the EEG stream.
+        :param record_timestamps: Keep the legacy unbounded packet timestamp
+            history used by ``save_timeStamp()``.
         """
         # Sampling rate
         self.sample_rate = sample_rate
         # Buffer length (seconds)
         self.t_buffer = t_buffer
+        self.enable_save_buffer = bool(enable_save_buffer)
+        self.record_timestamps = bool(record_timestamps)
+        self.save_buffer = None
         # Initialize as not connected
         self.state = ConnectState.NOTCONNECT
         # Transition period to stabilize data before formally receiving
@@ -757,8 +771,11 @@ class DataServerThread:
                 nChans = len(self.channelNames)
                 # Initialize RingBuffer
                 self.buffer = RingBuffer(nChans, nPoints)
-                # DoubleBuffer stores data for correctness verification
-                self.save_buffer = DoubleBuffer(nChans, nPoints)
+                # Optional legacy full-session buffer used only by save().
+                # The experiment recorder has its own incremental spool and
+                # disables this duplicate, unbounded temporary-file path.
+                if self.enable_save_buffer:
+                    self.save_buffer = DoubleBuffer(nChans, nPoints)
                 # Send metadata received OK confirmation packet
                 succ = bytes.fromhex('F55F5FF5')
                 self.sock.send(succ)
@@ -793,17 +810,18 @@ class DataServerThread:
                 if self.state == ConnectState.RUNNING:
                     # Append data to RingBuffer
                     self.buffer.appendBuffer(tempBuf)
-                    # Also append to DoubleBuffer for verification
-                    self.save_buffer.appendBuffer(tempBuf)
+                    # Also append to the optional legacy save buffer.
+                    if self.save_buffer is not None:
+                        self.save_buffer.appendBuffer(tempBuf)
                     # Timestamp
-                    self.timeStamp['data'].append(dataStruct['startTimeStamp'])
+                    self._record_timestamp('data', dataStruct['startTimeStamp'])
             # Per-module forwarding requires packet assembly
             else:
                 sn = list(dataStruct['modules'].keys())[0]
                 # Trigger channel has SN=0
                 if sn == 0:
                     # Accumulate trigger timestamps
-                    self.timeStamp['trigger'].append(dataStruct['startTimeStamp'])
+                    self._record_timestamp('trigger', dataStruct['startTimeStamp'])
                     # Cache trigger packet
                     self.single_module_trigger_buffer.append(dataStruct)
                     # Output received trigger packet info
@@ -813,7 +831,7 @@ class DataServerThread:
                 else:
                     self.isDataPacketLost(dataStruct)
                     # Accumulate data packet timestamps
-                    self.timeStamp['data'].append(dataStruct['startTimeStamp'])
+                    self._record_timestamp('data', dataStruct['startTimeStamp'])
                     # Cache data packet
                     self.single_module_data_buffer.append(dataStruct)
                 # Assemble packets when cache is full
@@ -900,8 +918,9 @@ class DataServerThread:
         # Send the assembled packet into the buffer
         if self.state == ConnectState.RUNNING:
             self.buffer.appendBuffer(temp_buffer)
-            # Also send to save_buffer for correctness verification
-            self.save_buffer.appendBuffer(temp_buffer)
+            # Also send to the optional legacy save buffer.
+            if self.save_buffer is not None:
+                self.save_buffer.appendBuffer(temp_buffer)
         # Clear cached data packets
         self.single_module_data_buffer = []
 
@@ -952,6 +971,11 @@ class DataServerThread:
         """
         return self.buffer.nUpdate
 
+    def _record_timestamp(self, kind, value):
+        """Record legacy packet history only when explicitly enabled."""
+        if self.record_timestamps:
+            self.timeStamp[kind].append(value)
+
     def ResetDataLenCount(self):
         """
         Reset the count of updated data points.
@@ -973,6 +997,11 @@ class DataServerThread:
         return self.buffer.getData()
 
     def getSaveDataBuffer(self):
+        if self.save_buffer is None:
+            raise RuntimeError(
+                "Legacy full-session save buffer is disabled; use the experiment "
+                "SessionRecorder output instead."
+            )
         temBuf = self.save_buffer.getData()
         return temBuf
 

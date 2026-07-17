@@ -42,7 +42,15 @@ class NeuracleAcquirer(AbstractAcquirer):
             # Defensive cleanup to avoid leaking a previous connection state.
             self.stop_stream()
 
-        self._server = DataServerThread(sample_rate=self._sample_rate, t_buffer=self._buffer_sec)
+        # SessionRecorder already spools every new EEG chunk to disk. Disable
+        # the legacy DataServerThread copies that otherwise retain an
+        # ever-growing timestamp list and one open temporary file per buffer.
+        self._server = DataServerThread(
+            sample_rate=self._sample_rate,
+            t_buffer=self._buffer_sec,
+            enable_save_buffer=False,
+            record_timestamps=False,
+        )
         not_connected = self._server.connect(hostname=self._host, port=self._port)
         if not_connected:
             self._server = None
