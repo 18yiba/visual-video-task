@@ -82,6 +82,19 @@ def load_config(path: Path) -> dict[str, Any]:
     return config
 
 
+def _fullscreen_display() -> tuple[int, tuple[int, int] | None]:
+    """Return the extended display when available, otherwise the primary one."""
+    try:
+        import pyglet
+
+        screens = pyglet.canvas.get_display().get_screens()
+        screen_index = 1 if len(screens) > 1 else 0
+        screen = screens[screen_index]
+        return screen_index, (int(screen.width), int(screen.height))
+    except (AttributeError, ImportError, OSError):
+        return 0, None
+
+
 def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
     from acquisition.factory import AcquirerFactory, register_default_acquirers
 
@@ -281,7 +294,18 @@ def main(argv: list[str] | None = None) -> int:
         config["timestamp_label"] = str(
             resume_state.get("timestamp_label") or Path(resume_state["source_dir"]).parent.name
         )
-    win = visual.Window(fullscr=exp_info["fullscreen"], color=BACKGROUND, units="height", allowGUI=not exp_info["fullscreen"])
+    window_kwargs: dict[str, Any] = {
+        "fullscr": exp_info["fullscreen"],
+        "color": BACKGROUND,
+        "units": "height",
+        "allowGUI": not exp_info["fullscreen"],
+    }
+    if exp_info["fullscreen"]:
+        screen_index, screen_size = _fullscreen_display()
+        window_kwargs["screen"] = screen_index
+        if screen_size is not None:
+            window_kwargs["size"] = screen_size
+    win = visual.Window(**window_kwargs)
     runner = ImageBRunner(
         win=win,
         mouse=event.Mouse(win=win),
