@@ -322,33 +322,11 @@ sfreq: 250.0
 device:
   neuracle_host: 127.0.0.1
   neuracle_port: 8712
-  trigger_serial_port: auto
-  trigger_serial_timeout_sec: 1.5
 ```
-
-`trigger_serial_port: auto` 会枚举 Windows 当前可见的 COM 口，并通过 Neuracle 协议读取设备名称和设备信息。若实验电脑连接了多个串口设备，可以把该值改为 `COM3`，也可以在检查命令中临时传入 `--trigger-serial-port COM3`。波特率固定为 115200。
-
-### 7.1 单独检查 TriggerBox
-
-TriggerBox 接入并在 Windows 设备管理器中出现 COM 口后，先运行：
-
-```powershell
-& $PY psychopy_image_b_experiment.py --triggerbox-check-only
-```
-
-检查会读取设备名称和固件信息，然后发送测试事件码 254，并要求 TriggerBox 返回成功响应。该命令不连接 JellyFish，因此可把串口问题和 EEG 转发问题分开检查。存在多个 COM 口时运行：
-
-```powershell
-& $PY psychopy_image_b_experiment.py `
-  --triggerbox-check-only `
-  --trigger-serial-port COM3
-```
-
-如果显示“未检测到任何COM口”，说明问题发生在 Windows 识别层，需要检查 TriggerBox 供电、USB 数据线和 USB 串口驱动；此时修改程序内的端口号不能建立连接。如果显示“未找到可响应Neuracle协议的TriggerBox”，说明 COM 口存在，但所选端口不是 TriggerBox、端口被其他程序占用，或设备没有按 Neuracle TriggerBox 协议响应。
 
 程序当前按 64 个 EEG 通道读取。JellyFish 转发的通道数必须不少于 64，采样率必须与 `sfreq` 一致。
 
-### 7.2 检查 JellyFish 端口
+### 7.1 先检查端口
 
 本机 JellyFish：
 
@@ -364,7 +342,7 @@ Test-NetConnection -ComputerName 'JellyFish电脑IP' -Port 8712
 
 `TcpTestSucceeded` 应为 `True`。
 
-### 7.3 同时检查 EEG 与 TriggerBox
+### 7.2 只做 EEG 联通检查
 
 ```powershell
 & $PY psychopy_image_b_experiment.py `
@@ -373,9 +351,9 @@ Test-NetConnection -ComputerName 'JellyFish电脑IP' -Port 8712
   --device-type neuracle
 ```
 
-预检会先完成 TriggerBox 协议握手和测试事件码 254 回读，再调用 `connect(JellyFish所在电脑IP, 端口)` 连接 JellyFish、等待流元数据，并读取约 1 秒 EEG。默认端口为 8712；IP 和端口分别来自 `device.neuracle_host` 与 `device.neuracle_port`。
+预检会连接 JellyFish、等待流元数据，并读取约 1 秒 EEG，输出通道数、采样率、样本数、均值和标准差。
 
-### 7.4 联通后进入正式实验
+### 7.3 联通后进入正式实验
 
 ```powershell
 & $PY psychopy_image_b_experiment.py `
@@ -384,7 +362,7 @@ Test-NetConnection -ComputerName 'JellyFish电脑IP' -Port 8712
   --device-type neuracle
 ```
 
-### 7.5 修改远程地址
+### 7.4 修改远程地址
 
 PsychoPy 入口目前没有独立的 `--neuracle-host`/`--neuracle-port` 参数。远程连接请先复制完整配置，再修改其中的 Neuracle 地址：
 
@@ -502,8 +480,6 @@ device:
   lsl_marker_source_id: visual-video-task-marker
   neuracle_host: 127.0.0.1
   neuracle_port: 8712
-  trigger_serial_port: auto
-  trigger_serial_timeout_sec: 1.5
 
 storage:
   records_dir: records_storage

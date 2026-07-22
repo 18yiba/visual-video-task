@@ -166,20 +166,9 @@ def build_marker_backend(config: dict[str, Any]) -> Any:
 
     device_cfg = dict(config.get("device", {}))
     backends: list[Any] = []
-    serial_port = str(device_cfg.get("trigger_serial_port", "auto")).strip() or "auto"
-    trigger_timeout = float(device_cfg.get("trigger_serial_timeout_sec", 1.5))
-    is_real_neuracle = (
-        str(config.get("device_type", "")).strip().lower() == "neuracle"
-        and not bool(config.get("hardware_dummy_mode", False))
-    )
-    if is_real_neuracle:
-        backends.append(
-            TriggerBoxMarkerBackend(serial_port, timeout_sec=trigger_timeout)
-        )
-    elif serial_port.lower() != "auto":
-        backends.append(
-            TriggerBoxMarkerBackend(serial_port, timeout_sec=trigger_timeout)
-        )
+    serial_port = str(device_cfg.get("trigger_serial_port", "")).strip()
+    if serial_port:
+        backends.append(TriggerBoxMarkerBackend(serial_port))
     brainco_marker = (
         str(config.get("device_type", "")).strip().lower() == "brainco"
         and str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
@@ -250,18 +239,7 @@ def parse_args(argv: list[str] | None = None, *, behavior_only: bool = False) ->
             default=0.0,
             help="等待 BCIGo Marker 消费者或 EEG LSL 流的超时时间，单位秒。",
         )
-        parser.add_argument(
-            "--trigger-serial-port",
-            type=str,
-            default="",
-            help="Neuracle TriggerBox串口，例如COM3；留空使用config.yaml，auto表示自动探测。",
-        )
         parser.add_argument("--eeg-check-only", action="store_true", help="只在命令行检查脑电连接，检查结束后退出。")
-        parser.add_argument(
-            "--triggerbox-check-only",
-            action="store_true",
-            help="只检查Neuracle TriggerBox串口、协议握手和测试码254，随后退出。",
-        )
         parser.add_argument("--preflight-eeg", action="store_true", help="启动 PsychoPy 窗口前先在命令行检查脑电连接。")
     return parser.parse_args(argv)
 
@@ -277,10 +255,6 @@ def main(argv: list[str] | None = None, *, behavior_only: bool = False) -> int:
     config["collection_phase"] = "behavior_rating" if behavior_only else "eeg_repeat"
     if not behavior_only:
         _apply_cli_eeg_overrides(config, args)
-    if bool(getattr(args, "triggerbox_check_only", False)):
-        config["device_type"] = "neuracle"
-        config["hardware_dummy_mode"] = False
-        return _run_triggerbox_cli_check(config)
     if bool(getattr(args, "eeg_check_only", False)):
         return _run_eeg_cli_check(config, wait_for_enter=False)
     if bool(getattr(args, "preflight_eeg", False)):
@@ -1895,8 +1869,6 @@ def _apply_cli_eeg_overrides(config: dict[str, Any], args: argparse.Namespace) -
     if float(getattr(args, "brainco_lsl_timeout", 0.0) or 0.0) > 0:
         device_cfg["brainco_lsl_resolve_timeout_sec"] = float(args.brainco_lsl_timeout)
         device_cfg["bcigo_marker_wait_timeout_sec"] = float(args.brainco_lsl_timeout)
-    if str(getattr(args, "trigger_serial_port", "")).strip():
-        device_cfg["trigger_serial_port"] = str(args.trigger_serial_port).strip()
     config["device"] = device_cfg
 
 
@@ -1909,28 +1881,6 @@ def _uses_bcigo_external_recording(config: dict[str, Any]) -> bool:
         == "bcigo"
     )
 
-
-def _run_triggerbox_cli_check(config: dict[str, Any]) -> int:
-    device_cfg = dict(config.get("device", {}))
-    print("=" * 60)
-    print("Neuracle TriggerBox联通检查")
-    print(f"Python：{sys.executable}")
-    print(f"串口配置：{device_cfg.get('trigger_serial_port', 'auto') or 'auto'}")
-    print("波特率：115200")
-    try:
-        info = _probe_neuracle_triggerbox(config)
-    except Exception as exc:
-        print("\nTriggerBox联通检查失败：")
-        print(str(exc))
-        print("=" * 60)
-        return 1
-    print("\nTriggerBox联通检查通过：")
-    print(f"实际串口：{info['trigger_box_port']}")
-    print(f"设备名称：{info['trigger_box_device_name']}")
-    print(f"设备信息：{info['trigger_box_device_info']}")
-    print(f"测试事件码：{info['trigger_box_probe_code']}（设备已确认）")
-    print("=" * 60)
-    return 0
 
 def _run_eeg_cli_check(config: dict[str, Any], *, wait_for_enter: bool) -> int:
     selected = "dummy" if bool(config.get("hardware_dummy_mode", False)) else str(config.get("device_type", "brainco"))
@@ -2001,9 +1951,6 @@ def _run_eeg_cli_check(config: dict[str, Any], *, wait_for_enter: bool) -> int:
         if info.get("stream_identity"):
             print(f"LSL 流：{info['stream_identity']}")
         print(f"均值/标准差：{info.get('mean'):.3f} / {info.get('std'):.3f}")
-        if info.get("trigger_box_port"):
-            print(f"TriggerBox：{info['trigger_box_port']} / {info.get('trigger_box_device_name')}")
-            print(f"TriggerBox测试事件码：{info.get('trigger_box_probe_code')}（设备已确认）")
     print("=" * 60)
     if wait_for_enter:
         input(
@@ -2048,7 +1995,6 @@ def _probe_bcigo_marker_connection(
 def _probe_eeg_connection(config: dict[str, Any], *, window_sec: float = 1.0, timeout_sec: float = 8.0) -> dict[str, Any]:
     acquirer: Any | None = None
     try:
-        trigger_summary = _probe_neuracle_triggerbox(config)
         acquirer = build_acquirer(device_name=str(config.get("device_type", "brainco")), config=config)
         acquirer.start_stream()
         eeg = _wait_for_probe_chunk(acquirer, window_sec=window_sec, timeout_sec=timeout_sec)
@@ -2064,7 +2010,6 @@ def _probe_eeg_connection(config: dict[str, Any], *, window_sec: float = 1.0, ti
             "stream_identity": getattr(acquirer, "stream_identity", None),
             "mean": mean,
             "std": std,
-            **trigger_summary,
         }
     finally:
         if acquirer is not None:
@@ -2072,31 +2017,6 @@ def _probe_eeg_connection(config: dict[str, Any], *, window_sec: float = 1.0, ti
                 acquirer.stop_stream()
             except Exception:
                 pass
-
-
-def _probe_neuracle_triggerbox(config: dict[str, Any]) -> dict[str, Any]:
-    if bool(config.get("hardware_dummy_mode", False)) or str(config.get("device_type", "")).strip().lower() != "neuracle":
-        return {}
-    from utils.markers import PROTOCOL_EVENT_CODES, TriggerBoxMarkerBackend
-
-    if not all(1 <= int(code) <= 255 for code in PROTOCOL_EVENT_CODES.values()):
-        raise RuntimeError("实验事件码超出Neuracle TriggerBox的1-255范围。")
-    device_config = dict(config.get("device", {}))
-    serial_port = str(device_config.get("trigger_serial_port", "auto")).strip() or "auto"
-    timeout_sec = float(device_config.get("trigger_serial_timeout_sec", 1.5))
-    backend = TriggerBoxMarkerBackend(serial_port, timeout_sec=timeout_sec)
-    try:
-        backend.send(254)
-        return {
-            "trigger_box_port": backend.serial_port,
-            "trigger_box_baudrate": backend.BAUDRATE,
-            "trigger_box_device_name": backend.device_name,
-            "trigger_box_device_info": backend.device_info,
-            "trigger_box_probe_code": 254,
-            "trigger_box_probe_success": True,
-        }
-    finally:
-        backend.close()
 
 
 def _wait_for_probe_chunk(acquirer: Any, *, window_sec: float, timeout_sec: float) -> np.ndarray:
@@ -2194,12 +2114,6 @@ def _format_eeg_error(exc: Exception, config: dict[str, Any]) -> str:
             "请确认脑电帽已开机、网络可达；如果知道设备 IP/端口，请写入 config.yaml 的 "
             "device.brainco_addr 和 device.brainco_port。"
             f"{port_hint}"
-        )
-    if device == "neuracle" and "triggerbox" in message.lower():
-        return (
-            f"Neuracle TriggerBox联通失败：{message}\n\n"
-            "请先运行 --triggerbox-check-only。若未检测到COM口，请检查设备供电、USB数据线和串口驱动；"
-            "若存在多个COM口，可用 --trigger-serial-port COM3 显式指定。"
         )
     if device == "neuracle" and ("connection" in message.lower() or "refused" in message.lower() or "timed out" in message.lower()):
         return (

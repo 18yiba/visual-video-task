@@ -13,7 +13,6 @@ from threading import Thread, Lock
 from struct import unpack
 import numpy as np
 import tempfile
-from pyedflib import highlevel
 import pickle
 
 

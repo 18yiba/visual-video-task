@@ -97,6 +97,12 @@ class NeuracleAcquirer(AbstractAcquirer):
     def get_chunk(self, window_sec: float) -> EEGChunk:
         if self._server is None:
             raise RuntimeError("Neuracle stream is not started")
+        required = int(window_sec * self.metadata.sfreq)
+        available = int(self._server.GetDataLenCount())
+        if available < required:
+            raise RuntimeError(
+                f"Not enough live Neuracle samples: {available} < {required}"
+            )
         data = self._server.GetBufferData()
         if data.ndim != 2:
             raise RuntimeError(f"Unexpected Neuracle buffer shape: {data.shape}")
@@ -104,7 +110,6 @@ class NeuracleAcquirer(AbstractAcquirer):
             raise RuntimeError(
                 f"Forwarded channel count {data.shape[0]} is lower than configured {self.metadata.n_channels}"
             )
-        required = int(window_sec * self.metadata.sfreq)
         if data.shape[1] < required:
             raise RuntimeError(f"Not enough data in ring buffer: {data.shape[1]} < {required}")
         eeg = np.asarray(data[: self.metadata.n_channels, -required:], dtype=np.float32)
