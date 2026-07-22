@@ -59,6 +59,10 @@ class ExperimentAbort(Exception):
     """Raised when the operator presses Escape."""
 
 
+class MemorySafetyAbort(Exception):
+    """Raised after progress is saved when process memory becomes unsafe."""
+
+
 def resolve_config_path(config_path: Path | None = None) -> Path:
     if config_path is not None:
         return Path(config_path).expanduser().resolve()
@@ -361,7 +365,10 @@ def main(argv: list[str] | None = None, *, behavior_only: bool = False) -> int:
     try:
         runner.run()
     finally:
-        win.close()
+        try:
+            runner.release_visual_resources()
+        finally:
+            win.close()
     core.quit()
     return 0
 
@@ -497,6 +504,18 @@ class ImageBRunner:
         self.completed = False
         self.termination_reason = "running"
         self._run_traceback = ""
+        self._memory_samples: list[dict[str, Any]] = []
+        self._memory_baseline_rss_mb: float | None = None
+        self._memory_pressure_count = 0
+        self._psutil: Any | None = None
+        if bool(protocol_value(config, "memory_monitor_enabled", True)):
+            try:
+                import psutil
+
+                self._psutil = psutil
+                self._memory_baseline_rss_mb = self._process_rss_mb()
+            except (ImportError, OSError):
+                self._psutil = None
         self.connection_summary: dict[str, Any] = {}
         self.session_dir: Path | None = None
         self.rng = random.Random(int(self.playlist_metadata.get("random_seed", 17)) + int(config.get("session_id", 1)))
@@ -513,6 +532,70 @@ class ImageBRunner:
         )
         self.fixation = visual.TextStim(self.win, text="+", color=FOREGROUND, font=FONT_NAME, height=0.09)
         self.placeholder = visual.TextStim(self.win, text="图片文件缺失", color=MUTED, font=FONT_NAME, height=0.04, wrapWidth=1.2)
+        self._image_display_stim: Any | None = None
+        self._build_reusable_stimuli()
+
+    def _build_reusable_stimuli(self) -> None:
+        """Create frequently redrawn PsychoPy/OpenGL objects only once."""
+
+        self._rating_prompt_stim = visual.TextStim(
+            self.win, text="", color=FOREGROUND, font=FONT_NAME,
+            height=0.032, wrapWidth=1.2, pos=(0, 0.25),
+        )
+        self._rating_hint_stim = visual.TextStim(
+            self.win, text="", color=MUTED, font=FONT_NAME,
+            height=0.024, pos=(0, 0.16),
+        )
+        self._rating_boxes: list[Any] = []
+        self._rating_numbers: list[Any] = []
+        self._rating_labels: list[Any] = []
+        for value, x_pos in zip(RATING_VALUES, [-0.42, -0.21, 0.0, 0.21, 0.42]):
+            self._rating_boxes.append(
+                visual.Rect(
+                    self.win, width=0.15, height=0.12, pos=(x_pos, -0.02),
+                    fillColor="#111827", lineColor="#475569", lineWidth=2,
+                )
+            )
+            self._rating_numbers.append(
+                visual.TextStim(
+                    self.win, text=str(value), color=FOREGROUND,
+                    font=FONT_NAME, height=0.042, pos=(x_pos, 0.0),
+                )
+            )
+            self._rating_labels.append(
+                visual.TextStim(
+                    self.win, text="", color=MUTED, font=FONT_NAME,
+                    height=0.018, wrapWidth=0.18, pos=(x_pos, -0.13),
+                )
+            )
+        self._practice_progress_stim = visual.TextStim(
+            self.win, text="", color=MUTED, font=FONT_NAME,
+            height=0.022, pos=(0, 0.34),
+        )
+        self._attention_title_stim = visual.TextStim(
+            self.win, text="刚才的图片中是否有人物？", color=FOREGROUND,
+            font=FONT_NAME, height=0.036, pos=(0, 0.16),
+        )
+        self._attention_left_stim = visual.TextStim(
+            self.win, text="F = 否", color=FOREGROUND,
+            font=FONT_NAME, height=0.034, pos=(-0.24, -0.03),
+        )
+        self._attention_right_stim = visual.TextStim(
+            self.win, text="J = 是", color=FOREGROUND,
+            font=FONT_NAME, height=0.034, pos=(0.24, -0.03),
+        )
+        self._attention_footer_stim = visual.TextStim(
+            self.win, text="", color=MUTED, font=FONT_NAME,
+            height=0.024, pos=(0, -0.20),
+        )
+        self._subtitle_stim = visual.TextStim(
+            self.win, text="", color=MUTED, font=FONT_NAME,
+            height=0.026, wrapWidth=1.2, pos=(0, -0.08),
+        )
+        self._attention_confirm_stim = visual.TextStim(
+            self.win, text="", color=MUTED, font=FONT_NAME,
+            height=0.024, pos=(0, -0.22),
+        )
 
     def run(self) -> None:
         try:
@@ -535,6 +618,14 @@ class ImageBRunner:
             self._run_formal()
             self.completed = True
             self.termination_reason = "completed"
+        except MemorySafetyAbort as exc:
+            self.termination_reason = "memory_safety_abort"
+            self._run_traceback = str(exc)
+            self._show_text(
+                "检测到内存压力持续超过安全阈值。已保存刚完成试次的数据，程序将安全退出；下次可从断点继续。",
+                wait_for_key=False,
+                duration=2.0,
+            )
         except ExperimentAbort:
             self.termination_reason = "operator_abort"
             self._show_text("实验已中止，正在保存已采集的数据。", wait_for_key=False, duration=1.0)
@@ -622,6 +713,9 @@ class ImageBRunner:
             output_dir=resume_output_dir,
         )
         self._write_resume_manifest(session_dir)
+        if self.resume_state:
+            # Promote a legacy checkpoint before the participant resumes.
+            self._write_resume_checkpoint()
 
     def _check_eeg_connection(self) -> dict[str, Any]:
         try:
@@ -866,17 +960,21 @@ class ImageBRunner:
             )
         )
         self._write_resume_checkpoint()
+        self._check_memory_safety(trial.trial_idx)
 
     def _write_resume_checkpoint(self) -> None:
         manager = self._require_manager()
         if manager.session_dir is None:
             return
-        events = list(getattr(manager.recorder, "events", []))
-        ratings, trials, trial_columns = build_output_rows(self.rating_rows, self.trial_rows, events)
-        write_rows_csv(manager.session_dir / ".trial_log.checkpoint.csv", trials, trial_columns)
+        # Keep the hot-path checkpoint linear in completed rows. Event enrichment is
+        # intentionally deferred to final export; resume only needs raw completed rows.
+        trials = [dict(row) for row in self.trial_rows]
+        trial_columns = list(trials[0].keys()) if trials else []
+        write_rows_csv(manager.session_dir / "trial_log.csv", trials, trial_columns)
         if str(self.config.get("session_type")) == "labeling":
+            ratings = [dict(row) for row in self.rating_rows]
             columns = list(ratings[0].keys()) if ratings else []
-            write_rows_csv(manager.session_dir / ".behavioral_ratings.checkpoint.csv", ratings, columns)
+            write_rows_csv(manager.session_dir / "behavioral_ratings.csv", ratings, columns)
 
     def _run_rating_trial(
         self,
@@ -970,6 +1068,8 @@ class ImageBRunner:
                     selected = min(5, selected + 1)
                 elif key_name == "space":
                     break
+            else:
+                core.wait(0.005)
         offset = time.perf_counter()
         self.win.callOnFlip(
             manager.emit,
@@ -1017,6 +1117,8 @@ class ImageBRunner:
                     response_mode="keyboard",
                     rt_ms=rt_ms,
                 )
+            else:
+                core.wait(0.005)
         timed_out = response is None
         if timed_out:
             response = False
@@ -1148,8 +1250,8 @@ class ImageBRunner:
             self.message.pos = (0, 0.05)
             self.message.draw()
         if subtitle:
-            sub = visual.TextStim(self.win, text=subtitle, color=MUTED, font=FONT_NAME, height=0.026, wrapWidth=1.2, pos=(0, -0.08))
-            sub.draw()
+            self._subtitle_stim.text = subtitle
+            self._subtitle_stim.draw()
         self._schedule_callbacks(on_start)
         self.win.flip()
         core.wait(max(0.0, duration_sec))
@@ -1182,42 +1284,21 @@ class ImageBRunner:
         )
 
     def _draw_rating_controls(self, dimension: dict[str, Any], selected: int, *, hint: str) -> None:
-        prompt = visual.TextStim(
-            self.win,
-            text=str(dimension["prompt"]),
-            color=FOREGROUND,
-            font=FONT_NAME,
-            height=0.032,
-            wrapWidth=1.2,
-            pos=(0, 0.25),
-        )
-        prompt.draw()
-        hint = visual.TextStim(
-            self.win,
-            text=hint,
-            color=MUTED,
-            font=FONT_NAME,
-            height=0.024,
-            pos=(0, 0.16),
-        )
-        hint.draw()
+        self._rating_prompt_stim.text = str(dimension["prompt"])
+        self._rating_hint_stim.text = hint
+        self._rating_prompt_stim.draw()
+        self._rating_hint_stim.draw()
         levels = tuple(dimension.get("levels", ("1", "2", "3", "4", "5")))
-        for value, x_pos in zip(RATING_VALUES, [-0.42, -0.21, 0.0, 0.21, 0.42]):
-            fill = SELECTED if value == selected else "#111827"
-            border = ACCENT if value == selected else "#475569"
-            box = visual.Rect(self.win, width=0.15, height=0.12, pos=(x_pos, -0.02), fillColor=fill, lineColor=border, lineWidth=2)
+        for index, value in enumerate(RATING_VALUES):
+            box = self._rating_boxes[index]
+            number = self._rating_numbers[index]
+            label = self._rating_labels[index]
+            box.fillColor = SELECTED if value == selected else "#111827"
+            box.lineColor = ACCENT if value == selected else "#475569"
+            label.text = str(levels[value - 1])
+            label.color = FOREGROUND if value == selected else MUTED
             box.draw()
-            number = visual.TextStim(self.win, text=str(value), color=FOREGROUND, font=FONT_NAME, height=0.042, pos=(x_pos, 0.0))
             number.draw()
-            label = visual.TextStim(
-                self.win,
-                text=str(levels[value - 1]),
-                color=FOREGROUND if value == selected else MUTED,
-                font=FONT_NAME,
-                height=0.018,
-                wrapWidth=0.18,
-                pos=(x_pos, -0.13),
-            )
             label.draw()
 
     def _practice_rating_item(self, dimension: dict[str, Any], item_index: int, total_items: int) -> None:
@@ -1231,15 +1312,8 @@ class ImageBRunner:
                 selected,
                 hint=f"练习操作：F 向左，J 向右。当前选择为 {selected}。按空格键进入下一步。",
             )
-            progress = visual.TextStim(
-                self.win,
-                text=f"评分题 {item_index}/{total_items} ：{label}",
-                color=MUTED,
-                font=FONT_NAME,
-                height=0.022,
-                pos=(0, 0.34),
-            )
-            progress.draw()
+            self._practice_progress_stim.text = f"评分题 {item_index}/{total_items} ：{label}"
+            self._practice_progress_stim.draw()
             self.win.flip()
             keys = self.keyboard.getKeys(["f", "j", "space"], waitRelease=False, clear=True)
             if not keys:
@@ -1260,15 +1334,8 @@ class ImageBRunner:
         while True:
             self._check_abort()
             self._draw_attention_screen()
-            footer = visual.TextStim(
-                self.win,
-                text=response_text or "请按 F 或 J 作答。",
-                color=MUTED,
-                font=FONT_NAME,
-                height=0.024,
-                pos=(0, -0.20),
-            )
-            footer.draw()
+            self._attention_footer_stim.text = response_text or "请按 F 或 J 作答。"
+            self._attention_footer_stim.draw()
             self.win.flip()
             keys = self.keyboard.getKeys(["f", "j"], waitRelease=False, clear=True)
             if not keys:
@@ -1276,26 +1343,16 @@ class ImageBRunner:
                 continue
             response_text = "已选择：否" if keys[-1].name.lower() == "f" else "已选择：是"
             self._draw_attention_screen()
-            confirm = visual.TextStim(
-                self.win,
-                text=f"{response_text}\n\n按空格键继续。",
-                color=MUTED,
-                font=FONT_NAME,
-                height=0.024,
-                pos=(0, -0.22),
-            )
-            confirm.draw()
+            self._attention_confirm_stim.text = f"{response_text}\n\n按空格键继续。"
+            self._attention_confirm_stim.draw()
             self.win.flip()
             self._wait_for_space()
             return
 
     def _draw_attention_screen(self) -> None:
-        title = visual.TextStim(self.win, text="刚才的图片中是否有人物？", color=FOREGROUND, font=FONT_NAME, height=0.036, pos=(0, 0.16))
-        left = visual.TextStim(self.win, text="F = 否", color=FOREGROUND, font=FONT_NAME, height=0.034, pos=(-0.24, -0.03))
-        right = visual.TextStim(self.win, text="J = 是", color=FOREGROUND, font=FONT_NAME, height=0.034, pos=(0.24, -0.03))
-        title.draw()
-        left.draw()
-        right.draw()
+        self._attention_title_stim.draw()
+        self._attention_left_stim.draw()
+        self._attention_right_stim.draw()
 
     def _attention_key_response(self) -> bool | None:
         keys = self.keyboard.getKeys(["f", "j"], waitRelease=False, clear=True)
@@ -1307,13 +1364,19 @@ class ImageBRunner:
         path = image_path(self.config, asset, base_dir=self.project_dir)
         if not path.exists() or not path.is_file():
             return None
-        return visual.ImageStim(
-            self.win,
-            image=str(path),
-            size=self._contained_image_size(path),
-            interpolate=True,
-            units="height",
-        )
+        size = self._contained_image_size(path)
+        if self._image_display_stim is None:
+            self._image_display_stim = visual.ImageStim(
+                self.win,
+                image=str(path),
+                size=size,
+                interpolate=True,
+                units="height",
+            )
+        else:
+            self._image_display_stim.setImage(str(path), log=False)
+            self._image_display_stim.size = size
+        return self._image_display_stim
 
     def _contained_image_size(self, path: Path) -> tuple[float, float]:
         try:
@@ -1386,6 +1449,93 @@ class ImageBRunner:
             raise RuntimeError("脑电 session 尚未启动。")
         return self.manager
 
+    def _process_rss_mb(self) -> float:
+        if self._psutil is None:
+            return 0.0
+        return float(self._psutil.Process(os.getpid()).memory_info().rss) / (1024.0 * 1024.0)
+
+    def _check_memory_safety(self, trial_idx: int) -> None:
+        """Persist bounded diagnostics and stop safely before memory exhaustion."""
+        if self._psutil is None:
+            return
+        interval = max(1, int(protocol_value(self.config, "memory_check_every_trials", 5)))
+        if trial_idx % interval != 0 and trial_idx != len(self.trials):
+            return
+        rss_mb = self._process_rss_mb()
+        baseline_mb = self._memory_baseline_rss_mb or rss_mb
+        growth_mb = max(0.0, rss_mb - baseline_mb)
+        available_mb = float(self._psutil.virtual_memory().available) / (1024.0 * 1024.0)
+        manager = self._require_manager()
+        event_count = int(manager.recorder.event_count)
+        sample = {
+            "trial_idx": int(trial_idx),
+            "time_monotonic_sec": time.monotonic(),
+            "rss_mb": round(rss_mb, 2),
+            "rss_growth_mb": round(growth_mb, 2),
+            "system_available_mb": round(available_mb, 2),
+            "event_count": event_count,
+            "rating_rows": len(self.rating_rows),
+            "trial_rows": len(self.trial_rows),
+        }
+        self._memory_samples.append(sample)
+        max_samples = max(4, (len(self.trials) // interval) + 2)
+        if len(self._memory_samples) > max_samples:
+            del self._memory_samples[:-max_samples]
+        if manager.session_dir is not None:
+            write_rows_csv(
+                manager.session_dir / "memory_usage.csv",
+                self._memory_samples,
+                list(sample.keys()),
+            )
+        max_rows = len(self.trials)
+        max_events = int(protocol_value(self.config, "memory_max_events", 50000))
+        structural_overflow = (
+            len(self.rating_rows) > max_rows
+            or len(self.trial_rows) > max_rows
+            or event_count > max_events
+        )
+        pressure = (
+            rss_mb >= float(protocol_value(self.config, "memory_max_rss_mb", 4096.0))
+            or growth_mb >= float(protocol_value(self.config, "memory_max_growth_mb", 2048.0))
+            or available_mb <= float(protocol_value(self.config, "memory_min_available_mb", 768.0))
+        )
+        self._memory_pressure_count = self._memory_pressure_count + 1 if pressure else 0
+        if structural_overflow or self._memory_pressure_count >= 2 or available_mb <= 256.0:
+            raise MemorySafetyAbort(
+                f"trial={trial_idx}, rss_mb={rss_mb:.1f}, growth_mb={growth_mb:.1f}, "
+                f"available_mb={available_mb:.1f}, events={event_count}, "
+                f"rating_rows={len(self.rating_rows)}, trial_rows={len(self.trial_rows)}"
+            )
+
+    def release_visual_resources(self) -> None:
+        """Release PsychoPy textures while the OpenGL context is still alive."""
+        stimuli = [
+            self._image_display_stim,
+            self.message,
+            self.fixation,
+            self.placeholder,
+            self._rating_prompt_stim,
+            self._rating_hint_stim,
+            self._practice_progress_stim,
+            self._attention_title_stim,
+            self._attention_left_stim,
+            self._attention_right_stim,
+            self._attention_footer_stim,
+            self._subtitle_stim,
+            self._attention_confirm_stim,
+            *self._rating_boxes,
+            *self._rating_numbers,
+            *self._rating_labels,
+        ]
+        for stimulus in stimuli:
+            clear_textures = getattr(stimulus, "clearTextures", None)
+            if callable(clear_textures):
+                try:
+                    clear_textures()
+                except Exception:
+                    pass
+        self._image_display_stim = None
+
     def _stop_and_export(self) -> Path | None:
         if self.manager is None:
             return None
@@ -1429,6 +1579,7 @@ class ImageBRunner:
         for checkpoint in (
             session_dir / ".trial_log.checkpoint.csv",
             session_dir / ".behavioral_ratings.checkpoint.csv",
+            session_dir / ".behavioral_rating.checkpoint.csv",
             session_dir / ".resume_manifest.json",
         ):
             if checkpoint.exists():
@@ -1461,6 +1612,9 @@ def find_resume_state(
             *subject_root.rglob("eeg_segments.json"),
             *subject_root.rglob("metadata.json"),
             *subject_root.rglob(".resume_manifest.json"),
+            *subject_root.rglob(".trial_log.checkpoint.csv"),
+            *subject_root.rglob(".behavioral_ratings.checkpoint.csv"),
+            *subject_root.rglob(".behavioral_rating.checkpoint.csv"),
         ],
         key=lambda path: path.stat().st_mtime,
         reverse=True,
@@ -1472,10 +1626,19 @@ def find_resume_state(
         if session_dir in visited_dirs:
             continue
         visited_dirs.add(session_dir)
-        try:
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError, TypeError):
-            continue
+        if metadata_path.suffix.lower() == ".csv":
+            metadata = {
+                "task_mode": "image_b",
+                "image_set_label": image_set_label,
+                "session_id": int(session_id),
+                "completed": False,
+                "image_trials": len(trials),
+            }
+        else:
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError):
+                continue
         if str(metadata.get("task_mode", "")).lower() != "image_b":
             continue
         if normalize_image_set_label(str(metadata.get("image_set_label", "default"))) != image_set_label:
@@ -1484,10 +1647,26 @@ def find_resume_state(
             continue
         if int(metadata.get("image_trials", len(trials))) != len(trials):
             continue
-        trial_path = session_dir / "trial_log.csv"
-        if not trial_path.exists():
-            trial_path = session_dir / ".trial_log.checkpoint.csv"
-        trial_rows = _read_csv_rows(trial_path)
+        rating_source_rows: list[dict[str, Any]] = []
+        for rating_path in (
+            session_dir / "behavioral_ratings.csv",
+            session_dir / ".behavioral_ratings.checkpoint.csv",
+            session_dir / ".behavioral_rating.checkpoint.csv",
+        ):
+            rating_source_rows = _read_csv_rows(rating_path)
+            if rating_source_rows:
+                break
+        trial_rows: list[dict[str, Any]] = []
+        for trial_path in (
+            session_dir / "trial_log.csv",
+            session_dir / ".trial_log.checkpoint.csv",
+        ):
+            trial_rows = _read_csv_rows(trial_path)
+            if trial_rows:
+                break
+        if not trial_rows and int(session_id) == 1:
+            # Older rating-only builds sometimes saved only the behavioral checkpoint.
+            trial_rows = [dict(row) for row in rating_source_rows]
         by_index: dict[int, dict[str, Any]] = {}
         compatible = True
         for row in trial_rows:
@@ -1507,13 +1686,11 @@ def find_resume_state(
             completed_trial += 1
         if completed_trial >= len(trials):
             continue
-        rating_path = session_dir / "behavioral_ratings.csv"
-        if not rating_path.exists():
-            rating_path = session_dir / ".behavioral_ratings.checkpoint.csv"
         completed_rows = [by_index[idx] for idx in range(1, completed_trial + 1)]
         default_eeg_file = (
             None
-            if str(metadata.get("eeg_recording_mode", "")) == "bcigo_external_edf"
+            if int(session_id) == 1
+            or str(metadata.get("eeg_recording_mode", "")) in {"none", "bcigo_external_edf"}
             else "continuous_eeg.npy"
         )
         for row in completed_rows:
@@ -1522,7 +1699,7 @@ def find_resume_state(
             if not row.get("eeg_file") and default_eeg_file:
                 row["eeg_file"] = default_eeg_file
         completed_ids = {str(idx) for idx in range(1, completed_trial + 1)}
-        rating_rows = [row for row in _read_csv_rows(rating_path) if str(row.get("trial_idx")) in completed_ids]
+        rating_rows = [row for row in rating_source_rows if str(row.get("trial_idx")) in completed_ids]
         for row in rating_rows:
             if not row.get("eeg_part"):
                 row["eeg_part"] = 1

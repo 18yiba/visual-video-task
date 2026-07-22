@@ -542,7 +542,19 @@ metadata_part_002.json
 (n_channels, n_samples), float32
 ```
 
-### 10.2 BCIGo 外部录制模式
+### 10.2 行为评分中断恢复
+
+评分程序每完成一张图片就原子更新 `behavioral_ratings.csv` 和 `trial_log.csv`。旧版本强制退出后可能只留下 `.behavioral_ratings.checkpoint.csv` 或 `.behavioral_rating.checkpoint.csv`；两种名称都支持恢复。
+
+恢复前先备份整个 session 目录，不要单独移动 checkpoint、`.resume_manifest.json` 或被试图片清单。使用相同项目配置和相同被试编号重新运行 `psychopy_image_b_rating.py`，程序会显示已完成的 trial 和下一 trial，并在继续前把旧 checkpoint 恢复为正式 CSV。完成剩余图片后，最终文件会包含恢复前后的全部评分。
+
+检查 checkpoint 行数时可运行：
+
+```powershell
+(Import-Csv -LiteralPath '完整路径\.behavioral_rating.checkpoint.csv').Count
+```
+
+### 10.3 BCIGo 外部录制模式
 
 项目 session 目录保存：
 
@@ -669,3 +681,13 @@ Test-NetConnection -ComputerName 127.0.0.1 -Port 8712
 - Neuracle 模式确认 JellyFish 正在转发且端口可达。
 - 检查采样率和通道数是否匹配。
 - 全部 session 结束后停止 BCIGo，并核对各 session 行为/事件目录与连续 EDF 是否存在。
+
+## 运行时内存与稳定性保护
+
+rating 与 repetition 共用同一个稳定性实现。图片和评分控件在窗口创建后复用，程序不再为每个评分刷新帧或每张图片持续创建新的 PsychoPy 刺激对象；窗口关闭前会主动释放图片纹理。repetition 的连续 EEG 数据直接写入临时文件，内存中不保存整段 EEG，临时文件按固定周期刷新以避免高频磁盘同步造成界面阻塞。
+
+程序每完成 5 张图片会在当前 session 目录原子更新 `memory_usage.csv`，记录进程 RSS、相对启动时的增长量、系统剩余可用内存、事件数和完成行数。若内存压力连续两次超过配置阈值，或检测到结果行数、事件数异常增长，程序会在本张图片的 `behavioral_ratings.csv` 与 `trial_log.csv` 已经保存后安全退出，随后可按原被试编码从断点继续。
+
+稳定性阈值位于 `config.yaml` 的 `protocol` 节点，包括 `memory_check_every_trials`、`memory_max_rss_mb`、`memory_max_growth_mb`、`memory_min_available_mb` 和 `memory_max_events`。正式实验电脑的 `psychopy_env` 必须包含 `psutil`；项目依赖已声明 `psutil>=5.9`。
+
+逐张 CSV 保存使用临时文件与原子替换，并针对 Windows 杀毒软件或索引器造成的短暂文件锁自动重试。实验运行期间不要使用 Excel、WPS 或其他会独占文件的程序打开当前 session 的 `behavioral_ratings.csv`、`trial_log.csv` 或 `memory_usage.csv`；需要查看时应复制文件后打开副本。

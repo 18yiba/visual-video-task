@@ -614,6 +614,18 @@ def build_output_rows(
     return ratings_with_events, enriched_trials, ordered_trial_columns()
 
 
+def _atomic_replace_with_retry(source: Path, target: Path, *, attempts: int = 12) -> None:
+    """Replace a file atomically, tolerating short-lived Windows scanner locks."""
+    for attempt in range(max(1, attempts)):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt + 1 >= attempts:
+                raise
+            time.sleep(min(0.05 * (attempt + 1), 0.5))
+
+
 def write_rows_csv(path: Path, rows: list[dict[str, Any]], columns: list[str]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     extra: list[str] = []
@@ -630,7 +642,7 @@ def write_rows_csv(path: Path, rows: list[dict[str, Any]], columns: list[str]) -
             writer.writerows(rows)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temp_path, path)
+        _atomic_replace_with_retry(temp_path, path)
     finally:
         temp_path.unlink(missing_ok=True)
     return path

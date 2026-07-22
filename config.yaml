@@ -47,6 +47,13 @@ protocol:
   image_blank_sec: 0.5
   image_rating_item_min_sec: 3.0
   image_rating_item_max_sec: 4.0
+  # Runtime stability guard; checked after atomic trial progress has been saved.
+  memory_monitor_enabled: true
+  memory_check_every_trials: 5
+  memory_max_rss_mb: 4096
+  memory_max_growth_mb: 2048
+  memory_min_available_mb: 768
+  memory_max_events: 50000
 device:
   neuracle_host: 127.0.0.1
   neuracle_port: 8712

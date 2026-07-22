@@ -42,6 +42,8 @@ class SessionRecorder:
         self._chunks: list[np.ndarray] = []
         self._spool_path: Path | None = None
         self._spool_handle: Any | None = None
+        self._last_spool_flush = time.monotonic()
+        self._spool_flush_interval_sec = 1.0
         self._part_index = 0
         self._eeg_filename = ""
         self._events_filename = ""
@@ -57,6 +59,10 @@ class SessionRecorder:
     @property
     def events(self) -> list[SessionEvent]:
         return list(self._events)
+
+    @property
+    def event_count(self) -> int:
+        return len(self._events)
 
     @property
     def part_index(self) -> int:
@@ -85,7 +91,10 @@ class SessionRecorder:
         eeg = np.asarray(samples[: self._n_channels], dtype=np.float32)
         if self._spool_handle is not None:
             np.ascontiguousarray(eeg.T).tofile(self._spool_handle)
-            self._spool_handle.flush()
+            now = time.monotonic()
+            if now - self._last_spool_flush >= self._spool_flush_interval_sec:
+                self._spool_handle.flush()
+                self._last_spool_flush = now
         else:
             self._chunks.append(eeg.copy())
         self._sample_count += int(eeg.shape[1])
@@ -109,6 +118,7 @@ class SessionRecorder:
             spool_name = f".continuous_eeg_part_{self._part_index:03d}.f32.tmp"
         self._spool_path = output_dir / spool_name
         self._spool_handle = self._spool_path.open("xb")
+        self._last_spool_flush = time.monotonic()
 
     def add_event(self, name: str, **payload: Any) -> None:
         self._events.append(
@@ -130,6 +140,7 @@ class SessionRecorder:
                 if self._sample_count <= 0:
                     raise
         if self._spool_handle is not None:
+            self._spool_handle.flush()
             self._spool_handle.close()
             self._spool_handle = None
         eeg_path = output_dir / self._eeg_filename if self._eeg_filename else None
