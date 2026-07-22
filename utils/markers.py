@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import socket
+import struct
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -113,16 +114,104 @@ class NoOpMarkerBackend(MarkerBackend):
 
 
 class TriggerBoxMarkerBackend(MarkerBackend):
-    """Serial trigger backend built from the legacy collect integration."""
+    """Neuracle TriggerBox serial backend with handshake and response checks."""
 
-    def __init__(self, serial_port: str) -> None:
-        from collect.triggerBox import TriggerBox
+    DEVICE_ID = 1
+    BAUDRATE = 115200
+    DEVICE_NAME_GET = 4
+    DEVICE_INFO_GET = 3
+    OUTPUT_EVENT_DATA = 225
+    ERROR_RESPONSE = 131
 
-        self._trigger_box = TriggerBox(serial_port)
+    def __init__(self, serial_port: str = "auto", *, timeout_sec: float = 1.5) -> None:
+        import serial
+        import serial.tools.list_ports
+
+        configured = str(serial_port or "auto").strip()
+        ports = list(serial.tools.list_ports.comports())
+        candidates = [port.device for port in ports] if configured.lower() == "auto" else [configured]
+        if not candidates:
+            raise RuntimeError(
+                "未检测到任何COM口，无法连接Neuracle TriggerBox。请检查USB数据线、设备供电和USB串口驱动。"
+            )
+
+        self._serial: serial.Serial | None = None
+        self.serial_port = ""
+        self.device_name = ""
+        self.device_info: dict[str, int] = {}
+        errors: list[str] = []
+        available = {port.device: port.description for port in ports}
+        for candidate in candidates:
+            try:
+                self._serial = serial.Serial(
+                    candidate,
+                    baudrate=self.BAUDRATE,
+                    timeout=float(timeout_sec),
+                    write_timeout=float(timeout_sec),
+                )
+                self.serial_port = candidate
+                name_payload = self._transact(self.DEVICE_NAME_GET)
+                self.device_name = name_payload.rstrip(b"\x00").decode("utf-8", errors="replace")
+                info = self._transact(self.DEVICE_INFO_GET, b"\x01")
+                if len(info) < 8:
+                    raise RuntimeError(f"设备信息响应过短：{len(info)}字节")
+                self.device_info = {
+                    "hardware_version": int(info[0]),
+                    "firmware_version": int(info[1]),
+                    "sensor_count": int(info[2]),
+                    "device_id": int.from_bytes(info[4:8], byteorder="big"),
+                }
+                return
+            except Exception as exc:
+                errors.append(f"{candidate} ({available.get(candidate, 'unknown')}): {exc}")
+                self.close()
+        raise RuntimeError("未找到可响应Neuracle协议的TriggerBox。" + "；".join(errors))
 
     def send(self, label: int, timestamp: float | None = None) -> None:
         del timestamp
-        self._trigger_box.output_event_data(int(label))
+        value = int(label)
+        if not 1 <= value <= 255:
+            raise ValueError(f"TriggerBox事件码必须在1-255之间：{value}")
+        response = self._transact(self.OUTPUT_EVENT_DATA, bytes([value]))
+        if not response or int(response[0]) != self.OUTPUT_EVENT_DATA:
+            raise RuntimeError(f"TriggerBox未确认事件码{value}，响应={response!r}")
+
+    def close(self) -> None:
+        connection = self._serial
+        self._serial = None
+        if connection is not None and connection.is_open:
+            connection.close()
+
+    def _transact(self, function_id: int, payload: bytes = b"") -> bytes:
+        connection = self._serial
+        if connection is None or not connection.is_open:
+            raise RuntimeError("TriggerBox串口未打开")
+        frame = struct.pack("<BBH", self.DEVICE_ID, int(function_id), len(payload)) + payload
+        connection.reset_input_buffer()
+        connection.write(frame)
+        connection.flush()
+        header = self._read_exact(4)
+        device_id, response_function, payload_size = struct.unpack("<BBH", header)
+        if device_id != self.DEVICE_ID:
+            raise RuntimeError(f"TriggerBox设备ID不匹配：{device_id}")
+        response_payload = self._read_exact(payload_size)
+        if response_function == self.ERROR_RESPONSE:
+            error_code = int(response_payload[0]) if response_payload else -1
+            raise RuntimeError(f"TriggerBox返回错误码：{error_code}")
+        if response_function != int(function_id):
+            raise RuntimeError(
+                f"TriggerBox功能码不匹配：请求{function_id}，响应{response_function}"
+            )
+        return response_payload
+
+    def _read_exact(self, size: int) -> bytes:
+        connection = self._serial
+        if connection is None:
+            raise RuntimeError("TriggerBox串口未打开")
+        data = connection.read(int(size))
+        if len(data) != int(size):
+            raise TimeoutError(f"TriggerBox响应超时：需要{size}字节，收到{len(data)}字节")
+        return data
 
 
 class LSLMarkerBackend(MarkerBackend):

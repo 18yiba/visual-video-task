@@ -174,7 +174,13 @@ class SessionRecorder:
                 "metadata_file": self._metadata_filename,
                 "sample_count": self._sample_count,
                 "sample_index_origin": (
-                    "unavailable_external_recorder" if self._event_only else "segment_local"
+                    (
+                        "not_applicable_behavior_only"
+                        if str(segment_metadata.get("eeg_recording_mode", "")) == "none"
+                        else "unavailable_external_recorder"
+                    )
+                    if self._event_only
+                    else "segment_local"
                 ),
                 "local_eeg_recorded": not self._event_only,
             }

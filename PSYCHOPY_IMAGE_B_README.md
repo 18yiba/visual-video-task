@@ -1,7 +1,13 @@
-# PsychoPy Image_B EEG Runner
+# PsychoPy Image_B behavioral rating and EEG runners
 
-This runner implements the current `image_b` image EEG paradigm in a standalone
-PsychoPy script:
+The current design uses two standalone PsychoPy entry points. Behavioral rating
+does not connect to EEG hardware or publish external markers:
+
+```powershell
+python psychopy_image_b_rating.py
+```
+
+EEG repeated viewing is run separately:
 
 ```powershell
 python psychopy_image_b_experiment.py
@@ -12,7 +18,8 @@ PsychoPy Standalone/Runner, then install this project's hardware dependencies
 into that PsychoPy environment if you need real BrainCo or Neuracle acquisition.
 For a separate Python environment, install `requirements-psychopy.txt`.
 
-The script reads `config.yaml` by default. At startup it asks for:
+Both scripts read `config.yaml`. The rating program fixes `session_id=1`. The
+EEG program accepts only formal500 sessions 2 through 6.
 
 - `subject_id`
 - `experiment_protocol`: `formal500` or `pilot105`
@@ -24,15 +31,20 @@ The script reads `config.yaml` by default. At startup it asks for:
 
 ## Image experiment protocols
 
-`formal500` is the five-session formal protocol:
+`formal500` contains six program runs:
 
-- session 1: rate all 500 images once;
-- sessions 2-5: view the same 500 images four more times without ratings;
+- session 1: rate all 500 images once without EEG;
+- sessions 2-6: view the same 500 images five times with EEG;
 - every session contains five blocks of 100 images;
 - rating block breaks are 60 seconds; repeated-viewing breaks allow continuation
   after 30 seconds and auto-continue at 45 seconds;
-- the original image groups rotate across sessions, so every image appears in
-  block positions 1-5 once across the five exposures.
+- the repeated-viewing blank/ITI is fixed at 0.1 seconds; rating-session blank
+  and rating timing are unchanged;
+- each image therefore has one behavioral rating and five independent EEG
+  image-onset events.
+
+Every formal rating item is untimed. The participant changes the default value
+with F/J and presses Space to confirm when ready. Reaction time is still saved.
 
 `pilot105` is the one-session feasibility pilot. It contains 105 rated images
 in one block. The two protocols use separate fixed subject-set labels by
@@ -49,29 +61,27 @@ image_library/
 
 `pilot105` never scans `formal`, and `formal500` never scans `pilot`.
 
-The current `pilot` library contains 105 images, while `formal` is
-still empty, so `config.yaml`
-currently preselects `pilot105`. After the library reaches at least 500 images,
-select `formal500` in the startup dialog or run:
+The first program run for a subject creates the fixed subject image set
+atomically. Rating-first and EEG-first workflows therefore reuse the same
+image identities.
 
 ```powershell
 python psychopy_image_b_experiment.py --experiment-protocol formal500
 ```
 
-Practice screens do not start EEG. The formal experiment starts continuous EEG
-through the existing `EegSessionManager`, sends existing marker codes, and saves:
+The rating program saves behavioral ratings, trial logs, events, metadata, and
+the session playlist without creating an EEG file. Each EEG session saves its
+own event timeline, metadata, actual order, and local EEG or external-recorder
+reference.
 
-- `continuous_eeg.npy`
-- `events.json`
-- `metadata.json`
-- `behavioral_ratings.csv`
-- `trial_log.csv`
-- `image_playlist.json`
+After every completed run, `subject_completion_status_<image_set_label>.json`
+reports per-image rating completion and valid EEG sessions.
 
 Useful short dummy test:
 
 ```powershell
-python psychopy_image_b_experiment.py --max-trials 4 --windowed
+python psychopy_image_b_rating.py --max-trials 4 --windowed
+python psychopy_image_b_experiment.py --dummy-eeg --max-trials 4 --windowed
 ```
 
 Press `Escape` to abort and export whatever has already been collected.

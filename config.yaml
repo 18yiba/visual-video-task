@@ -1,7 +1,9 @@
-subject_id: S004
-experiment_protocol: pilot105
+subject_id: S001
+experiment_protocol: formal500
 session_id: 1
-image_set_label: image_b_pilot105_v1
+image_set_label: image_b_formal500_v2
+# Keep protocol and image-set identity fixed across rating and EEG repetition sessions.
+experiment_config_locked: true
 task_mode: image_b
 device_type: brainco
 hardware_dummy_mode: false
@@ -12,7 +14,7 @@ protocol:
   default_video_sec: 8.0
   blank_sec: 1.0
   iti_sec: 2.0
-  rating_sec: 15.0
+  rating_sec: 3.0
   baseline_sec: 0.0
   trials_per_session: 500
   video_library_dir: video_library/selected_540_balanced_videos
@@ -70,7 +72,8 @@ device:
   lsl_marker_stream_name: visual-video-task-Markers
   lsl_marker_stream_type: Markers
   lsl_marker_source_id: visual-video-task-marker
-  trigger_serial_port: ''
+  trigger_serial_port: auto
+  trigger_serial_timeout_sec: 1.5
 storage:
   records_dir: records_storage
   ratings_dir: ratings_storage

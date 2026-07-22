@@ -1,4 +1,4 @@
-﻿"""Streamlit-free helpers for image EEG paradigms."""
+"""Streamlit-free helpers for image EEG paradigms."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import random
 import re
 import secrets
 from pathlib import Path
+import time
 from typing import Any
 from uuid import uuid4
 
@@ -17,7 +18,7 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 RATING_VALUES = (1, 2, 3, 4, 5)
 FORMAL_500_PROTOCOL = "formal500"
 PILOT_105_PROTOCOL = "pilot105"
-FORMAL_DENOISE_SESSIONS = {2, 3, 4, 5}
+FORMAL_DENOISE_SESSIONS = {2, 3, 4, 5, 6}
 TIMESTAMP_LABEL_PATTERN = re.compile(r"^\d{8}_[A-Za-z0-9_-]+$")
 
 RATING_DIMENSIONS = [
@@ -37,7 +38,7 @@ RATING_DIMENSIONS = [
         "key": "interest",
         "label": "兴趣程度",
         "prompt": "这张图片在多大程度上吸引了你的注意力或使你产生兴趣？",
-        "levels": ("毫无兴趣", "不太感兴趣", "中等吸引力", "比较感兴趣", "极感兴趣"),
+        "levels": ("毫无吸引力", "不太吸引", "中等吸引力", "比较吸引", "极具吸引力"),
     },
     {
         "key": "visual_preference",
@@ -158,7 +159,7 @@ def session_type_for_id(session_id: int, experiment_protocol: str = FORMAL_500_P
         return "denoise"
     if protocol_name == PILOT_105_PROTOCOL:
         raise ValueError("Image_B pilot105 only supports session 1 (labeling).")
-    raise ValueError("Image_B formal500 session_id must be 1-5: 1 labeling, 2-5 repeated viewing.")
+    raise ValueError("Image_B formal500 session_id must be 1-6: 1 labeling, 2-6 repeated EEG viewing.")
 
 
 def subject_image_set_path(records_dir: Path, subject_id: str, image_set_label: str = "") -> Path:
@@ -213,6 +214,13 @@ def build_session_playlist(
     )
     if target_images <= 0:
         raise ValueError("Image count must be positive.")
+    shared_block_size = int(
+        protocol_value(config, "pilot_block_size", 105)
+        if experiment_protocol == PILOT_105_PROTOCOL
+        else protocol_value(config, "block_size", 100)
+    )
+    if shared_block_size <= 0:
+        raise ValueError("Image block size must be positive.")
 
     image_set_label = str(
         config.get("image_set_label") or default_image_set_label(experiment_protocol)
@@ -232,32 +240,54 @@ def build_session_playlist(
         raise ValueError(f"Requested {target_images} images, but image library contains only {scanned_count}.")
 
     generated_subject_set = False
+    set_metadata: dict[str, Any] = {}
     if set_path.exists():
         assets = load_subject_image_set(set_path)
-    elif session_id == 1:
+        set_metadata = load_subject_image_set_metadata(set_path)
+    else:
         rng = random.Random(f"{seed}:{subject_id}:{image_set_label}")
         assets = list(scanned_assets)
         rng.shuffle(assets)
         assets = assets[:target_images]
-        save_subject_image_set(
-            set_path,
-            assets,
-            metadata={
-                "subject_id": subject_id,
-                "created_by_session_id": session_id,
-                "image_count": len(assets),
-                "random_seed": seed,
-                "image_library_dir": str(image_root(config, base_dir=base_dir)),
-            },
-        )
+        set_metadata = {
+            "subject_id": subject_id,
+            "created_by_session_id": session_id,
+            "experiment_protocol": experiment_protocol,
+            "image_set_label": image_set_label,
+            "image_count": len(assets),
+            "configured_image_count": configured_images,
+            "block_size": shared_block_size,
+            "random_seed": seed,
+            "image_library_dir": str(image_root(config, base_dir=base_dir)),
+        }
+        save_subject_image_set(set_path, assets, metadata=set_metadata)
         generated_subject_set = True
-    else:
-        raise RuntimeError(
-            f"Subject image set not found: {set_path}. Run session 1 for subject {subject_id} first."
-        )
-
     if not assets:
         raise RuntimeError(f"Subject image set is empty: {set_path}")
+    validate_subject_image_set_metadata(
+        set_metadata,
+        path=set_path,
+        subject_id=subject_id,
+        experiment_protocol=experiment_protocol,
+        image_set_label=image_set_label,
+        image_count=len(assets),
+        configured_image_count=configured_images,
+        block_size=shared_block_size,
+        random_seed=seed,
+        image_library_dir=image_root(config, base_dir=base_dir),
+    )
+    image_ids = [asset.image_id for asset in assets]
+    if len(set(image_ids)) != len(image_ids):
+        raise ValueError(f"Subject image set contains duplicate image_id values: {set_path}")
+    available = {(asset.image_id, asset.rel_path) for asset in scanned_assets}
+    missing_assets = [
+        asset for asset in assets if (asset.image_id, asset.rel_path) not in available
+    ]
+    if missing_assets:
+        preview = ", ".join(asset.image_id for asset in missing_assets[:5])
+        raise ValueError(
+            f"Subject image set does not match the current image library; missing {len(missing_assets)} assets: {preview}"
+        )
     if image_count is None and not generated_subject_set and len(assets) != configured_images:
         raise ValueError(
             f"Image set {set_path} contains {len(assets)} images, but protocol {experiment_protocol} "
@@ -269,13 +299,7 @@ def build_session_playlist(
         )
 
     session_assets = list(assets[:target_images])
-    block_size = int(
-        protocol_value(config, "pilot_block_size", 105)
-        if experiment_protocol == PILOT_105_PROTOCOL
-        else protocol_value(config, "block_size", 100)
-    )
-    if block_size <= 0:
-        raise ValueError("Image block size must be positive.")
+    block_size = shared_block_size
     source_blocks = [
         session_assets[start : start + block_size]
         for start in range(0, len(session_assets), block_size)
@@ -379,14 +403,33 @@ def build_image_playlist(
 
 def save_subject_image_set(path: Path, assets: list[ImageAsset], *, metadata: dict[str, Any]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump(
-            {"metadata": metadata, "assets": [asset.to_mapping() for asset in assets]},
-            handle,
-            ensure_ascii=False,
-            indent=2,
-        )
+    temp_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        with temp_path.open("x", encoding="utf-8") as handle:
+            json.dump(
+                {"metadata": metadata, "assets": [asset.to_mapping() for asset in assets]},
+                handle,
+                ensure_ascii=False,
+                indent=2,
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
+        _replace_with_retry(temp_path, path)
+    finally:
+        temp_path.unlink(missing_ok=True)
     return path
+
+
+def _replace_with_retry(source: Path, destination: Path, *, attempts: int = 8) -> None:
+    """Tolerate brief Windows file locks during atomic checkpoint replacement."""
+    for attempt in range(attempts):
+        try:
+            os.replace(source, destination)
+            return
+        except PermissionError:
+            if attempt + 1 >= attempts:
+                raise
+            time.sleep(0.05 * (attempt + 1))
 
 
 def load_subject_image_set(path: Path) -> list[ImageAsset]:
@@ -400,6 +443,59 @@ def load_subject_image_set(path: Path) -> list[ImageAsset]:
         raise RuntimeError(f"Invalid subject image set: {path}")
     return [ImageAsset.from_mapping(dict(item)) for item in items if isinstance(item, dict)]
 
+
+def load_subject_image_set_metadata(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8-sig") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        return {}
+    metadata = payload.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        raise RuntimeError(f"Invalid subject image set metadata: {path}")
+    return dict(metadata)
+
+
+def validate_subject_image_set_metadata(
+    metadata: dict[str, Any],
+    *,
+    path: Path,
+    subject_id: str,
+    experiment_protocol: str,
+    image_set_label: str,
+    image_count: int,
+    configured_image_count: int,
+    block_size: int,
+    random_seed: int,
+    image_library_dir: Path,
+) -> None:
+    """Reject a subject list created under a different shared experiment config."""
+
+    expected = {
+        "subject_id": str(subject_id),
+        "experiment_protocol": str(experiment_protocol),
+        "image_set_label": str(image_set_label),
+        "image_count": int(image_count),
+        "configured_image_count": int(configured_image_count),
+        "block_size": int(block_size),
+        "random_seed": int(random_seed),
+    }
+    mismatches: list[str] = []
+    for key, expected_value in expected.items():
+        if key in metadata and metadata[key] != expected_value:
+            mismatches.append(f"{key}={metadata[key]!r}（当前配置={expected_value!r}）")
+    stored_library = str(metadata.get("image_library_dir", "")).strip()
+    if stored_library:
+        stored_path = Path(stored_library).expanduser().resolve()
+        current_path = Path(image_library_dir).expanduser().resolve()
+        if stored_path != current_path:
+            mismatches.append(
+                f"image_library_dir={str(stored_path)!r}（当前配置={str(current_path)!r}）"
+            )
+    if mismatches:
+        details = "；".join(mismatches)
+        raise ValueError(
+            f"Rating与repetition实验配置不一致，不能复用被试图片清单{path}：{details}"
+        )
 
 def serialize_trials(trials: list[ImageTrial]) -> list[dict[str, Any]]:
     return [trial.to_mapping() for trial in trials]
@@ -580,6 +676,14 @@ def ordered_trial_columns() -> list[str]:
         "fixation_offset",
         "image_onset",
         "image_offset",
+        "image_planned_flip_time_ptb_sec",
+        "image_flip_callback_time_monotonic_sec",
+        "image_marker_send_started_monotonic_sec",
+        "image_marker_send_completed_monotonic_sec",
+        "image_marker_send_success",
+        "image_marker_send_error",
+        "image_marker_backend",
+        "image_external_marker_sent",
         "blank_onset",
         "blank_offset",
         "rating_onset",
@@ -694,6 +798,22 @@ def _events_by_trial(events: list[Any]) -> dict[int, dict[str, Any]]:
             row["fixation_offset"] = t
         elif name == "image_on":
             row["image_onset"] = t
+            row["image_planned_flip_time_ptb_sec"] = payload.get(
+                "planned_flip_time_ptb_sec"
+            )
+            row["image_flip_callback_time_monotonic_sec"] = payload.get(
+                "flip_callback_time_monotonic_sec"
+            )
+            row["image_marker_send_started_monotonic_sec"] = payload.get(
+                "marker_send_started_monotonic_sec"
+            )
+            row["image_marker_send_completed_monotonic_sec"] = payload.get(
+                "marker_send_completed_monotonic_sec"
+            )
+            row["image_marker_send_success"] = payload.get("marker_send_success")
+            row["image_marker_send_error"] = payload.get("marker_send_error")
+            row["image_marker_backend"] = payload.get("marker_backend")
+            row["image_external_marker_sent"] = payload.get("external_marker_sent")
         elif name == "image_off":
             row["image_offset"] = t
         elif name == "blank_on":

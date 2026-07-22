@@ -220,14 +220,21 @@ def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
 def build_marker_backend(config: dict[str, Any]) -> Any:
     device_cfg = dict(config.get("device", {}))
     backends: list[MarkerBackend] = []
-    serial_port = str(device_cfg.get("trigger_serial_port", "")).strip()
-    if serial_port:
-        backends.append(TriggerBoxMarkerBackend(serial_port))
+    serial_port = str(device_cfg.get("trigger_serial_port", "auto")).strip() or "auto"
+    trigger_timeout = float(device_cfg.get("trigger_serial_timeout_sec", 1.5))
+    is_real_neuracle = (
+        str(config.get("device_type", "")).strip().lower() == "neuracle"
+        and not bool(config.get("hardware_dummy_mode", False))
+    )
+    if is_real_neuracle or serial_port.lower() != "auto":
+        backends.append(
+            TriggerBoxMarkerBackend(serial_port, timeout_sec=trigger_timeout)
+        )
     brainco_marker = (
         str(config.get("device_type", "")).strip().lower() == "brainco"
         and str(device_cfg.get("brainco_transport", "sdk")).strip().lower() in {"bcigo", "lsl"}
     )
-    if bool(device_cfg.get("lsl_marker_enabled", brainco_marker)):
+    if brainco_marker and bool(device_cfg.get("lsl_marker_enabled", True)):
         backends.append(
             LSLMarkerBackend(
                 stream_name=str(

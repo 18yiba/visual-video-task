@@ -328,8 +328,37 @@ class EegSessionManager:
         code = PROTOCOL_EVENT_CODES.get(event_name)
         if code is None:
             raise ValueError(f"Unknown protocol event: {event_name}")
-        self._marker_backend.send_event(event_name)
-        self._recorder.add_event(event_name, marker_code=code, **payload)
+        callback_monotonic = time.perf_counter()
+        marker_started = time.perf_counter()
+        marker_backend = type(self._marker_backend).__name__
+        external_marker = marker_backend != "NoOpMarkerBackend"
+        event_payload = {
+            "subject_id": self._subject_id,
+            "session_id": self._session_id,
+            "marker_code": code,
+            "flip_callback_time_monotonic_sec": callback_monotonic,
+            "marker_send_started_monotonic_sec": marker_started,
+            "marker_backend": marker_backend,
+            "external_marker_sent": external_marker,
+            **payload,
+        }
+        try:
+            self._marker_backend.send_event(event_name)
+        except BaseException as exc:
+            self._recorder.add_event(
+                event_name,
+                **event_payload,
+                marker_send_completed_monotonic_sec=time.perf_counter(),
+                marker_send_success=False,
+                marker_send_error=repr(exc),
+            )
+            raise
+        self._recorder.add_event(
+            event_name,
+            **event_payload,
+            marker_send_completed_monotonic_sec=time.perf_counter(),
+            marker_send_success=True,
+        )
 
     def _pull_loop(self) -> None:
         try:

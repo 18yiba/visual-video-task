@@ -1,6 +1,8 @@
-﻿# Visual Video Task：PsychoPy Image_B EEG 实验
+# Visual Video Task：PsychoPy Image_B EEG 实验
 
-本项目用于运行 `image_b` 图片脑电实验，支持：
+本项目用于运行一次纯行为图片评分和五次图片脑电观看。每张正式实验图片最终包含一次人工评分，以及 Session 2、3、4、5、6 中各一次有效脑电呈现事件。
+
+行为评分中的每一道题均不限时。被试使用 F/J 调整选项并在确认后按空格进入下一题，程序继续保存每题反应时。
 
 - BrainCo BCIGo 外部 EDF 录制 + LSL Marker（当前推荐方式）
 - BrainCo EEG LSL 输入（仅在确实存在 EEG LSL Outlet 时使用）
@@ -10,7 +12,13 @@
 - 命令行联通预检、LSL 扫描、BLE/Wi-Fi 底层诊断
 - 中断恢复、分段事件与行为数据导出
 
-正式的 PsychoPy 入口是：
+纯行为评分入口是：
+
+```text
+psychopy_image_b_rating.py
+```
+
+EEG重复观看入口是：
 
 ```text
 psychopy_image_b_experiment.py
@@ -68,9 +76,10 @@ Set-Location 'D:\QW_FILE\visual-video-task'
 
 ### 3.1 模拟 EEG 短流程
 
-先用 4 个试次和窗口模式检查图片、按键、评分、练习和数据导出：
+先用4个试次和窗口模式分别检查行为评分与EEG观看：
 
 ```powershell
+& $PY psychopy_image_b_rating.py --max-trials 4 --windowed
 & $PY psychopy_image_b_experiment.py --dummy-eeg --max-trials 4 --windowed
 ```
 
@@ -83,6 +92,7 @@ Set-Location 'D:\QW_FILE\visual-video-task'
 ### 3.2 使用默认配置启动
 
 ```powershell
+& $PY psychopy_image_b_rating.py
 & $PY psychopy_image_b_experiment.py
 ```
 
@@ -312,11 +322,33 @@ sfreq: 250.0
 device:
   neuracle_host: 127.0.0.1
   neuracle_port: 8712
+  trigger_serial_port: auto
+  trigger_serial_timeout_sec: 1.5
 ```
+
+`trigger_serial_port: auto` 会枚举 Windows 当前可见的 COM 口，并通过 Neuracle 协议读取设备名称和设备信息。若实验电脑连接了多个串口设备，可以把该值改为 `COM3`，也可以在检查命令中临时传入 `--trigger-serial-port COM3`。波特率固定为 115200。
+
+### 7.1 单独检查 TriggerBox
+
+TriggerBox 接入并在 Windows 设备管理器中出现 COM 口后，先运行：
+
+```powershell
+& $PY psychopy_image_b_experiment.py --triggerbox-check-only
+```
+
+检查会读取设备名称和固件信息，然后发送测试事件码 254，并要求 TriggerBox 返回成功响应。该命令不连接 JellyFish，因此可把串口问题和 EEG 转发问题分开检查。存在多个 COM 口时运行：
+
+```powershell
+& $PY psychopy_image_b_experiment.py `
+  --triggerbox-check-only `
+  --trigger-serial-port COM3
+```
+
+如果显示“未检测到任何COM口”，说明问题发生在 Windows 识别层，需要检查 TriggerBox 供电、USB 数据线和 USB 串口驱动；此时修改程序内的端口号不能建立连接。如果显示“未找到可响应Neuracle协议的TriggerBox”，说明 COM 口存在，但所选端口不是 TriggerBox、端口被其他程序占用，或设备没有按 Neuracle TriggerBox 协议响应。
 
 程序当前按 64 个 EEG 通道读取。JellyFish 转发的通道数必须不少于 64，采样率必须与 `sfreq` 一致。
 
-### 7.1 先检查端口
+### 7.2 检查 JellyFish 端口
 
 本机 JellyFish：
 
@@ -332,7 +364,7 @@ Test-NetConnection -ComputerName 'JellyFish电脑IP' -Port 8712
 
 `TcpTestSucceeded` 应为 `True`。
 
-### 7.2 只做 EEG 联通检查
+### 7.3 同时检查 EEG 与 TriggerBox
 
 ```powershell
 & $PY psychopy_image_b_experiment.py `
@@ -341,9 +373,9 @@ Test-NetConnection -ComputerName 'JellyFish电脑IP' -Port 8712
   --device-type neuracle
 ```
 
-预检会连接 JellyFish、等待流元数据，并读取约 1 秒 EEG，输出通道数、采样率、样本数、均值和标准差。
+预检会先完成 TriggerBox 协议握手和测试事件码 254 回读，再调用 `connect(JellyFish所在电脑IP, 端口)` 连接 JellyFish、等待流元数据，并读取约 1 秒 EEG。默认端口为 8712；IP 和端口分别来自 `device.neuracle_host` 与 `device.neuracle_port`。
 
-### 7.3 联通后进入正式实验
+### 7.4 联通后进入正式实验
 
 ```powershell
 & $PY psychopy_image_b_experiment.py `
@@ -352,7 +384,7 @@ Test-NetConnection -ComputerName 'JellyFish电脑IP' -Port 8712
   --device-type neuracle
 ```
 
-### 7.4 修改远程地址
+### 7.5 修改远程地址
 
 PsychoPy 入口目前没有独立的 `--neuracle-host`/`--neuracle-port` 参数。远程连接请先复制完整配置，再修改其中的 Neuracle 地址：
 
@@ -433,10 +465,14 @@ visual-video-task-Markers Markers visual-video-task-marker 1 int32
 
 程序默认读取项目根目录的 `config.yaml`。常用字段：
 
+experiment_config_locked: true 表示 rating 与 repetition 的实验身份由同一配置锁定。两种入口必须使用相同的被试编号、experiment_protocol 和 image_set_label；被试图片清单还会核对图片库、图片数、Block 大小和随机种子。Session 编号不要求相同：rating 固定为 Session 1，repetition 使用 Session 2 至 Session 6。
+
 ```yaml
-subject_id: S004
+subject_id: S001
+experiment_protocol: formal500
 session_id: 1
-image_set_label: default
+image_set_label: image_b_formal500_v2
+experiment_config_locked: true
 task_mode: image_b
 device_type: brainco
 hardware_dummy_mode: false
@@ -444,17 +480,18 @@ sfreq: 250.0
 buffer_sec: 80.0
 
 protocol:
-  images_per_experiment: 105
-  image_unique_count: 4
-  image_repeats: 5
+  formal_image_library_dir: image_library/formal
+  images_per_subject: 500
+  block_size: 100
+  random_seed: 17
   attention_probability: 0.05
   image_fixation_min_sec: 0.5
   image_fixation_max_sec: 0.8
   image_present_min_sec: 1.0
   image_present_max_sec: 1.5
   image_blank_sec: 0.5
-  image_rating_item_min_sec: 3.0
-  image_rating_item_max_sec: 4.0
+  image_repeat_blank_min_sec: 0.1
+  image_repeat_blank_max_sec: 0.1
 
 device:
   brainco_transport: bcigo
@@ -465,6 +502,8 @@ device:
   lsl_marker_source_id: visual-video-task-marker
   neuracle_host: 127.0.0.1
   neuracle_port: 8712
+  trigger_serial_port: auto
+  trigger_serial_timeout_sec: 1.5
 
 storage:
   records_dir: records_storage

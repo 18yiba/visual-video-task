@@ -1,4 +1,4 @@
-﻿"""Standalone PsychoPy runner for the Image_B single-session EEG experiment."""
+"""Standalone PsychoPy runner for the Image_B single-session EEG experiment."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import csv
 from datetime import datetime
 from functools import partial
 import json
+import os
 from pathlib import Path
 import random
 import re
@@ -161,9 +162,20 @@ def build_marker_backend(config: dict[str, Any]) -> Any:
 
     device_cfg = dict(config.get("device", {}))
     backends: list[Any] = []
-    serial_port = str(device_cfg.get("trigger_serial_port", "")).strip()
-    if serial_port:
-        backends.append(TriggerBoxMarkerBackend(serial_port))
+    serial_port = str(device_cfg.get("trigger_serial_port", "auto")).strip() or "auto"
+    trigger_timeout = float(device_cfg.get("trigger_serial_timeout_sec", 1.5))
+    is_real_neuracle = (
+        str(config.get("device_type", "")).strip().lower() == "neuracle"
+        and not bool(config.get("hardware_dummy_mode", False))
+    )
+    if is_real_neuracle:
+        backends.append(
+            TriggerBoxMarkerBackend(serial_port, timeout_sec=trigger_timeout)
+        )
+    elif serial_port.lower() != "auto":
+        backends.append(
+            TriggerBoxMarkerBackend(serial_port, timeout_sec=trigger_timeout)
+        )
     brainco_marker = (
         str(config.get("device_type", "")).strip().lower() == "brainco"
         and str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
@@ -197,75 +209,103 @@ def build_marker_backend(config: dict[str, Any]) -> Any:
     return CompositeMarkerBackend(*backends)
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="运行单个 Image_B PsychoPy 脑电实验。")
+def parse_args(argv: list[str] | None = None, *, behavior_only: bool = False) -> argparse.Namespace:
+    description = "运行 Image_B 纯行为评分实验。" if behavior_only else "运行单个 Image_B PsychoPy 脑电观看实验。"
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--config", type=Path, default=None, help="config.yaml 路径。")
     parser.add_argument("--max-trials", type=int, default=0, help="本轮图片/试次数；0 表示使用配置或被试固定图片集合。")
     parser.add_argument(
         "--experiment-protocol",
         choices=[FORMAL_500_PROTOCOL, PILOT_105_PROTOCOL],
         default="",
-        help="formal500=正式500张五轮协议；pilot105=105张单轮预实验。",
+        help="formal500=正式500张协议；pilot105=105张预实验。",
     )
     parser.add_argument("--timestamp-label", type=str, default="", help="批次标签 yyyymmdd_xxxx；也可只输入 xxxx 自动补当天日期。")
     parser.add_argument("--windowed", action="store_true", help="窗口模式运行，而不是全屏。")
     parser.add_argument("--no-dialog", action="store_true", help="跳过 PsychoPy 启动对话框。")
-    parser.add_argument("--doctor", action="store_true", help="检查当前 PsychoPy/脑电运行环境后退出。")
-    parser.add_argument("--device-type", choices=["brainco", "neuracle"], default="", help="命令行指定脑电设备。")
-    parser.add_argument("--dummy-eeg", action="store_true", help="命令行强制使用模拟脑电。")
-    parser.add_argument("--real-eeg", action="store_true", help="命令行强制使用真实脑电硬件。")
-    parser.add_argument("--brainco-addr", type=str, default="", help="BrainCo 设备 IP/地址；指定后会关闭自动发现。")
-    parser.add_argument("--brainco-port", type=int, default=0, help="BrainCo 设备端口；指定后会关闭自动发现。")
-    parser.add_argument("--brainco-scan-timeout", type=float, default=0.0, help="BrainCo 自动发现超时时间，单位秒。")
-    parser.add_argument("--brainco-ready-timeout", type=float, default=0.0, help="BrainCo 启动数据流等待时间，单位秒。")
-    parser.add_argument(
-        "--brainco-transport",
-        choices=["bcigo", "lsl", "sdk"],
-        default="",
-        help="bcigo=BCIGo 录 EDF 且实验发 Marker；lsl=接收 EEG LSL；sdk=直连设备。",
-    )
-    parser.add_argument("--brainco-lsl-name", type=str, default="", help="BCIGo LSL EEG streamName；留空按类型自动匹配。")
-    parser.add_argument("--brainco-lsl-source-id", type=str, default="", help="BCIGo LSL EEG sourceId；有同名流时用于精确匹配。")
-    parser.add_argument(
-        "--brainco-lsl-timeout",
-        type=float,
-        default=0.0,
-        help="等待 BCIGo Marker 消费者或 EEG LSL 流的超时时间，单位秒。",
-    )
-    parser.add_argument("--eeg-check-only", action="store_true", help="只在命令行检查脑电连接，检查结束后退出。")
-    parser.add_argument("--preflight-eeg", action="store_true", help="启动 PsychoPy 窗口前先在命令行检查脑电连接。")
+    parser.add_argument("--doctor", action="store_true", help="检查当前 PsychoPy 运行环境后退出。")
+    if not behavior_only:
+        parser.add_argument("--device-type", choices=["brainco", "neuracle"], default="", help="命令行指定脑电设备。")
+        parser.add_argument("--dummy-eeg", action="store_true", help="命令行强制使用模拟脑电。")
+        parser.add_argument("--real-eeg", action="store_true", help="命令行强制使用真实脑电硬件。")
+        parser.add_argument("--brainco-addr", type=str, default="", help="BrainCo 设备 IP/地址；指定后会关闭自动发现。")
+        parser.add_argument("--brainco-port", type=int, default=0, help="BrainCo 设备端口；指定后会关闭自动发现。")
+        parser.add_argument("--brainco-scan-timeout", type=float, default=0.0, help="BrainCo 自动发现超时时间，单位秒。")
+        parser.add_argument("--brainco-ready-timeout", type=float, default=0.0, help="BrainCo 启动数据流等待时间，单位秒。")
+        parser.add_argument(
+            "--brainco-transport",
+            choices=["bcigo", "lsl", "sdk"],
+            default="",
+            help="bcigo=BCIGo 录 EDF 且实验发 Marker；lsl=接收 EEG LSL；sdk=直连设备。",
+        )
+        parser.add_argument("--brainco-lsl-name", type=str, default="", help="BCIGo LSL EEG streamName；留空按类型自动匹配。")
+        parser.add_argument("--brainco-lsl-source-id", type=str, default="", help="BCIGo LSL EEG sourceId；有同名流时用于精确匹配。")
+        parser.add_argument(
+            "--brainco-lsl-timeout",
+            type=float,
+            default=0.0,
+            help="等待 BCIGo Marker 消费者或 EEG LSL 流的超时时间，单位秒。",
+        )
+        parser.add_argument(
+            "--trigger-serial-port",
+            type=str,
+            default="",
+            help="Neuracle TriggerBox串口，例如COM3；留空使用config.yaml，auto表示自动探测。",
+        )
+        parser.add_argument("--eeg-check-only", action="store_true", help="只在命令行检查脑电连接，检查结束后退出。")
+        parser.add_argument(
+            "--triggerbox-check-only",
+            action="store_true",
+            help="只检查Neuracle TriggerBox串口、协议握手和测试码254，随后退出。",
+        )
+        parser.add_argument("--preflight-eeg", action="store_true", help="启动 PsychoPy 窗口前先在命令行检查脑电连接。")
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+def main(argv: list[str] | None = None, *, behavior_only: bool = False) -> int:
+    args = parse_args(argv, behavior_only=behavior_only)
     project_dir = Path(__file__).resolve().parent
     if args.doctor:
         return _doctor()
     config_path = resolve_config_path(args.config)
     config = load_config(config_path)
     config["task_mode"] = "image_b"
-    _apply_cli_eeg_overrides(config, args)
-    if args.eeg_check_only:
+    config["collection_phase"] = "behavior_rating" if behavior_only else "eeg_repeat"
+    if not behavior_only:
+        _apply_cli_eeg_overrides(config, args)
+    if bool(getattr(args, "triggerbox_check_only", False)):
+        config["device_type"] = "neuracle"
+        config["hardware_dummy_mode"] = False
+        return _run_triggerbox_cli_check(config)
+    if bool(getattr(args, "eeg_check_only", False)):
         return _run_eeg_cli_check(config, wait_for_enter=False)
-    if args.preflight_eeg:
+    if bool(getattr(args, "preflight_eeg", False)):
         status = _run_eeg_cli_check(config, wait_for_enter=True)
         if status != 0:
             return status
     _load_psychopy()
     records_dir = project_dir / Path(str(config.get("storage", {}).get("records_dir", "records_storage")))
-    exp_info = _startup_dialog(config, args, records_dir=records_dir)
+    exp_info = _startup_dialog(config, args, records_dir=records_dir, behavior_only=behavior_only)
     if exp_info is None:
         return 0
+    if not behavior_only and (
+        normalize_experiment_protocol(exp_info["experiment_protocol"]) != FORMAL_500_PROTOCOL
+        or int(exp_info["session_id"]) not in {2, 3, 4, 5, 6}
+    ):
+        raise ValueError("EEG观看程序只支持formal500协议的Session 2-6。")
     config["subject_id"] = exp_info["subject_id"]
     config["experiment_protocol"] = normalize_experiment_protocol(exp_info["experiment_protocol"])
-    config["session_id"] = exp_info["session_id"]
+    config["session_id"] = 1 if behavior_only else exp_info["session_id"]
     config["session_type"] = session_type_for_id(
         exp_info["session_id"], config["experiment_protocol"]
     )
     config["image_set_label"] = normalize_image_set_label(exp_info["image_set_label"])
-    config["device_type"] = exp_info["device_type"]
-    config["hardware_dummy_mode"] = exp_info["hardware_dummy_mode"]
+    if behavior_only:
+        config["device_type"] = "none"
+        config["hardware_dummy_mode"] = False
+    else:
+        config["device_type"] = exp_info["device_type"]
+        config["hardware_dummy_mode"] = exp_info["hardware_dummy_mode"]
     config["timestamp_label"] = unique_timestamp_label(
         records_dir,
         subject_id=str(config["subject_id"]),
@@ -316,12 +356,13 @@ def main(argv: list[str] | None = None) -> int:
         assets=assets,
         playlist_metadata=playlist_metadata,
         resume_state=resume_state,
+        behavior_only=behavior_only,
     )
     try:
         runner.run()
     finally:
         win.close()
-        core.quit()
+    core.quit()
     return 0
 
 
@@ -330,14 +371,25 @@ def _startup_dialog(
     args: argparse.Namespace,
     *,
     records_dir: Path,
+    behavior_only: bool = False,
 ) -> dict[str, Any] | None:
     configured_protocol = normalize_experiment_protocol(config.get("experiment_protocol", FORMAL_500_PROTOCOL))
-    default_protocol = normalize_experiment_protocol(args.experiment_protocol or configured_protocol)
-    default_session = int(config.get("session_id", 1))
-    try:
-        session_type_for_id(default_session, default_protocol)
-    except ValueError:
-        default_session = 1
+    config_locked = bool(config.get("experiment_config_locked", True))
+    requested_protocol = normalize_experiment_protocol(args.experiment_protocol or configured_protocol)
+    if config_locked and requested_protocol != configured_protocol:
+        raise ValueError(
+            "实验配置已锁定：rating和repetition必须使用config.yaml中的同一experiment_protocol。"
+        )
+    default_protocol = configured_protocol if config_locked else requested_protocol
+    default_session = 1 if behavior_only else int(config.get("session_id", 2))
+    if not behavior_only:
+        try:
+            session_type_for_id(default_session, default_protocol)
+            if default_protocol != FORMAL_500_PROTOCOL or default_session == 1:
+                raise ValueError
+        except ValueError:
+            default_protocol = FORMAL_500_PROTOCOL
+            default_session = 2
     default_timestamp = normalize_timestamp_label(args.timestamp_label) if args.timestamp_label else None
     default_subject = str(config.get("subject_id", "S001"))
     configured_label = normalize_image_set_label(
@@ -354,42 +406,62 @@ def _startup_dialog(
             "experiment_protocol": default_protocol,
             "session_id": default_session,
             "image_set_label": dialog_image_set_label,
-            "device_type": str(config.get("device_type", "brainco")),
-            "hardware_dummy_mode": bool(config.get("hardware_dummy_mode", False)),
+            "device_type": "none" if behavior_only else str(config.get("device_type", "brainco")),
+            "hardware_dummy_mode": False if behavior_only else bool(config.get("hardware_dummy_mode", False)),
             "fullscreen": not bool(args.windowed),
             "max_trials": max(0, int(args.max_trials)),
             "timestamp_label": default_timestamp,
         }
-    dlg = gui.Dlg(title="PsychoPy Image_B 脑电实验")
-    dlg.addText("正式协议：第1轮评分，第2-5轮重复观看；预实验：105张评分，共1轮。")
+    dlg = gui.Dlg(title="PsychoPy Image_B 纯行为评分" if behavior_only else "PsychoPy Image_B 脑电观看实验")
+    if behavior_only:
+        dlg.addText("本程序只进行一次图片评分，不连接脑电设备，也不发送外部事件标记。")
+    else:
+        dlg.addText("本程序只运行正式协议第2-6轮，共获得每张图片5次独立脑电数据。")
     dlg.addField("被试编号", default_subject)
-    dlg.addField("实验协议", default_protocol, choices=[FORMAL_500_PROTOCOL, PILOT_105_PROTOCOL])
-    dlg.addField("实验轮次编号", default_session)
+    dlg.addField(
+        "实验协议",
+        default_protocol,
+        choices=[FORMAL_500_PROTOCOL, PILOT_105_PROTOCOL] if behavior_only else [FORMAL_500_PROTOCOL],
+    )
+    if not behavior_only:
+        dlg.addField("EEG Session编号", default_session)
     dlg.addField("业务/图片集标签", dialog_image_set_label)
-    dlg.addField("脑电设备", str(config.get("device_type", "brainco")), choices=["brainco", "neuracle"])
-    dlg.addField("使用模拟脑电", bool(config.get("hardware_dummy_mode", False)))
+    if not behavior_only:
+        dlg.addField("脑电设备", str(config.get("device_type", "brainco")), choices=["brainco", "neuracle"])
+        dlg.addField("使用模拟脑电", bool(config.get("hardware_dummy_mode", False)))
     dlg.addField("全屏显示", not bool(args.windowed))
     dlg.addField("本轮图片数（0=配置/固定集合）", max(0, int(args.max_trials)))
     values = dlg.show()
     if not dlg.OK:
         return None
     selected_protocol = normalize_experiment_protocol(values[1])
-    session_id = int(values[2])
+    value_index = 2
+    session_id = 1 if behavior_only else int(values[value_index])
+    if not behavior_only:
+        value_index += 1
     session_type_for_id(session_id, selected_protocol)
+    if not behavior_only and (selected_protocol != FORMAL_500_PROTOCOL or session_id not in {2, 3, 4, 5, 6}):
+        raise ValueError("EEG观看程序只支持formal500协议的Session 2-6。")
     selected_subject = str(values[0]).strip() or "S001"
-    entered_label = normalize_image_set_label(str(values[3]))
+    entered_label = normalize_image_set_label(str(values[value_index]))
     if selected_protocol != default_protocol and entered_label == dialog_image_set_label:
         entered_label = default_image_set_label(selected_protocol)
+    if config_locked and (
+        selected_protocol != configured_protocol or entered_label != configured_label
+    ):
+        raise ValueError(
+            "实验配置已锁定：rating和repetition必须使用config.yaml中的同一协议和图片集标签。"
+        )
     return {
         "subject_id": selected_subject,
         "experiment_protocol": selected_protocol,
         "session_id": session_id,
         "image_set_label": entered_label,
         "timestamp_label": default_timestamp,
-        "device_type": str(values[4]).strip().lower(),
-        "hardware_dummy_mode": _coerce_bool(values[5]),
-        "fullscreen": _coerce_bool(values[6]),
-        "max_trials": max(0, int(values[7])),
+        "device_type": "none" if behavior_only else str(values[value_index + 1]).strip().lower(),
+        "hardware_dummy_mode": False if behavior_only else _coerce_bool(values[value_index + 2]),
+        "fullscreen": _coerce_bool(values[value_index + (1 if behavior_only else 3)]),
+        "max_trials": max(0, int(values[value_index + (2 if behavior_only else 4)])),
     }
 
 
@@ -406,6 +478,7 @@ class ImageBRunner:
         assets: list[ImageAsset],
         playlist_metadata: dict[str, Any],
         resume_state: dict[str, Any] | None = None,
+        behavior_only: bool = False,
     ) -> None:
         self.win = win
         self.mouse = mouse
@@ -416,6 +489,7 @@ class ImageBRunner:
         self.assets = assets
         self.playlist_metadata = playlist_metadata
         self.resume_state = dict(resume_state or {})
+        self.behavior_only = bool(behavior_only)
         self.protocol = VideoProtocolConfig.from_config(config)
         self.manager: EegSessionManager | None = None
         self.rating_rows: list[dict[str, Any]] = list(self.resume_state.get("rating_rows", []))
@@ -424,6 +498,7 @@ class ImageBRunner:
         self.termination_reason = "running"
         self._run_traceback = ""
         self.connection_summary: dict[str, Any] = {}
+        self.session_dir: Path | None = None
         self.rng = random.Random(int(self.playlist_metadata.get("random_seed", 17)) + int(config.get("session_id", 1)))
         self.message = visual.TextStim(
             self.win,
@@ -450,10 +525,13 @@ class ImageBRunner:
                 )
             elif self._should_run_practice():
                 self._run_practice()
-            self._show_text("即将进行脑电连接检查。\n\n请确认脑电设备已开启并准备好。\n\n按空格键继续。")
-            self.connection_summary = self._check_eeg_connection()
-            self._show_text(self._connection_success_text())
-            self._start_eeg()
+            if self.behavior_only:
+                self._start_behavior_recording()
+            else:
+                self._show_text("即将进行脑电连接检查。\n\n请确认脑电设备已开启并准备好。\n\n按空格键继续。")
+                self.connection_summary = self._check_eeg_connection()
+                self._show_text(self._connection_success_text())
+                self._start_eeg()
             self._run_formal()
             self.completed = True
             self.termination_reason = "completed"
@@ -475,7 +553,8 @@ class ImageBRunner:
                     (self.manager.session_dir / "crash_report.txt").write_text(
                         self._run_traceback, encoding="utf-8"
                     )
-                self._show_text(f"脑电数据安全保存失败：\n{_format_eeg_error(exc, self.config)}\n\n按空格键退出。")
+                phase = "行为数据" if self.behavior_only else "脑电数据"
+                self._show_text(f"{phase}安全保存失败：\n{_format_eeg_error(exc, self.config)}\n\n按空格键退出。")
                 session_dir = None
             if session_dir is not None and self.manager is not None and self.manager.background_error is not None:
                 if not self._run_traceback:
@@ -488,6 +567,7 @@ class ImageBRunner:
                     f"{_format_eeg_error(self.manager.background_error, self.config)}\n\n按空格键继续。"
                 )
             if session_dir is not None:
+                self.session_dir = session_dir
                 if self._run_traceback:
                     (session_dir / "crash_report.txt").write_text(self._run_traceback, encoding="utf-8")
                 bcigo_text = ""
@@ -496,6 +576,52 @@ class ImageBRunner:
                         "\n\nBCIGo 可继续录制下一个 session；请在全部 session 完成后再停止录制。"
                     )
                 self._show_text(f"数据已保存：\n{session_dir}{bcigo_text}\n\n按空格键退出。")
+
+    def _start_behavior_recording(self) -> None:
+        from acquisition.external_recorder_acquirer import ExternalRecorderAcquirer
+        from utils.markers import NoOpMarkerBackend
+
+        records_dir = self.project_dir / Path(str(self.config.get("storage", {}).get("records_dir", "records_storage")))
+        self.connection_summary = {
+            "device": "none",
+            "recording_mode": "behavior_only",
+            "external_markers": False,
+        }
+        self.manager = EegSessionManager(
+            ExternalRecorderAcquirer(sfreq=1.0, n_channels=1, backend_name="behavior_only"),
+            NoOpMarkerBackend(),
+            sfreq=1.0,
+            records_dir=records_dir,
+            subject_id=str(self.config.get("subject_id", "S001")),
+            session_id=1,
+            record_local_eeg=False,
+        )
+        resume_output_dir = Path(self.resume_state["source_dir"]) if self.resume_state else None
+        segment_start_trial = int(self.resume_state.get("next_trial", 1))
+        session_dir = self.manager.start(
+            metadata={
+                "task_mode": "image_b",
+                "collection_phase": "behavior_rating",
+                "experiment_protocol": self.config.get("experiment_protocol"),
+                "session_dir_layout": "subject_timestamp_session",
+                "timestamp_label": self.config.get("timestamp_label"),
+                "image_set_label": self.config.get("image_set_label"),
+                "session_type": "labeling",
+                "image_trials": len(self.trials),
+                "image_unique_count": len(self.assets),
+                "playlist_seed": self.playlist_metadata.get("random_seed"),
+                "playlist_metadata": self.playlist_metadata,
+                "subject_image_set_path": self.playlist_metadata.get("subject_image_set_path"),
+                "psychopy_runner": True,
+                "segment_start_trial": segment_start_trial,
+                "resumed": bool(self.resume_state),
+                "eeg_recording_mode": "none",
+                "device_type": "none",
+                "external_markers_sent": False,
+            },
+            output_dir=resume_output_dir,
+        )
+        self._write_resume_manifest(session_dir)
 
     def _check_eeg_connection(self) -> dict[str, Any]:
         try:
@@ -548,6 +674,7 @@ class ImageBRunner:
         session_dir = self.manager.start(
             metadata={
                 "task_mode": "image_b",
+                "collection_phase": "eeg_repeat",
                 "experiment_protocol": self.config.get("experiment_protocol"),
                 "session_dir_layout": "subject_timestamp_session",
                 "timestamp_label": self.config.get("timestamp_label"),
@@ -575,6 +702,9 @@ class ImageBRunner:
             },
             output_dir=resume_output_dir,
         )
+        self._write_resume_manifest(session_dir)
+
+    def _write_resume_manifest(self, session_dir: Path) -> None:
         (session_dir / ".resume_manifest.json").write_text(
             json.dumps(
                 {
@@ -583,6 +713,7 @@ class ImageBRunner:
                     "experiment_protocol": self.config.get("experiment_protocol"),
                     "image_set_label": self.config.get("image_set_label"),
                     "task_mode": "image_b",
+                    "collection_phase": self.config.get("collection_phase"),
                     "image_trials": len(self.trials),
                     "completed": False,
                 },
@@ -595,7 +726,7 @@ class ImageBRunner:
     def _run_formal(self) -> None:
         manager = self._require_manager()
         baseline_sec = float(self.protocol.baseline_sec)
-        if baseline_sec > 0 and not self.resume_state:
+        if baseline_sec > 0 and not self.resume_state and not self.behavior_only:
             self._show_phase(
                 "+",
                 "基线采集，请保持静止。",
@@ -681,9 +812,9 @@ class ImageBRunner:
 
     def _run_trial(self, trial: ImageTrial) -> None:
         manager = self._require_manager()
-        eeg_session_dir = str(manager.session_dir) if manager.session_dir else None
-        eeg_part = manager.eeg_part
-        eeg_file = manager.eeg_filename
+        eeg_session_dir = None if self.behavior_only else (str(manager.session_dir) if manager.session_dir else None)
+        eeg_part = None if self.behavior_only else manager.eeg_part
+        eeg_file = None if self.behavior_only else manager.eeg_filename
         fixation_sec = self._jitter("image_fixation", 0.5, 0.8)
         image_sec = self._jitter("image_present", 2, 3)
         self._show_fixation(
@@ -713,7 +844,7 @@ class ImageBRunner:
             self._flip_blank([(manager.emit, ("image_off",), {"trial_idx": trial.trial_idx, "image_id": trial.asset.image_id})])
             if trial.attention_task_presented:
                 extra_log = self._run_attention_task(trial)
-        iti_sec = self._jitter("image_rating_iti", 1.0, 1.5) if trial.trial_type == "rating" else self._jitter("image_denoise_iti", 0.8, 1.2)
+        iti_sec = self._trial_iti_sec(trial.trial_type)
         self._show_phase(
             "",
             "",
@@ -752,8 +883,8 @@ class ImageBRunner:
         trial: ImageTrial,
         *,
         eeg_session_dir: str | None,
-        eeg_part: int,
-        eeg_file: str,
+        eeg_part: int | None,
+        eeg_file: str | None,
     ) -> None:
         manager = self._require_manager()
         self._show_phase(
@@ -773,12 +904,10 @@ class ImageBRunner:
         rating_onset = time.perf_counter()
         for item_index, dimension in enumerate(RATING_DIMENSIONS, start=1):
             key = str(dimension["key"])
-            limit_sec = self._jitter("image_rating_item", 2.5, 4.0)
             value, rt_ms, no_keypress, onset, offset = self._run_rating_item(
                 trial=trial,
                 dimension=dimension,
                 item_index=item_index,
-                limit_sec=limit_sec,
             )
             ratings[key] = value
             item_timings[key] = {
@@ -810,7 +939,6 @@ class ImageBRunner:
         trial: ImageTrial,
         dimension: dict[str, Any],
         item_index: int,
-        limit_sec: float,
     ) -> tuple[int, int | None, bool, float, float]:
         manager = self._require_manager()
         selected = 3
@@ -826,9 +954,9 @@ class ImageBRunner:
             item_key=dimension["key"],
             item_index=item_index,
         )
-        while (time.perf_counter() - start) < limit_sec:
+        while True:
             self._check_abort()
-            self._draw_rating_screen(dimension, selected, limit_sec - (time.perf_counter() - start))
+            self._draw_rating_screen(dimension, selected)
             self.win.flip()
             keys = self.keyboard.getKeys(["f", "j", "space"], waitRelease=False, clear=True)
             if keys:
@@ -853,7 +981,7 @@ class ImageBRunner:
             rating_value=selected,
             no_keypress=not responded,
         )
-        self._draw_rating_screen(dimension, selected, 0.0)
+        self._draw_rating_screen(dimension, selected)
         self.win.flip()
         core.wait(0.08)
         return selected, rt_ms, not responded, start, offset
@@ -939,7 +1067,7 @@ class ImageBRunner:
                 "图片标注轮次。\n\n"
                 "每张图片结束后会逐题评分。\n"
                 "每题默认值为 3；按 F 向左调整，按 J 向右调整，按空格确认并进入下一题。\n"
-                "时间结束后，当前选项会自动保存。\n\n"
+                "每题不限时，请根据自己的判断完成后再确认。\n\n"
                 f"本轮共 {len(self.trials)} 张，分为 {block_count} 个Block，每个Block最多 {block_size} 张。\n\n"
                 "按空格键开始。"
             )
@@ -987,6 +1115,18 @@ class ImageBRunner:
         else:
             stim.draw()
         self.fixation.draw()
+        try:
+            planned_flip_time = float(self.win.getFutureFlipTime(clock="ptb"))
+        except (AttributeError, TypeError, ValueError):
+            planned_flip_time = None
+        if planned_flip_time is not None:
+            enriched_callbacks = []
+            for fn, args, kwargs in on_start or []:
+                updated = dict(kwargs)
+                if args and args[0] == "image_on":
+                    updated["planned_flip_time_ptb_sec"] = planned_flip_time
+                enriched_callbacks.append((fn, args, updated))
+            on_start = enriched_callbacks
         self._schedule_callbacks(on_start)
         self.win.flip()
         core.wait(max(0.0, duration_sec))
@@ -1034,11 +1174,11 @@ class ImageBRunner:
                     break
                 core.wait(0.01)
 
-    def _draw_rating_screen(self, dimension: dict[str, Any], selected: int, remaining_sec: float) -> None:
+    def _draw_rating_screen(self, dimension: dict[str, Any], selected: int) -> None:
         self._draw_rating_controls(
             dimension,
             selected,
-            hint=f"F 向左   J 向右   空格确认        剩余 {max(0.0, remaining_sec):.1f} 秒",
+            hint="F 向左   J 向右   空格确认        本题不限时",
         )
 
     def _draw_rating_controls(self, dimension: dict[str, Any], selected: int, *, hint: str) -> None:
@@ -1236,6 +1376,11 @@ class ImageBRunner:
             return max(0.0, min_sec)
         return self.rng.uniform(min_sec, max_sec)
 
+    def _trial_iti_sec(self, trial_type: str) -> float:
+        if trial_type == "rating":
+            return self._jitter("image_rating_iti", 1.0, 1.5)
+        return self._jitter("image_repeat_blank", 0.1, 0.1)
+
     def _require_manager(self) -> EegSessionManager:
         if self.manager is None:
             raise RuntimeError("脑电 session 尚未启动。")
@@ -1247,8 +1392,19 @@ class ImageBRunner:
         session_dir = self.manager.stop_and_export(
             metadata={
                 "completed": self.completed,
+                "collection_phase": self.config.get("collection_phase"),
                 "experiment_protocol": self.config.get("experiment_protocol"),
                 "session_type": self.config.get("session_type"),
+                "eeg_recording_mode": (
+                    "none"
+                    if self.behavior_only
+                    else (
+                        "bcigo_external_edf"
+                        if _uses_bcigo_external_recording(self.config)
+                        else "local_continuous_eeg"
+                    )
+                ),
+                "external_markers_sent": not self.behavior_only,
                 "timestamp_label": self.config.get("timestamp_label"),
                 "rating_trials": len(self.rating_rows),
                 "trial_log_rows": len(self.trial_rows),
@@ -1277,6 +1433,13 @@ class ImageBRunner:
         ):
             if checkpoint.exists():
                 checkpoint.unlink()
+        records_dir = self.project_dir / Path(str(self.config.get("storage", {}).get("records_dir", "records_storage")))
+        write_subject_completion_status(
+            records_dir,
+            subject_id=str(self.config.get("subject_id", "S001")),
+            image_set_label=str(self.config.get("image_set_label", "default")),
+            image_ids=[asset.image_id for asset in self.assets],
+        )
         return session_dir
 
 
@@ -1401,6 +1564,69 @@ def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
         return []
 
 
+def write_subject_completion_status(
+    records_dir: Path,
+    *,
+    subject_id: str,
+    image_set_label: str,
+    image_ids: list[str],
+) -> Path:
+    """Summarize one behavioral rating and five valid EEG views per image."""
+
+    subject_root = records_dir / subject_id
+    status = {
+        image_id: {"rating_completed": False, "eeg_sessions": []}
+        for image_id in image_ids
+    }
+    for metadata_path in subject_root.rglob("metadata*.json"):
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            continue
+        if not bool(metadata.get("completed", False)):
+            continue
+        if normalize_image_set_label(str(metadata.get("image_set_label", "default"))) != image_set_label:
+            continue
+        session_id = int(metadata.get("session_id", -1))
+        session_dir = metadata_path.parent
+        if session_id == 1 and str(metadata.get("session_type", "")) == "labeling":
+            for row in _read_csv_rows(session_dir / "behavioral_ratings.csv"):
+                image_id = str(row.get("image_id", ""))
+                if image_id in status and all(row.get(str(item["key"])) is not None for item in RATING_DIMENSIONS):
+                    status[image_id]["rating_completed"] = True
+        elif session_id in {2, 3, 4, 5, 6}:
+            for row in _read_csv_rows(session_dir / "trial_log.csv"):
+                image_id = str(row.get("image_id", ""))
+                marker_success = str(row.get("image_marker_send_success", "")).strip().lower()
+                if image_id in status and row.get("image_onset") is not None and marker_success in {"true", "1"}:
+                    sessions = status[image_id]["eeg_sessions"]
+                    if session_id not in sessions:
+                        sessions.append(session_id)
+    for value in status.values():
+        value["eeg_sessions"].sort()
+        value["eeg_view_count"] = len(value["eeg_sessions"])
+        value["complete"] = bool(value["rating_completed"] and value["eeg_sessions"] == [2, 3, 4, 5, 6])
+    payload = {
+        "subject_id": subject_id,
+        "image_set_label": image_set_label,
+        "required_rating_count_per_image": 1,
+        "required_eeg_sessions": [2, 3, 4, 5, 6],
+        "image_count": len(status),
+        "images_with_rating": sum(bool(value["rating_completed"]) for value in status.values()),
+        "images_with_five_eeg_views": sum(value["eeg_sessions"] == [2, 3, 4, 5, 6] for value in status.values()),
+        "fully_complete_images": sum(bool(value["complete"]) for value in status.values()),
+        "images": status,
+    }
+    output = subject_root / f"subject_completion_status_{image_set_label}.json"
+    temp = output.with_name(f".{output.name}.{int(time.time() * 1_000_000)}.tmp")
+    try:
+        temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(temp, output)
+    finally:
+        temp.unlink(missing_ok=True)
+    return output
+
+
 def normalize_timestamp_label(value: str | None, *, now: datetime | None = None) -> str:
     text = str(value or "").strip()
     current = now or datetime.now()
@@ -1492,6 +1718,8 @@ def _apply_cli_eeg_overrides(config: dict[str, Any], args: argparse.Namespace) -
     if float(getattr(args, "brainco_lsl_timeout", 0.0) or 0.0) > 0:
         device_cfg["brainco_lsl_resolve_timeout_sec"] = float(args.brainco_lsl_timeout)
         device_cfg["bcigo_marker_wait_timeout_sec"] = float(args.brainco_lsl_timeout)
+    if str(getattr(args, "trigger_serial_port", "")).strip():
+        device_cfg["trigger_serial_port"] = str(args.trigger_serial_port).strip()
     config["device"] = device_cfg
 
 
@@ -1504,6 +1732,28 @@ def _uses_bcigo_external_recording(config: dict[str, Any]) -> bool:
         == "bcigo"
     )
 
+
+def _run_triggerbox_cli_check(config: dict[str, Any]) -> int:
+    device_cfg = dict(config.get("device", {}))
+    print("=" * 60)
+    print("Neuracle TriggerBox联通检查")
+    print(f"Python：{sys.executable}")
+    print(f"串口配置：{device_cfg.get('trigger_serial_port', 'auto') or 'auto'}")
+    print("波特率：115200")
+    try:
+        info = _probe_neuracle_triggerbox(config)
+    except Exception as exc:
+        print("\nTriggerBox联通检查失败：")
+        print(str(exc))
+        print("=" * 60)
+        return 1
+    print("\nTriggerBox联通检查通过：")
+    print(f"实际串口：{info['trigger_box_port']}")
+    print(f"设备名称：{info['trigger_box_device_name']}")
+    print(f"设备信息：{info['trigger_box_device_info']}")
+    print(f"测试事件码：{info['trigger_box_probe_code']}（设备已确认）")
+    print("=" * 60)
+    return 0
 
 def _run_eeg_cli_check(config: dict[str, Any], *, wait_for_enter: bool) -> int:
     selected = "dummy" if bool(config.get("hardware_dummy_mode", False)) else str(config.get("device_type", "brainco"))
@@ -1574,6 +1824,9 @@ def _run_eeg_cli_check(config: dict[str, Any], *, wait_for_enter: bool) -> int:
         if info.get("stream_identity"):
             print(f"LSL 流：{info['stream_identity']}")
         print(f"均值/标准差：{info.get('mean'):.3f} / {info.get('std'):.3f}")
+        if info.get("trigger_box_port"):
+            print(f"TriggerBox：{info['trigger_box_port']} / {info.get('trigger_box_device_name')}")
+            print(f"TriggerBox测试事件码：{info.get('trigger_box_probe_code')}（设备已确认）")
     print("=" * 60)
     if wait_for_enter:
         input(
@@ -1618,6 +1871,7 @@ def _probe_bcigo_marker_connection(
 def _probe_eeg_connection(config: dict[str, Any], *, window_sec: float = 1.0, timeout_sec: float = 8.0) -> dict[str, Any]:
     acquirer: Any | None = None
     try:
+        trigger_summary = _probe_neuracle_triggerbox(config)
         acquirer = build_acquirer(device_name=str(config.get("device_type", "brainco")), config=config)
         acquirer.start_stream()
         eeg = _wait_for_probe_chunk(acquirer, window_sec=window_sec, timeout_sec=timeout_sec)
@@ -1633,6 +1887,7 @@ def _probe_eeg_connection(config: dict[str, Any], *, window_sec: float = 1.0, ti
             "stream_identity": getattr(acquirer, "stream_identity", None),
             "mean": mean,
             "std": std,
+            **trigger_summary,
         }
     finally:
         if acquirer is not None:
@@ -1640,6 +1895,31 @@ def _probe_eeg_connection(config: dict[str, Any], *, window_sec: float = 1.0, ti
                 acquirer.stop_stream()
             except Exception:
                 pass
+
+
+def _probe_neuracle_triggerbox(config: dict[str, Any]) -> dict[str, Any]:
+    if bool(config.get("hardware_dummy_mode", False)) or str(config.get("device_type", "")).strip().lower() != "neuracle":
+        return {}
+    from utils.markers import PROTOCOL_EVENT_CODES, TriggerBoxMarkerBackend
+
+    if not all(1 <= int(code) <= 255 for code in PROTOCOL_EVENT_CODES.values()):
+        raise RuntimeError("实验事件码超出Neuracle TriggerBox的1-255范围。")
+    device_config = dict(config.get("device", {}))
+    serial_port = str(device_config.get("trigger_serial_port", "auto")).strip() or "auto"
+    timeout_sec = float(device_config.get("trigger_serial_timeout_sec", 1.5))
+    backend = TriggerBoxMarkerBackend(serial_port, timeout_sec=timeout_sec)
+    try:
+        backend.send(254)
+        return {
+            "trigger_box_port": backend.serial_port,
+            "trigger_box_baudrate": backend.BAUDRATE,
+            "trigger_box_device_name": backend.device_name,
+            "trigger_box_device_info": backend.device_info,
+            "trigger_box_probe_code": 254,
+            "trigger_box_probe_success": True,
+        }
+    finally:
+        backend.close()
 
 
 def _wait_for_probe_chunk(acquirer: Any, *, window_sec: float, timeout_sec: float) -> np.ndarray:
@@ -1737,6 +2017,12 @@ def _format_eeg_error(exc: Exception, config: dict[str, Any]) -> str:
             "请确认脑电帽已开机、网络可达；如果知道设备 IP/端口，请写入 config.yaml 的 "
             "device.brainco_addr 和 device.brainco_port。"
             f"{port_hint}"
+        )
+    if device == "neuracle" and "triggerbox" in message.lower():
+        return (
+            f"Neuracle TriggerBox联通失败：{message}\n\n"
+            "请先运行 --triggerbox-check-only。若未检测到COM口，请检查设备供电、USB数据线和串口驱动；"
+            "若存在多个COM口，可用 --trigger-serial-port COM3 显式指定。"
         )
     if device == "neuracle" and ("connection" in message.lower() or "refused" in message.lower() or "timed out" in message.lower()):
         return (
