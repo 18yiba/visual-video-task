@@ -29,7 +29,7 @@ video_library/
 
 后续实验代码会根据文件名中下划线后的分类名进行均衡抽样。
 
-如果运行时没有检测到完整 540 个正式视频，程序会自动进入 placeholder 模式：练习 trial 和正式 trial 都使用一个 5-10 秒的黑屏虚拟视频，以便在没有完整素材时测试流程。
+独立 PsychoPy 视频实验不会使用 placeholder。视频数量不足、分类缺失或文件不存在时，程序会在创建实验窗口前报错，避免把黑屏误当作正式刺激。
 
 ## 配置
 
@@ -37,6 +37,9 @@ video_library/
 
 ```yaml
 protocol:
+  default_video_sec: 60.0
+  eyes_open_baseline_sec: 60.0
+  eyes_closed_baseline_sec: 60.0
   video_library_dir: video_library/selected_540_balanced_videos
   video_library_mode: local
 ```

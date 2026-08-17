@@ -81,8 +81,9 @@ class TriggerBox(object):
                      sensorTypeDebug: 'Debug'}
     _deviceID = 1
     _sensor_info = []
-    def __init__(self, serial_name):
+    def __init__(self, serial_name, timeout_sec=60.0):
         self._serial_name = serial_name
+        self._timeout_sec = float(timeout_sec)
         self._port_list = self.refresh_serial_list()
         self._device_comport_handle = None
         self._device_name = None
@@ -98,7 +99,11 @@ class TriggerBox(object):
     def validate_device(self):
         if not self.check_online():
             return False
-        self._device_comport_handle = serial.Serial(self._serial_name,baudrate=115200,timeout=60)
+        self._device_comport_handle = serial.Serial(
+            self._serial_name,
+            baudrate=115200,
+            timeout=self._timeout_sec,
+        )
         if self._device_comport_handle.isOpen():
             print("Open %s successfully." % (self._serial_name))
             recv = self.get_device_name()
@@ -379,7 +384,8 @@ class TriggerBox(object):
         return
 
     def closeSerial(self):
-        self._device_comport_handle.close()
+        if self._device_comport_handle is not None:
+            self._device_comport_handle.close()
 
 
 

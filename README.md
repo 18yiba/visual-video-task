@@ -1,24 +1,30 @@
-# Visual Video Task：PsychoPy Image_B EEG 实验
+# Visual Video Task：独立 PsychoPy 视频与 Image_B EEG 实验
 
-本项目用于运行一次纯行为图片评分和五次图片脑电观看。每张正式实验图片最终包含一次人工评分，以及 Session 2、3、4、5、6 中各一次有效脑电呈现事件。
+本项目包含两套彼此独立的 PsychoPy 实验入口。视频 EEG 实验读取 `video_config.yaml`，图片 Image_B 实验读取 `config.yaml`；两者不再通过同一个界面或范式选择器启动。
 
 行为评分中的每一道题均不限时。被试使用 F/J 调整选项并在确认后按空格进入下一题，程序继续保存每题反应时。
 
 - BrainCo BCIGo 外部 EDF 录制 + LSL Marker（当前推荐方式）
 - BrainCo EEG LSL 输入（仅在确实存在 EEG LSL Outlet 时使用）
-- BrainCo 旧 SDK 直连
+- BrainCo BCIGo SDK 直连
 - Neuracle/JellyFish TCP 实时转发
 - 模拟 EEG 流程测试
 - 命令行联通预检、LSL 扫描、BLE/Wi-Fi 底层诊断
 - 中断恢复、分段事件与行为数据导出
 
-纯行为评分入口是：
+视频 EEG 入口是：
+
+```text
+psychopy_video_experiment.py
+```
+
+图片纯行为评分入口是：
 
 ```text
 psychopy_image_b_rating.py
 ```
 
-EEG重复观看入口是：
+图片 EEG 重复观看入口是：
 
 ```text
 psychopy_image_b_experiment.py
@@ -52,12 +58,13 @@ Set-Location 'D:\QW_FILE\visual-video-task'
 
 ```powershell
 & $PY psychopy_image_b_experiment.py --doctor
+& $PY psychopy_video_experiment.py --doctor
 ```
 
 说明：
 
 - BCIGo 外部录制模式只需要 `pylsl`，不要求安装 `bcigo_sdk`。
-- BrainCo 旧 SDK 直连模式需要 `bc_ecap_sdk`（发行包名通常为 `bc-ecap-sdk`）。
+- BrainCo SDK 直连模式需要 `bcigo_sdk`（发行包名为 `bcigo-sdk`，要求 `>=1.0.2`）。
 - `--doctor` 中 `bcigo_sdk` 显示缺失，不影响推荐的 BCIGo + Marker 工作流。
 
 ## 2. 采集模式总览
@@ -73,6 +80,128 @@ Set-Location 'D:\QW_FILE\visual-video-task'
 不要把 BCIGo 模式与 EEG-LSL 输入模式混淆：当前 BCIGo 的“第三方软件”页面用于扫描并接收实验程序发布的 Marker；BCIGo 自己连接脑电帽并写 EDF，它不会在该工作流中发布 EEG LSL Outlet。
 
 ## 3. 快速启动
+
+### 3.0 独立视频 EEG 实验
+
+视频范式只使用独立入口 `psychopy_video_experiment.py` 和独立配置 `video_config.yaml`，不会进入图片实验。默认流程为睁眼基线 60 秒、闭眼基线 60 秒、正式视频观看；每个视频默认呈现 60 秒，不包含评分阶段。
+
+运行前先把正式视频放入 `video_library/selected_540_balanced_videos/`。文件名必须使用 `视频ID_分类名.扩展名`，例如 `100025_科技商业.mp4`。程序会按分类均衡抽样；视频数量不足、分类缺失或文件不存在时会在实验开始前报错。
+
+直接使用项目脚本和默认 `video_config.yaml` 启动：
+
+```powershell
+& $PY psychopy_video_experiment.py
+```
+
+指定被试、Session 和配置文件启动：
+
+```powershell
+& $PY psychopy_video_experiment.py `
+  --config .\video_config.yaml `
+  --subject-id S012 `
+  --session-id 1
+```
+
+使用模拟 EEG、窗口模式和 2 个视频检查完整 PsychoPy 流程：
+
+```powershell
+& $PY psychopy_video_experiment.py --dummy-eeg --max-trials 2 --windowed --no-dialog
+```
+
+正式 BrainCo + BCIGo 启动方式为：
+
+```powershell
+& $PY psychopy_video_experiment.py `
+  --real-eeg `
+  --device-type brainco `
+  --brainco-transport bcigo `
+  --preflight-eeg
+```
+
+上述命令会先发布 `video-eeg-Markers` LSL Marker 流并等待 BCIGo 连接。请在 BCIGo“第三方软件”页面扫描并选择该流，确认 EDF 已经开始录制，然后回到终端按 Enter，程序才会打开 PsychoPy 实验窗口。
+
+正式 Neuracle/JellyFish 启动方式为：
+
+```powershell
+& $PY psychopy_video_experiment.py `
+  --real-eeg `
+  --device-type neuracle `
+  --preflight-eeg
+```
+
+只检查视频实验的 EEG 或 LSL Marker 联通、不打开 PsychoPy 窗口：
+
+```powershell
+& $PY psychopy_video_experiment.py --eeg-check-only
+```
+
+安装项目后也可以使用独立命令入口：
+
+```powershell
+video-eeg --help
+video-eeg --preflight-eeg
+```
+
+视频入口常用参数如下：
+
+```text
+--config PATH                         指定视频配置文件，默认 video_config.yaml
+--subject-id S012                     覆盖被试编号
+--session-id 1                        覆盖 Session 编号
+--max-trials 2                        限制本次视频数；0 表示使用配置值
+--windowed                            使用窗口模式
+--no-dialog                           跳过启动对话框
+--dummy-eeg                           使用模拟 EEG
+--real-eeg                            使用真实 EEG 配置
+--device-type brainco|neuracle        选择脑电设备
+--brainco-transport bcigo|lsl|sdk     选择 BrainCo 传输方式
+--eeg-check-only                      只检查联通，随后退出
+--preflight-eeg                       联通通过后等待 Enter，再进入 PsychoPy
+--doctor                              检查视频实验运行依赖
+```
+
+查看视频入口的全部参数：
+
+```powershell
+& $PY psychopy_video_experiment.py --help
+```
+
+视频本地事件和 EEG 数据默认写入 `video_records_storage`。图片实验继续通过 `psychopy_image_b_experiment.py` 或 `psychopy_image_b_rating.py` 启动，并使用 `config.yaml`、`visual-video-task-Markers` 和 `records_storage`。
+
+### 3.0.1 使用现有 10 个视频进行真人 Demo 测试
+
+项目当前提供 `video_library/1.mp4` 至 `video_library/10.mp4`。Demo 使用独立的 `video_demo_config.yaml`，按数字顺序播放这 10 个视频，默认使用模拟 EEG，并将结果写入 `video_demo_records_storage`，不会污染正式视频实验数据。
+
+进入项目目录并设置 PsychoPy 解释器后，直接运行：
+
+```powershell
+Set-Location 'E:\QW_FILE\visual-video-task'
+$PY = 'D:\ProgramData\miniconda3\envs\psychopy_env\python.exe'
+& $PY psychopy_video_experiment.py --demo
+```
+
+Demo 保留正式范式时间：睁眼基线 60 秒、闭眼基线 60 秒，每个视频最多呈现 60 秒。若视频文件本身短于 60 秒，则在视频自然结束后进入下一个阶段。运行中按 S 可以跳过当前视频，按 Escape 可以中止并保存已经完成的试次。按 S 后正常依次出现 1 秒空屏和 2 秒 ITI；如果播放器释放或下一视频准备耗时较长，界面会显示“正在准备下一段视频…”，不再保持无提示黑屏。
+
+视频切换时程序使用 `pause()` 停止画面和音频，再使用 `unload()` 直接释放当前播放器。不要改为 `MovieStim.stop()`：PsychoPy 的 `stop()` 会关闭后重新加载同一个视频，适合重播，但会给顺序播放引入不必要的解码和音轨初始化耗时。`trial_log.csv` 中的 `media_load_sec` 与 `media_cleanup_sec` 分别记录每个视频的加载和释放耗时。
+
+若要先用窗口模式测试，可以运行：
+
+```powershell
+& $PY psychopy_video_experiment.py --demo --windowed
+```
+
+Demo 默认配置了模拟 EEG，因此无需连接真实脑电设备。若要让这 10 个视频走真实 BrainCo + BCIGo 链路，可以直接运行：
+
+```powershell
+& $PY psychopy_video_experiment.py `
+  --demo `
+  --real-eeg `
+  --device-type brainco `
+  --brainco-transport bcigo `
+  --preflight-eeg
+```
+
+`--demo` 与 `--config` 不能同时使用；需要长期修改 Demo 参数时，直接编辑 `video_demo_config.yaml`。
 
 ### 3.1 模拟 EEG 短流程
 
@@ -253,7 +382,7 @@ device:
   brainco_lsl_ready_timeout_sec: 10.0
 ```
 
-## 6. BrainCo 旧 SDK 直连模式
+## 6. BrainCo BCIGo SDK 直连模式
 
 SDK 直连模式绕过 BCIGo，由实验程序直接连接脑电帽并在 `records_storage` 中保存 `continuous_eeg.npy`。
 
@@ -306,7 +435,7 @@ SDK 直连模式绕过 BCIGo，由实验程序直接连接脑电帽并在 `recor
 注意：
 
 - BLE Device ID 不应自动当作设备 SN。
-- `config.yaml` 中的 `brainco_device_id` 是旧 SDK parser 的逻辑 ID，也不等同于 SN。
+- `config.yaml` 中的 `brainco_device_id` 是 BCIGo SDK parser 的逻辑 ID（默认 `bcigo`），不等同于 SN。
 - 不要在 BCIGo 正式录制期间运行 `--inspect`，它会建立额外的 BLE 连接。
 - `brainco_device_doctor.py` 是独立诊断工具，不会启动实验或录制 EEG。
 
@@ -318,13 +447,17 @@ Neuracle 后端通过 JellyFish/数据转发程序的 TCP 服务读取 EEG。
 
 ```yaml
 device_type: neuracle
-sfreq: 250.0
+sfreq: 1000.0
 device:
   neuracle_host: 127.0.0.1
   neuracle_port: 8712
+  neuracle_eeg_channels: 64
+  neuracle_include_trigger_channel: true
+  trigger_serial_port: COM3
+  trigger_serial_timeout_sec: 1.5
 ```
 
-程序当前按 64 个 EEG 通道读取。JellyFish 转发的通道数必须不少于 64，采样率必须与 `sfreq` 一致。
+程序按 64 个 EEG 通道加 1 个 TRG 通道读取并保存，`continuous_eeg.npy` 的形状为 `65 × 样本数`，TRG 位于索引 64。JellyFish 必须转发完整的 65 通道，采样率必须与 `sfreq` 一致；`trigger_serial_port` 必须改成设备管理器中触发盒的真实串口号。
 
 ### 7.1 先检查端口
 
@@ -353,6 +486,14 @@ Test-NetConnection -ComputerName 'JellyFish电脑IP' -Port 8712
 
 预检会连接 JellyFish、等待流元数据，并读取约 1 秒 EEG，输出通道数、采样率、样本数、均值和标准差。
 
+触发盒可在正式实验前单独测试；将 `COM3` 替换为设备管理器显示的真实串口号，并同时观察 JellyFish 的 TRG 通道：
+
+```powershell
+python -c "from collect.triggerBox import TriggerBox; box=TriggerBox('COM3'); box.output_event_data(132); box.closeSerial()"
+```
+
+命令成功且 JellyFish 出现一次 132，才表示串口、触发盒、Trigger 输入和 TRG 转发链路全部连通。
+
 ### 7.3 联通后进入正式实验
 
 ```powershell
@@ -375,10 +516,14 @@ Copy-Item .\config.yaml .\config.neuracle.yaml
 ```yaml
 device_type: neuracle
 hardware_dummy_mode: false
-sfreq: 250.0
+sfreq: 1000.0
 device:
   neuracle_host: 192.168.1.20
   neuracle_port: 8712
+  neuracle_eeg_channels: 64
+  neuracle_include_trigger_channel: true
+  trigger_serial_port: COM3
+  trigger_serial_timeout_sec: 1.5
 ```
 
 然后运行：
@@ -480,6 +625,10 @@ device:
   lsl_marker_source_id: visual-video-task-marker
   neuracle_host: 127.0.0.1
   neuracle_port: 8712
+  neuracle_eeg_channels: 64
+  neuracle_include_trigger_channel: true
+  trigger_serial_port: COM3
+  trigger_serial_timeout_sec: 1.5
 
 storage:
   records_dir: records_storage
@@ -557,54 +706,17 @@ eeg_segments.json
 
 允许多个 session 共用同一个 EDF：第一轮前开始录制，全部 session 完成后停止。项目通过每轮的 `session_start`/`session_end` Marker 保留分段边界。
 
-## 11. 通用 CLI 工具
+## 11. 独立命令入口
 
-除 PsychoPy 入口外，项目还提供 Click CLI：
-
-这组工具不是正式 `image_b` 实验的必需项。当前已验证的 PsychoPy 环境未安装 `click`；如需使用，先检查：
-
-```powershell
-& $PY -c "import click, rich, pandas, streamlit; print('optional CLI dependencies: OK')"
-```
-
-缺少时安装可选界面依赖：
-
-```powershell
-& $PY -m pip install click rich pandas streamlit
-```
-
-然后运行：
-
-```powershell
-& $PY cli.py --help
-```
-
-常用命令：
-
-```powershell
-# 启动 Streamlit 界面
-& $PY cli.py gui
-
-# 列出硬件后端
-& $PY cli.py list-devices
-
-# 列出 Trigger 码
-& $PY cli.py list-triggers
-
-# 对本地 EEG 输入模式读取数据窗口；不适用于 bcigo 外部录制模式
-& $PY cli.py probe-device --device neuracle --duration 5
-
-# 运行短协议/导出检查
-& $PY cli.py dry-run --trials 2
-```
-
-如果执行过项目安装，也可以用脚本入口：
+项目安装后提供三个互不混用的入口：
 
 ```powershell
 video-eeg --help
+image-b-eeg --help
+image-b-rating --help
 ```
 
-当前 `image_b` 正式采集优先使用 `psychopy_image_b_experiment.py`；Streamlit 界面主要保留给旧视频流程和配置操作。
+`video-eeg` 只运行 PsychoPy 视频 EEG 范式；`image-b-eeg` 与 `image-b-rating` 只运行图片范式。项目不再包含 Streamlit 实验入口。
 
 ## 12. 常见问题
 

@@ -14,25 +14,23 @@ authors = [
 ]
 dependencies = [
   "psychopy",
-  "bc-ecap-sdk",
+  "bcigo-sdk>=1.0.2",
   "brainflow",
-  "click",
   "numpy",
-  "pandas",
   "pylsl",
   "psutil>=5.9",
   "pyserial",
   "pyyaml",
-  "rich",
-  "streamlit>=1.30",
   "zeroconf",
 ]
 
 [project.scripts]
-video-eeg = "cli:cli"
+video-eeg = "psychopy_video_experiment:main"
+image-b-eeg = "psychopy_image_b_experiment:main"
+image-b-rating = "psychopy_image_b_rating:main"
 
 [tool.setuptools]
-py-modules = ["cli", "gui", "experiment_ui"]
+py-modules = ["psychopy_video_experiment", "psychopy_image_b_experiment", "psychopy_image_b_rating"]
 
 [tool.setuptools.packages.find]
 include = ["acquisition*", "collect*", "protocol*", "tasks*", "utils*"]

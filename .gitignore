@@ -27,6 +27,8 @@ original_data/
 records/
 records_storage/
 ratings_storage/
+video_records_storage/
+video_demo_records_storage/
 models/
 video_library/selected_540_balanced_videos/
 *.npy

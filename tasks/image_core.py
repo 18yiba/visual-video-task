@@ -1,4 +1,4 @@
-"""Streamlit-free helpers for image EEG paradigms."""
+"""UI-independent helpers for image EEG paradigms."""
 
 from __future__ import annotations
 
@@ -356,7 +356,7 @@ def build_image_playlist(
     random_seed: int | None = None,
     base_dir: Path | None = None,
 ) -> tuple[list[ImageTrial], list[ImageAsset], dict[str, Any]]:
-    """Backward-compatible multi-repeat playlist used by older Streamlit code."""
+    """Backward-compatible multi-repeat playlist used by older runners."""
 
     seed = int(random_seed if random_seed is not None else secrets.randbits(32))
     rng = random.Random(seed)

@@ -1,131 +1,18 @@
-"""Video-EEG experiment protocol configuration and session management."""
+"""Shared EEG session recording and marker alignment."""
 
 from __future__ import annotations
 
-from utils.video_library import (
-    VideoAsset,
-    build_balanced_playlist,
-    build_playlist as build_video_playlist,
-    choose_practice_asset,
-    load_video_library,
-)
-
-import secrets
 import threading
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
 from acquisition.base import AbstractAcquirer
 from protocol.session_recorder import SessionRecorder
-from utils.markers import PROTOCOL_EVENT_CODES, MarkerBackend
+from utils.markers import LOCAL_ONLY_EVENT_NAMES, PROTOCOL_EVENT_CODES, MarkerBackend
 
 Heartbeat = Callable[[], None] | None
-
-
-@dataclass(slots=True)
-class VideoProtocolConfig:
-    """Timing and playlist parameters for one video-EEG session."""
-
-    fixation_sec: float
-    blank_sec: float
-    iti_sec: float
-    trials_per_session: int
-    baseline_sec: float
-    video_library_dir: str
-    video_library_mode: str
-    random_seed: int
-    default_video_sec: float
-    rating_sec: float
-
-    @classmethod
-    def from_config(cls, config: dict[str, Any]) -> VideoProtocolConfig:
-        protocol = dict(config.get("protocol", {}))
-        library_dir = (
-            protocol.get("video_library_dir")
-            or protocol.get("video_dir")
-            or "video_library/selected_540_balanced_videos"
-        )
-        return cls(
-            fixation_sec=float(protocol.get("fixation_sec", 1.5)),
-            blank_sec=float(protocol.get("blank_sec", 1.0)),
-            iti_sec=float(protocol.get("iti_sec", 2.0)),
-            trials_per_session=int(protocol.get("trials_per_session", 500)),
-            baseline_sec=float(protocol.get("baseline_sec", 60.0)),
-            video_library_dir=str(library_dir),
-            video_library_mode=str(protocol.get("video_library_mode", "local")),
-            random_seed=int(protocol.get("random_seed", 17)),
-            default_video_sec=float(protocol.get("default_video_sec", 8.0)),
-            rating_sec=float(protocol.get("rating_sec", 10.0)),
-        )
-
-
-@dataclass(slots=True)
-class ExperimentPlaylists:
-    practice_asset: VideoAsset
-    formal_playlist: list[VideoAsset]
-    random_seed: int
-    used_placeholder: bool = False
-    fallback_reason: str | None = None
-
-
-def build_playlist_from_config(config: dict[str, Any]) -> list[VideoAsset]:
-    """Build a shuffled session playlist from the configured video library."""
-
-    protocol = VideoProtocolConfig.from_config(config)
-    library = load_video_library(config)
-    return build_video_playlist(
-        library,
-        trials_per_session=protocol.trials_per_session,
-        random_seed=protocol.random_seed,
-    )
-
-
-def build_experiment_playlists_from_config(
-    config: dict[str, Any],
-    *,
-    random_seed: int | None = None,
-) -> ExperimentPlaylists:
-    """Build one untimed practice trial plus a balanced formal playlist."""
-
-    protocol = VideoProtocolConfig.from_config(config)
-    library = load_video_library(config)
-    seed = int(random_seed if random_seed is not None else secrets.randbits(32))
-
-    catalog = library.list_assets()
-    if len(catalog) != 540:
-        duration_sec = min(10.0, max(5.0, protocol.default_video_sec))
-        placeholder = VideoAsset(
-            asset_id="placeholder_black_screen",
-            rel_path="placeholder_black_screen.mp4",
-            duration_sec=duration_sec,
-            category="placeholder",
-        )
-        return ExperimentPlaylists(
-            practice_asset=placeholder,
-            formal_playlist=[placeholder] * protocol.trials_per_session,
-            random_seed=seed,
-            used_placeholder=True,
-            fallback_reason=(
-                f"Expected 540 local videos but found {len(catalog)}. "
-                "Using placeholder black-screen video for practice and formal trials."
-            ),
-        )
-
-    practice_asset = choose_practice_asset(library, random_seed=seed)
-    formal_playlist = build_balanced_playlist(
-        library,
-        trials_per_session=protocol.trials_per_session,
-        random_seed=seed + 1,
-        exclude=practice_asset,
-    )
-    return ExperimentPlaylists(
-        practice_asset=practice_asset,
-        formal_playlist=formal_playlist,
-        random_seed=seed,
-    )
 
 
 class EegSessionManager:
@@ -308,27 +195,61 @@ class EegSessionManager:
             "device_type": self._acquirer.metadata.name,
             "eeg_session_dir": str(self._session_dir),
             "trigger_codes": dict(PROTOCOL_EVENT_CODES),
+            "local_only_events": sorted(LOCAL_ONLY_EVENT_NAMES),
             "eeg_part": self._recorder.part_index,
             "eeg_file": self._recorder.eeg_filename or None,
             "local_eeg_recorded": self._record_local_eeg,
             "events_file": self._recorder.events_filename,
             "metadata_file": self._recorder.metadata_filename,
         }
+        if self._acquirer.metadata.eeg_channel_count is not None:
+            export_metadata.update(
+                {
+                    "eeg_channel_count": int(
+                        self._acquirer.metadata.eeg_channel_count
+                    ),
+                    "trigger_channel_index": (
+                        self._acquirer.metadata.trigger_channel_index
+                    ),
+                    "trigger_channel_name": (
+                        self._acquirer.metadata.trigger_channel_name
+                    ),
+                }
+            )
         export_metadata.update(self._start_metadata)
         if metadata:
             export_metadata.update(metadata)
         if self._background_error is not None:
             export_metadata["termination_reason"] = "eeg_background_error"
             export_metadata["background_error"] = repr(self._background_error)
-        self._recorder.export(self._session_dir, metadata=export_metadata)
+        try:
+            self._recorder.export(self._session_dir, metadata=export_metadata)
+        finally:
+            self._marker_backend.close()
         return self._session_dir
 
     def emit(self, event_name: str, **payload: Any) -> None:
         self.raise_if_background_failed()
         code = PROTOCOL_EVENT_CODES.get(event_name)
-        if code is None:
+        is_local_only = event_name in LOCAL_ONLY_EVENT_NAMES
+        if code is None and not is_local_only:
             raise ValueError(f"Unknown protocol event: {event_name}")
         callback_monotonic = time.perf_counter()
+        if is_local_only:
+            self._recorder.add_event(
+                event_name,
+                subject_id=self._subject_id,
+                session_id=self._session_id,
+                marker_code=None,
+                flip_callback_time_monotonic_sec=callback_monotonic,
+                marker_send_started_monotonic_sec=None,
+                marker_send_completed_monotonic_sec=None,
+                marker_backend="local_event_log",
+                external_marker_sent=False,
+                marker_send_success=None,
+                **payload,
+            )
+            return
         marker_started = time.perf_counter()
         marker_backend = type(self._marker_backend).__name__
         external_marker = marker_backend != "NoOpMarkerBackend"

@@ -119,18 +119,18 @@ async def _inspect(sdk: Any, device_id: str, timeout: float) -> bool:
 
 async def _main_async(args: argparse.Namespace) -> int:
     try:
-        import bc_ecap_sdk as sdk
+        import bcigo_sdk as sdk
     except ImportError as exc:
-        print(f"Cannot import bc_ecap_sdk from {sys.executable}: {exc}")
+        print(f"Cannot import bcigo_sdk from {sys.executable}: {exc}")
         return 1
 
     print(f"Python: {sys.executable}")
     try:
-        distribution_version = version("bc-ecap-sdk")
+        distribution_version = version("bcigo-sdk")
     except PackageNotFoundError:
         distribution_version = "<unknown>"
-    print(f"bc-ecap-sdk distribution version: {distribution_version}")
-    print(f"bc_ecap_sdk module version: {getattr(sdk, '__version__', '<unknown>')}")
+    print(f"bcigo-sdk distribution version: {distribution_version}")
+    print(f"bcigo_sdk module version: {getattr(sdk, '__version__', '<unknown>')}")
     print(f"BLE scan: {args.scan_seconds:.1f} seconds")
     devices = await _scan(sdk, args.scan_seconds)
     if not devices:

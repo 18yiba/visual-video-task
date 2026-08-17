@@ -19,6 +19,10 @@ PROTOCOL_EVENT_CODES = {
     # Baseline resting EEG
     "baseline_start": 110,
     "baseline_end": 111,
+    "eyes_open_baseline_start": 112,
+    "eyes_open_baseline_end": 113,
+    "eyes_closed_baseline_start": 114,
+    "eyes_closed_baseline_end": 115,
     # Block breaks (optional long rest)
     "block_start": 120,
     "block_end": 121,
@@ -33,18 +37,26 @@ PROTOCOL_EVENT_CODES = {
     "image_off": 133,
     "blank_on": 134,
     "blank_off": 135,
-    "rating_on": 136,
-    "rating_off": 137,
     "iti_on": 138,
     "iti_off": 139,
     # Trial boundaries
     "trial_start": 140,
     "trial_end": 141,
     "attention_task_on": 142,
-    "attention_response": 143,
-    "rating_item_on": 144,
-    "rating_item_off": 145,
 }
+
+# These events remain in events.json and the behavioral CSV files, but are not
+# sent to BCIGo or the serial trigger box because they are behavioral records
+# rather than EEG stimulus boundaries.
+LOCAL_ONLY_EVENT_NAMES = frozenset(
+    {
+        "rating_on",
+        "rating_off",
+        "attention_response",
+        "rating_item_on",
+        "rating_item_off",
+    }
+)
 
 # Human-readable trigger reference for experiment documentation.
 TRIGGER_REFERENCE = {
@@ -52,6 +64,10 @@ TRIGGER_REFERENCE = {
     102: "session_end — 实验 session 结束",
     110: "baseline_start — 静息基线开始",
     111: "baseline_end — 静息基线结束",
+    112: "eyes_open_baseline_start — 睁眼静息基线开始",
+    113: "eyes_open_baseline_end — 睁眼静息基线结束",
+    114: "eyes_closed_baseline_start — 闭眼静息基线开始",
+    115: "eyes_closed_baseline_end — 闭眼静息基线结束",
     120: "block_start — block 开始",
     121: "block_end — block 结束",
     122: "block_rest_start — block 间休息开始",
@@ -62,16 +78,11 @@ TRIGGER_REFERENCE = {
     133: "video_off/image_off — 视频或图片呈现结束",
     134: "blank_on — 空屏开始",
     135: "blank_off — 空屏结束",
-    136: "rating_on — 行为评分界面出现",
-    137: "rating_off — 行为评分提交完成",
     138: "iti_on — trial 间隔开始",
     139: "iti_off — trial 间隔结束",
     140: "trial_start — 单个 trial 开始",
     141: "trial_end — 单个 trial 结束",
     142: "attention_task_on — 随机注意力任务出现",
-    143: "attention_response — 随机注意力任务按键响应",
-    144: "rating_item_on — 图片范式二单个评分题目出现",
-    145: "rating_item_off — 图片范式二单个评分题目结束",
 }
 
 
@@ -101,6 +112,9 @@ class MarkerBackend(ABC):
             raise ValueError(f"Unknown protocol event: {event_name}")
         self.send(code, timestamp=timestamp)
 
+    def close(self) -> None:
+        """Release resources owned by the marker backend."""
+
 
 class NoOpMarkerBackend(MarkerBackend):
     """Fallback marker sink for environments without hardware triggers."""
@@ -115,14 +129,17 @@ class NoOpMarkerBackend(MarkerBackend):
 class TriggerBoxMarkerBackend(MarkerBackend):
     """Serial trigger backend built from the legacy collect integration."""
 
-    def __init__(self, serial_port: str) -> None:
+    def __init__(self, serial_port: str, *, timeout_sec: float = 1.5) -> None:
         from collect.triggerBox import TriggerBox
 
-        self._trigger_box = TriggerBox(serial_port)
+        self._trigger_box = TriggerBox(serial_port, timeout_sec=timeout_sec)
 
     def send(self, label: int, timestamp: float | None = None) -> None:
         del timestamp
         self._trigger_box.output_event_data(int(label))
+
+    def close(self) -> None:
+        self._trigger_box.closeSerial()
 
 
 class LSLMarkerBackend(MarkerBackend):
@@ -180,6 +197,10 @@ class CompositeMarkerBackend(MarkerBackend):
             backend for backend in self._backends if hasattr(backend, "wait_for_consumers")
         ]
         return all(backend.wait_for_consumers(timeout_sec) for backend in waitable)
+
+    def close(self) -> None:
+        for backend in reversed(self._backends):
+            backend.close()
 
 
 class LSLCommandOutlet:

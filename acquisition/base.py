@@ -18,6 +18,9 @@ class AcquirerMetadata:
     name: str
     sfreq: float
     n_channels: int
+    eeg_channel_count: int | None = None
+    trigger_channel_index: int | None = None
+    trigger_channel_name: str | None = None
 
 
 class AbstractAcquirer(ABC):

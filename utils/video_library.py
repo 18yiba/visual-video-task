@@ -121,7 +121,7 @@ def load_video_library(config: dict[str, Any]) -> VideoLibrary:
     return VideoLibrary(
         root=root,
         mode=mode_raw,  # type: ignore[arg-type]
-        default_duration_sec=float(protocol.get("default_video_sec", 8.0)),
+        default_duration_sec=float(protocol.get("default_video_sec", 60.0)),
     )
 
 

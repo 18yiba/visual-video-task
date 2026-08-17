@@ -1,4 +1,4 @@
-"""BrainCo EEG Cap acquisition backend backed by the bc_ecap_sdk package."""
+"""BrainCo EEG Cap acquisition backend backed by the bcigo_sdk package."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ class BrainCoAcquirer(AbstractAcquirer):
         start_retries: int = 2,
         eeg_gain: int = 6,
         signal_source: str = "NORMAL",
-        device_id: str = "eeg-cap",
+        device_id: str = "bcigo",
     ) -> None:
         if n_channels <= 0 or n_channels > 32:
             raise ValueError("BrainCo EEG Cap supports 1-32 EEG channels.")
@@ -99,7 +99,7 @@ class BrainCoAcquirer(AbstractAcquirer):
         self._cached_discovery_target: tuple[str, int] | None = None
 
     def start_stream(self) -> None:
-        import bc_ecap_sdk as sdk
+        import bcigo_sdk as sdk
 
         if self._client is not None:
             self.stop_stream()
@@ -125,8 +125,8 @@ class BrainCoAcquirer(AbstractAcquirer):
             self._last_msg_response_monotonic = 0.0
             self._start_loop_thread()
             addr, port = self._resolve_addr_port()
-            self._client = sdk.ECapClient(addr, port)
-            parser = sdk.MessageParser(self._device_id, sdk.MsgType.EEGCap)
+            self._client = sdk.BCIGoClient(addr, port)
+            parser = sdk.MessageParser(self._device_id, sdk.MsgType.BCIGo)
             self._register_sdk_callbacks()
 
             try:
@@ -209,7 +209,11 @@ class BrainCoAcquirer(AbstractAcquirer):
             except Exception as exc:
                 LOGGER.warning("Failed to stop BrainCo EEG stream cleanly: %s", exc)
             try:
-                client.disconnect_tcp_blocking()
+                disconnect_tcp = getattr(client, "disconnect_tcp", None)
+                if disconnect_tcp is not None:
+                    self._run_sdk_call(disconnect_tcp)
+                else:
+                    client.disconnect_tcp_blocking()
             except Exception as exc:
                 LOGGER.warning("Failed to disconnect BrainCo TCP client cleanly: %s", exc)
 

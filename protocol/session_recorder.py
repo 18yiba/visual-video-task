@@ -159,11 +159,15 @@ class SessionRecorder:
                 target[:, start:end] = raw[start:end].T
             target.flush()
             del target, raw
-            try:
-                assert eeg_path is not None
-                os.link(writing_path, eeg_path)
-            finally:
-                writing_path.unlink(missing_ok=True)
+            assert eeg_path is not None
+            if eeg_path.exists():
+                raise FileExistsError(f"Refusing to overwrite existing EEG file: {eeg_path}")
+            # The previous hard-link publication fails with WinError 1 on some
+            # Windows filesystems. Both paths are in the same session directory,
+            # so rename is atomic and does not require hard-link support. If it
+            # fails, keep both the completed .writing file and raw spool for
+            # recovery instead of deleting either copy.
+            os.rename(writing_path, eeg_path)
             self._spool_path.unlink()
         elif self._spool_path is not None and self._spool_path.exists():
             assert eeg_path is not None

@@ -62,7 +62,7 @@ class _MarkerBackendProxy:
 
 
 class Task:
-    """Bridge marker events to optional UI callbacks (Streamlit or external display)."""
+    """Bridge marker events to optional diagnostic display callbacks."""
 
     def __init__(self) -> None:
         self._console: Any | None = None
@@ -113,4 +113,3 @@ class Task:
 
     def close(self) -> None:
         self._current_phase = "closed"
-

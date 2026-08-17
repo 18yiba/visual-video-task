@@ -20,6 +20,8 @@ class NeuracleAcquirer(AbstractAcquirer):
         self,
         sfreq: float = 250.0,
         n_channels: int = 64,
+        eeg_channel_count: int | None = None,
+        include_trigger_channel: bool = False,
         buffer_sec: float = 60.0,
         neuracle_host: str = "127.0.0.1",
         neuracle_port: int = 8712,
@@ -27,7 +29,27 @@ class NeuracleAcquirer(AbstractAcquirer):
     ) -> None:
         from collect.neuracle_api import DataServerThread
 
-        self.metadata = AcquirerMetadata(name="neuracle", sfreq=sfreq, n_channels=n_channels)
+        resolved_eeg_channels = int(
+            n_channels if eeg_channel_count is None else eeg_channel_count
+        )
+        if resolved_eeg_channels <= 0:
+            raise ValueError("Neuracle EEG channel count must be positive")
+        expected_channels = resolved_eeg_channels + int(bool(include_trigger_channel))
+        if int(n_channels) != expected_channels:
+            raise ValueError(
+                "Neuracle n_channels must equal eeg_channel_count plus the optional "
+                f"TRG channel: {n_channels} != {expected_channels}"
+            )
+        trigger_index = resolved_eeg_channels if include_trigger_channel else None
+        self.metadata = AcquirerMetadata(
+            name="neuracle",
+            sfreq=sfreq,
+            n_channels=int(n_channels),
+            eeg_channel_count=resolved_eeg_channels,
+            trigger_channel_index=trigger_index,
+            trigger_channel_name="TRG" if include_trigger_channel else None,
+        )
+        self._include_trigger_channel = bool(include_trigger_channel)
         self._host = neuracle_host
         self._port = neuracle_port
         self._ready_timeout_sec = ready_timeout_sec
@@ -66,18 +88,36 @@ class NeuracleAcquirer(AbstractAcquirer):
             time.sleep(0.1)
         self._server.start()
         detected_channels = int(getattr(self._server, "n_chan", 0))
+        forwarded_channels = int(
+            getattr(self._server.buffer, "n_chan", detected_channels)
+        )
         module_name = str(getattr(self._server, "moduleName", "unknown"))
         detected_sfreq = float(getattr(self._server, "sample_rate", self.metadata.sfreq))
+        channel_names = [
+            str(name) for name in getattr(self._server, "channelNames", [])
+        ]
         LOGGER.info(
             "Neuracle metadata ready: module=%s channels=%s sfreq=%.1fHz",
             module_name,
-            detected_channels if detected_channels else self.metadata.n_channels,
+            forwarded_channels if forwarded_channels else self.metadata.n_channels,
             detected_sfreq,
         )
-        if detected_channels and self.metadata.n_channels > detected_channels:
+        if forwarded_channels and self.metadata.n_channels > forwarded_channels:
+            self.stop_stream()
             raise RuntimeError(
-                f"Configured channels={self.metadata.n_channels} exceeds forwarded channels={detected_channels}"
+                f"Configured channels={self.metadata.n_channels} exceeds "
+                f"forwarded channels={forwarded_channels}"
             )
+        if self._include_trigger_channel:
+            trigger_index = self.metadata.trigger_channel_index
+            if trigger_index is None or trigger_index >= forwarded_channels:
+                self.stop_stream()
+                raise RuntimeError(
+                    "Neuracle TRG channel was requested but is missing from the "
+                    f"forwarded {forwarded_channels}-channel stream"
+                )
+            if trigger_index < len(channel_names):
+                self.metadata.trigger_channel_name = channel_names[trigger_index] or "TRG"
         LOGGER.info("Neuracle acquisition started at %s:%s", self._host, self._port)
 
     def stop_stream(self) -> None:

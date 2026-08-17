@@ -18,7 +18,7 @@ from typing import Any, Callable
 
 import numpy as np
 
-from protocol.video_protocol import EegSessionManager, VideoProtocolConfig
+from protocol.video_protocol import EegSessionManager
 from tasks.image_core import (
     FORMAL_500_PROTOCOL,
     PILOT_105_PROTOCOL,
@@ -111,13 +111,26 @@ def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
     if selected not in AcquirerFactory.list_devices():
         available = ", ".join(AcquirerFactory.list_devices())
         raise RuntimeError(f"未知脑电设备：{selected!r}。可用设备：{available}")
+    n_channels = 32 if selected == "brainco" else 64
+    neuracle_eeg_channels: int | None = None
+    neuracle_include_trigger = False
+    if selected == "neuracle":
+        neuracle_eeg_channels = int(device_cfg.get("neuracle_eeg_channels", 64))
+        if neuracle_eeg_channels <= 0:
+            raise RuntimeError("device.neuracle_eeg_channels must be positive.")
+        neuracle_include_trigger = bool(
+            device_cfg.get("neuracle_include_trigger_channel", True)
+        )
+        n_channels = neuracle_eeg_channels + int(neuracle_include_trigger)
     kwargs: dict[str, Any] = {
         "sfreq": float(config.get("sfreq", 250.0)),
-        "n_channels": 32 if selected == "brainco" else 64,
+        "n_channels": n_channels,
         "buffer_sec": float(config.get("buffer_sec", 120.0)),
     }
     factory_name = selected
     if selected == "neuracle":
+        kwargs["eeg_channel_count"] = neuracle_eeg_channels
+        kwargs["include_trigger_channel"] = neuracle_include_trigger
         kwargs["neuracle_host"] = str(device_cfg.get("neuracle_host", "127.0.0.1"))
         kwargs["neuracle_port"] = int(device_cfg.get("neuracle_port", 8712))
     elif selected == "brainco":
@@ -150,7 +163,7 @@ def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
             kwargs["start_retries"] = int(device_cfg.get("brainco_start_retries", 2))
             kwargs["eeg_gain"] = int(device_cfg.get("brainco_gain", 6))
             kwargs["signal_source"] = str(device_cfg.get("brainco_signal_source", "NORMAL"))
-            kwargs["device_id"] = str(device_cfg.get("brainco_device_id", "eeg-cap"))
+            kwargs["device_id"] = str(device_cfg.get("brainco_device_id", "bcigo"))
         else:
             raise RuntimeError("device.brainco_transport 必须是 bcigo、lsl 或 sdk。")
     return AcquirerFactory.create(factory_name, **kwargs)
@@ -168,7 +181,14 @@ def build_marker_backend(config: dict[str, Any]) -> Any:
     backends: list[Any] = []
     serial_port = str(device_cfg.get("trigger_serial_port", "")).strip()
     if serial_port:
-        backends.append(TriggerBoxMarkerBackend(serial_port))
+        backends.append(
+            TriggerBoxMarkerBackend(
+                serial_port,
+                timeout_sec=float(
+                    device_cfg.get("trigger_serial_timeout_sec", 1.5)
+                ),
+            )
+        )
     brainco_marker = (
         str(config.get("device_type", "")).strip().lower() == "brainco"
         and str(device_cfg.get("brainco_transport", "sdk")).strip().lower()
@@ -471,7 +491,6 @@ class ImageBRunner:
         self.playlist_metadata = playlist_metadata
         self.resume_state = dict(resume_state or {})
         self.behavior_only = bool(behavior_only)
-        self.protocol = VideoProtocolConfig.from_config(config)
         self.manager: EegSessionManager | None = None
         self.rating_rows: list[dict[str, Any]] = list(self.resume_state.get("rating_rows", []))
         self.trial_rows: list[dict[str, Any]] = list(self.resume_state.get("trial_rows", []))
@@ -793,7 +812,7 @@ class ImageBRunner:
 
     def _run_formal(self) -> None:
         manager = self._require_manager()
-        baseline_sec = float(self.protocol.baseline_sec)
+        baseline_sec = float(protocol_value(self.config, "baseline_sec", 0.0))
         if baseline_sec > 0 and not self.resume_state and not self.behavior_only:
             self._show_phase(
                 "+",
@@ -2005,6 +2024,9 @@ def _probe_eeg_connection(config: dict[str, Any], *, window_sec: float = 1.0, ti
         return {
             "device": acquirer.metadata.name,
             "channels": int(acquirer.metadata.n_channels),
+            "eeg_channel_count": acquirer.metadata.eeg_channel_count,
+            "trigger_channel_index": acquirer.metadata.trigger_channel_index,
+            "trigger_channel_name": acquirer.metadata.trigger_channel_name,
             "sfreq": float(acquirer.metadata.sfreq),
             "samples": int(eeg.shape[1]),
             "stream_identity": getattr(acquirer, "stream_identity", None),
@@ -2078,17 +2100,20 @@ def _format_eeg_error(exc: Exception, config: dict[str, Any]) -> str:
             "--brainco-lsl-name 和 --brainco-lsl-source-id 精确指定。\n"
             "5. BCIGo 开始录制后，在命令行按 Enter 进入实验。"
         )
-    if isinstance(exc, ModuleNotFoundError) and getattr(exc, "name", "") == "bc_ecap_sdk":
+    if isinstance(exc, ModuleNotFoundError) and getattr(exc, "name", "") in {
+        "bcigo_sdk",
+        "_bcigo_sdk",
+    }:
         return (
-            "当前 PsychoPy 运行环境缺少 BrainCo SDK：bc_ecap_sdk。\n\n"
+            "当前 PsychoPy 运行环境缺少 BrainCo SDK：bcigo_sdk。\n\n"
             "处理方式：\n"
-            "1. 在 PsychoPy 使用的 Python 环境中安装 BrainCo SDK（项目可选依赖名：bc-ecap-sdk）。\n"
+            "1. 在 PsychoPy 使用的 Python 环境中安装 BrainCo SDK（项目依赖名：bcigo-sdk>=1.0.2）。\n"
             "2. 或在启动对话框中勾选“使用模拟脑电”，先测试实验流程。\n"
             "3. 若本次使用博睿康，请把脑电设备改为 neuracle。"
         )
-    if "bc_ecap_sdk" in message:
+    if "bcigo_sdk" in message:
         return (
-            "BrainCo SDK 加载失败：bc_ecap_sdk 不可用。\n\n"
+            "BrainCo SDK 加载失败：bcigo_sdk 不可用。\n\n"
             "请确认是在已安装 BrainCo SDK 的 PsychoPy 环境中运行。"
         )
     if device == "brainco" and brainco_transport == "sdk" and ("timed out" in message.lower() or "timeout" in message.lower()):
@@ -2125,7 +2150,7 @@ def _format_eeg_error(exc: Exception, config: dict[str, Any]) -> str:
 
 def _doctor() -> int:
     checks: list[tuple[str, bool, str]] = []
-    for module_name in ["psychopy", "numpy", "yaml", "pylsl", "bcigo_sdk", "bc_ecap_sdk"]:
+    for module_name in ["psychopy", "numpy", "yaml", "pylsl", "bcigo_sdk"]:
         try:
             __import__(module_name)
             checks.append((module_name, True, "OK"))

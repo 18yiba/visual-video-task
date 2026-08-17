@@ -1,4 +1,4 @@
-"""Task module registry for video-EEG experiments."""
+"""Task module registry used by compatibility helpers."""
 
 from tasks.task_factory import Task, load_task, load_task_from_config, resolve_task_mode
 
