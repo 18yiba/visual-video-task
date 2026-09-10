@@ -1,5 +1,8 @@
 # GitHub 发布记录（2026-09-10）
 
+本页记录第一轮上传。随后用户追加的 34 组、安装/退出修复、标签表与下载说明已通过
+[PR #2](https://github.com/18yiba/visual-video-task/pull/2) 同步，见 [后续同步记录](SYNC_20260910.md)。
+
 - 仓库：https://github.com/18yiba/visual-video-task
 - 默认分支：master
 - 实际认证账号：0hSophia，已核实具有目标仓库写入权限。

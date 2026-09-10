@@ -66,8 +66,8 @@
   },
   {
     "path": "docs/MAINTENANCE_LOG_20260908.md",
-    "bytes": 6649,
-    "sha256": "ad24cca76b5921404e5ada8af113e5da664e471f5663a471793352a772c534f2"
+    "bytes": 6782,
+    "sha256": "62798395cc10c549cb89e06be1fe0f58765d15e7b4c3c50e94b5044d400f3ebf"
   },
   {
     "path": "docs/material_audit_latest.json",
@@ -91,13 +91,18 @@
   },
   {
     "path": "docs/PUBLICATION_20260910.md",
-    "bytes": 1814,
-    "sha256": "6dbde612c3334566160ccee55086b2d7bf34efc705d63c4a316fc6a7f2ba7ae0"
+    "bytes": 2046,
+    "sha256": "61489d47809a28c7ce4f55b7979545a5a56d7bdfcc2f31396ff7a9dd14541eea"
   },
   {
     "path": "docs/SESSION_34_AND_LABEL_AUDIT.zh-CN.md",
     "bytes": 4653,
     "sha256": "fc48a1d61e5633a06bb026a4f71d87e2b38437e9d604fb84ff88d49f0d746a2a"
+  },
+  {
+    "path": "docs/SYNC_20260910.md",
+    "bytes": 1832,
+    "sha256": "b7219371e945b9b6ffdfb4ae9cb2fbe55d789a21442855671b0378dc2eeaf7e6"
   },
   {
     "path": "docs/\u89c6\u9891EEG_\u5b9e\u9a8c\u8bf4\u660e.docx",
