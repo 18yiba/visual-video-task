@@ -3,6 +3,8 @@
 适用入口：`run_video_formal.bat`、`run_video_demo.bat`。
 当前默认正式题库：`complete_questions_20260908/question_bank.json`。
 
+已在离线实验室电脑采集数据，需要用移动硬盘更新时，请使用[离线最小更新说明](OFFLINE_LAB_UPDATE.zh-CN.md)：只新增更新文件夹，保留原环境、配置、数据和旧实验入口，无需联网安装。
+
 ## 一、下载与目录放置
 
 使用 Windows 10/11 64 位电脑。将 GitHub 下载的 ZIP **完整解压**到可写的本地文件夹，

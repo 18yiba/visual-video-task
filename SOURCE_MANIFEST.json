@@ -15,6 +15,16 @@
     "sha256": "4e62aa1693c42f5e565ccd33e05e3d4e16e2d739ab31f1e702d07e8c2252a093"
   },
   {
+    "path": "README.md",
+    "bytes": 5791,
+    "sha256": "16f3ef91a19c2f365d90d82ac5354abf0629eacbcc63dbdae58a1c901a8b23a1"
+  },
+  {
+    "path": "THIRD_PARTY_NOTICES.md",
+    "bytes": 755,
+    "sha256": "6dcc4e45273f360d7a141663cde6d1f1f971042ffaedff8f2ca9a0b305d2b2cc"
+  },
+  {
     "path": "data/sourcedata/.gitkeep",
     "bytes": 0,
     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -23,11 +33,6 @@
     "path": "data/video_question_complete_runs/.gitkeep",
     "bytes": 0,
     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-  },
-  {
-    "path": "docs/clean_install_validation.json",
-    "bytes": 291,
-    "sha256": "9e9522a7a74b2087a0d1d35d2921da9816ba00bcc7d78eaefae855966967b449"
   },
   {
     "path": "docs/CONFIGURATION.md",
@@ -66,13 +71,8 @@
   },
   {
     "path": "docs/MAINTENANCE_LOG_20260908.md",
-    "bytes": 6782,
-    "sha256": "62798395cc10c549cb89e06be1fe0f58765d15e7b4c3c50e94b5044d400f3ebf"
-  },
-  {
-    "path": "docs/material_audit_latest.json",
-    "bytes": 4117,
-    "sha256": "5d2827975ca9501abfa8e79e97d44956696a5bbd1130b83041c2dfed4f861848"
+    "bytes": 7565,
+    "sha256": "afb63af49ca155c90443689ecaa70b4f807adb7b03b7fc99a2ce0a9f1bfcbf23"
   },
   {
     "path": "docs/MATERIALS_DOWNLOAD.zh-CN.md",
@@ -85,9 +85,19 @@
     "sha256": "01521e054e385c03209502cbb0ac2bb67805e89283904dacb592546b481fbc08"
   },
   {
+    "path": "docs/OFFLINE_LAB_UPDATE.zh-CN.md",
+    "bytes": 5638,
+    "sha256": "6c8111df33f9f366e974dceff6a138d3c3b7337d606bd9d036c626d56136b2c8"
+  },
+  {
+    "path": "docs/OFFLINE_UPDATE_VALIDATION.md",
+    "bytes": 1168,
+    "sha256": "a024034d380714cbd8bf4f2ed6e07bb9ab1443b3ee411e8f842e37c6c4d61273"
+  },
+  {
     "path": "docs/OPERATOR_MANUAL.zh-CN.md",
-    "bytes": 15290,
-    "sha256": "6a375798c7b4b7dcc10909eccd6786ecd62f5c9c0194344b65124893b219e401"
+    "bytes": 15535,
+    "sha256": "502544867a869f5f040f12174daee78dca8eaa714d7a23356cd2872f4f421e1f"
   },
   {
     "path": "docs/PUBLICATION_20260910.md",
@@ -105,14 +115,29 @@
     "sha256": "b7219371e945b9b6ffdfb4ae9cb2fbe55d789a21442855671b0378dc2eeaf7e6"
   },
   {
+    "path": "docs/clean_install_validation.json",
+    "bytes": 291,
+    "sha256": "9e9522a7a74b2087a0d1d35d2921da9816ba00bcc7d78eaefae855966967b449"
+  },
+  {
+    "path": "docs/material_audit_latest.json",
+    "bytes": 4117,
+    "sha256": "5d2827975ca9501abfa8e79e97d44956696a5bbd1130b83041c2dfed4f861848"
+  },
+  {
     "path": "docs/\u89c6\u9891EEG_\u5b9e\u9a8c\u8bf4\u660e.docx",
     "bytes": 5807,
     "sha256": "7d78bccce74d1eb49078099b9238b96f4004739940c15b753501c3d3bc541493"
   },
   {
+    "path": "docs/\u89c6\u9891EEG_\u79bb\u7ebf\u6700\u5c0f\u66f4\u65b0\u64cd\u4f5c\u8bf4\u660e.docx",
+    "bytes": 4818,
+    "sha256": "c2e756725c0abadccd69190d4510c885ea4b7e674dff72f873059691524f859c"
+  },
+  {
     "path": "docs/\u89c6\u9891EEG_\u8be6\u7ec6\u64cd\u4f5c\u8bf4\u660e.docx",
-    "bytes": 9419,
-    "sha256": "c5df30be2ca65353fa4a03d49a60c82a9cfc322e71713ff40271ee56dccc00a2"
+    "bytes": 9529,
+    "sha256": "6e46903eb1fb29e432f269f38dadf99b29b6acdeedc38ba2d3b9cc95d3778c75"
   },
   {
     "path": "download_materials.bat",
@@ -133,11 +158,6 @@
     "path": "pyproject.toml",
     "bytes": 604,
     "sha256": "8d04070ae0a9d2aa90ede1898f50aab9707bba05a3853c3b359beeca9e8eba52"
-  },
-  {
-    "path": "README.md",
-    "bytes": 5791,
-    "sha256": "16f3ef91a19c2f365d90d82ac5354abf0629eacbcc63dbdae58a1c901a8b23a1"
   },
   {
     "path": "requirements-psychopy.txt",
@@ -195,6 +215,11 @@
     "sha256": "8c8a0183aeeff4d9bef0cda207f300f13f715dcb72c809e1d7c4a0e0349bcadf"
   },
   {
+    "path": "scripts/build_offline_lab_update.py",
+    "bytes": 3201,
+    "sha256": "9018c97ac9ad39e6596bb46c8aba56c542ccb7f5539ea898face0715aac36212"
+  },
+  {
     "path": "scripts/build_release.py",
     "bytes": 3396,
     "sha256": "7831ed7bd578dca87270386b053a61954cdfdf71187c43e7672456dd37c44854"
@@ -233,6 +258,11 @@
     "path": "scripts/install_lab_env_uv.ps1",
     "bytes": 5840,
     "sha256": "2422d541c5b2330c8a94a3939bfb0472b918be1a8e443407db7d21375440fcf3"
+  },
+  {
+    "path": "scripts/offline_lab_update.py",
+    "bytes": 5465,
+    "sha256": "d756915566edb809033af7fcc9ad2dd00d4c76176d465e2bc1b9677dc5bc76b8"
   },
   {
     "path": "scripts/patch_pyglet_win32.py",
@@ -340,14 +370,19 @@
     "sha256": "b4588a7c481a1628962417b376291f387c23a768ef50c8c9f2e190bedb0a0090"
   },
   {
-    "path": "THIRD_PARTY_NOTICES.md",
-    "bytes": 755,
-    "sha256": "6dcc4e45273f360d7a141663cde6d1f1f971042ffaedff8f2ca9a0b305d2b2cc"
-  },
-  {
     "path": "uv.toml",
     "bytes": 218,
     "sha256": "29e75f6adc03922d5b7001a7af8615cdde70a7a0dd02e19aef6dac10a41f54af"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/LICENSE",
+    "bytes": 1088,
+    "sha256": "2f42b2c07aba210bccb8a91e0a30902d83ca79e78c91e926b72db5b1b17b7eee"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/README.md",
+    "bytes": 20029,
+    "sha256": "bfcbaf7f3555cade3e6cb4ef7b789b0cc18da3ead84d336cca876be9e7a98bc8"
   },
   {
     "path": "vendor/eeg-bids-converter/eeg_bids_converter/__init__.py",
@@ -460,19 +495,9 @@
     "sha256": "26e539d445928365c5b3e87d0f720a7de1750d96a879690363a05d32295df6e1"
   },
   {
-    "path": "vendor/eeg-bids-converter/LICENSE",
-    "bytes": 1088,
-    "sha256": "2f42b2c07aba210bccb8a91e0a30902d83ca79e78c91e926b72db5b1b17b7eee"
-  },
-  {
     "path": "vendor/eeg-bids-converter/pyproject.toml",
     "bytes": 1182,
     "sha256": "e23934c30312abfecf1ae0d64568a471a280a85e00c659acd8a5fc14927abaa3"
-  },
-  {
-    "path": "vendor/eeg-bids-converter/README.md",
-    "bytes": 20029,
-    "sha256": "bfcbaf7f3555cade3e6cb4ef7b789b0cc18da3ead84d336cca876be9e7a98bc8"
   },
   {
     "path": "video_eeg/__init__.py",
@@ -600,6 +625,11 @@
     "sha256": "1be22ee965a07769a4f2b562545560a503a014a27717840a3e86eea358cb4f15"
   },
   {
+    "path": "video_eeg/devices/collect/README.md",
+    "bytes": 798,
+    "sha256": "481314390879591e478550af247fe7b1816296485b7aa0c61b2e4b7f06d71834"
+  },
+  {
     "path": "video_eeg/devices/collect/__init__.py",
     "bytes": 106,
     "sha256": "c3a3573904a3aae2168ff558f761a9e4d896674cd2f81ab9d0525961967cc2a9"
@@ -608,11 +638,6 @@
     "path": "video_eeg/devices/collect/neuracle_api.py",
     "bytes": 44914,
     "sha256": "0a5d2740c7a24712f2b51fd3778c4538163cb6faed22a990d47482a69756ec1b"
-  },
-  {
-    "path": "video_eeg/devices/collect/README.md",
-    "bytes": 798,
-    "sha256": "481314390879591e478550af247fe7b1816296485b7aa0c61b2e4b7f06d71834"
   },
   {
     "path": "video_eeg/devices/collect/triggerBox.py",
