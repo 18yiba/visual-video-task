@@ -24,6 +24,7 @@ from video_eeg.utils.video_library import MANIFEST_FILENAME, VideoAsset, VideoLi
 
 SESSION_MANIFEST_VERSION = "video-eeg-session-manifest-v2-duration-diversity"
 PARTITION_ALGORITHM_VERSION = "duration-bucket-round-robin-v1"
+SPLIT_PARTITION_ALGORITHM_VERSION = "legacy-session-halves-duration-bucket-v1"
 FORMAL_MAX_VIDEO_DURATION_SEC = 60.0
 SESSION_STATE_VERSION = 1
 SESSION_COUNT = 17
@@ -107,7 +108,7 @@ class SessionManifest:
             raise ValueError("Session manifest contains a video longer than the formal 60-second limit")
         if self.source_video_count and self.source_video_count != len(self.entries) + int(self.excluded_video_count):
             raise ValueError("Session manifest source/exclusion counts are inconsistent")
-        if self.partition_algorithm_version != PARTITION_ALGORITHM_VERSION:
+        if self.partition_algorithm_version not in {PARTITION_ALGORITHM_VERSION, SPLIT_PARTITION_ALGORITHM_VERSION}:
             raise ValueError(f"Unsupported partition algorithm: {self.partition_algorithm_version!r}")
         if self.duration_bucket_definition and any(not entry.duration_bucket for entry in self.entries):
             raise ValueError("Session manifest is missing duration bucket labels")
@@ -365,6 +366,45 @@ def build_duration_balanced_manifest(
     )
     manifest.validate(session_count=session_count)
     return manifest
+
+
+def split_manifest_sessions(manifest: SessionManifest, *, random_seed: int = 20260910) -> SessionManifest:
+    """Split each legacy Session into two duration-diverse balanced halves.
+
+    Membership across legacy Sessions is preserved. Playback order is separately
+    randomized and checkpointed by SessionState.new, never by CSV row order.
+    """
+    session_ids = sorted({e.session_id for e in manifest.entries})
+    manifest.validate(session_count=len(session_ids))
+    rng = random.Random(random_seed)
+    entries = []
+    bucket_names = [b['name'] for b in manifest.duration_bucket_definition]
+    if not bucket_names:
+        raise ValueError('Splitting requires the original duration bucket definitions')
+    for old_id in session_ids:
+        totals = [0.0, 0.0]
+        for name in bucket_names:
+            members = [e for e in manifest.session_entries(old_id) if e.duration_bucket == name]
+            if len(members) < 2:
+                raise ValueError(f'Legacy Session {old_id} cannot supply both halves with {name} videos')
+            rng.shuffle(members)
+            members.sort(key=lambda e: e.video_duration_sec, reverse=True)
+            counts = [0, 0]
+            for entry in members:
+                target = min(range(2), key=lambda i: (counts[i], totals[i], i))
+                entries.append(SessionManifestEntry(old_id * 2 - 1 + target, entry.video_id,
+                    entry.video_path, entry.video_duration_sec, entry.duration_bucket))
+                counts[target] += 1
+                totals[target] += entry.video_duration_sec
+    result = SessionManifest(version=manifest.version,
+        entries=sorted(entries, key=lambda e: (e.session_id, e.video_id)),
+        source_library=manifest.source_library,
+        generated_at=time.strftime('%Y-%m-%dT%H:%M:%S%z'),
+        source_video_count=manifest.source_video_count, excluded_video_count=manifest.excluded_video_count,
+        partition_algorithm_version=SPLIT_PARTITION_ALGORITHM_VERSION,
+        duration_bucket_definition=manifest.duration_bucket_definition, random_seed=random_seed)
+    result.validate(session_count=len(session_ids) * 2)
+    return result
 
 
 @dataclass(frozen=True, slots=True)

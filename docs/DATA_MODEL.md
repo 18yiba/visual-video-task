@@ -2,7 +2,7 @@
 
 本文件只描述 `video_eeg` 视频 EEG 范式；情绪评分 EEG 范式有自己的数据目录和 schema。
 
-正式视频材料由 `video_eeg/config/session_manifest.csv` 固定划分为 17 个 Session。manifest v2 还保存
+正式视频材料由 `video_eeg/config/session_manifest_34.csv` 固定划分为 34 个 Session。manifest v2 还保存
 版本、生成时间、源/排除数量、分配算法、seed 和 rank-quantile 时长桶定义。每行包含 `video_id`、
 相对视频路径、真实 `video_duration_sec`、`duration_bucket` 和 `session_id`；每个正式视频只出现一次，
 且不超过 60 秒。被排除的 47 个候选素材记录在 `formal_excluded_over_60s.csv`，原始文件保留。
@@ -12,7 +12,7 @@ Session 内播放队列按保存的 seed 生成并写入 subject/session state�
 ## Subject/session 目录
 
 ```text
-data/video_question_complete_runs/<subject_id>/session_01/
+data/video_question_complete_runs/protocol_34sessions/<subject_id>/session_01/
   session_state.json       # 唯一 checkpoint/state source-of-truth，原子写入
   trial_log.csv            # 所有 video attempts（含 aborted/skipped）
   attention_log.csv        # 所有 attention attempts（含 aborted）

@@ -1,4 +1,5 @@
 {
+  "session_count": 34,
   "question_count": 7993,
   "formal_count": 7949,
   "formal_with_questions": 7946,
@@ -18,104 +19,206 @@
   "sessions": [
     {
       "session": 1,
-      "videos": 468,
-      "questions": 468,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     },
     {
       "session": 2,
-      "videos": 467,
-      "questions": 467,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     },
     {
       "session": 3,
-      "videos": 468,
-      "questions": 468,
+      "videos": 233,
+      "questions": 233,
       "checks": 18
     },
     {
       "session": 4,
-      "videos": 467,
-      "questions": 466,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     },
     {
       "session": 5,
-      "videos": 468,
-      "questions": 468,
+      "videos": 235,
+      "questions": 235,
       "checks": 18
     },
     {
       "session": 6,
-      "videos": 468,
-      "questions": 468,
+      "videos": 233,
+      "questions": 233,
       "checks": 18
     },
     {
       "session": 7,
-      "videos": 468,
-      "questions": 467,
+      "videos": 233,
+      "questions": 233,
       "checks": 18
     },
     {
       "session": 8,
-      "videos": 467,
-      "questions": 467,
+      "videos": 234,
+      "questions": 233,
       "checks": 18
     },
     {
       "session": 9,
-      "videos": 468,
-      "questions": 468,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     },
     {
       "session": 10,
-      "videos": 468,
-      "questions": 467,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     },
     {
       "session": 11,
-      "videos": 467,
-      "questions": 467,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     },
     {
       "session": 12,
-      "videos": 468,
-      "questions": 468,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     },
     {
       "session": 13,
-      "videos": 468,
-      "questions": 468,
+      "videos": 234,
+      "questions": 233,
       "checks": 18
     },
     {
       "session": 14,
-      "videos": 467,
-      "questions": 467,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     },
     {
       "session": 15,
-      "videos": 467,
-      "questions": 467,
+      "videos": 233,
+      "questions": 233,
       "checks": 18
     },
     {
       "session": 16,
-      "videos": 468,
-      "questions": 468,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     },
     {
       "session": 17,
-      "videos": 467,
-      "questions": 467,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 18,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 19,
+      "videos": 234,
+      "questions": 233,
+      "checks": 18
+    },
+    {
+      "session": 20,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 21,
+      "videos": 233,
+      "questions": 233,
+      "checks": 18
+    },
+    {
+      "session": 22,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 23,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 24,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 25,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 26,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 27,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 28,
+      "videos": 233,
+      "questions": 233,
+      "checks": 18
+    },
+    {
+      "session": 29,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 30,
+      "videos": 233,
+      "questions": 233,
+      "checks": 18
+    },
+    {
+      "session": 31,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 32,
+      "videos": 234,
+      "questions": 234,
+      "checks": 18
+    },
+    {
+      "session": 33,
+      "videos": 233,
+      "questions": 233,
+      "checks": 18
+    },
+    {
+      "session": 34,
+      "videos": 234,
+      "questions": 234,
       "checks": 18
     }
   ],

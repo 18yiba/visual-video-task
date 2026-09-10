@@ -19,7 +19,15 @@ GitHub 源码包不包含受试者数据、正式视频、已安装环境或缓�
 
 ### 正式视频的放置
 
-从实验室已核对的母库复制视频，文件名须保留，例如 `0001.mp4`。支持两种布局：
+当前远端视频包尚在上传，完整下载状态见 [材料发布状态](MATERIALS_UPLOAD_STATUS.md)。
+已有实验室母库可直接使用；新电脑可先安装并运行合成 Demo，等待材料公开后再完整下载。
+
+正式视频现通过 [统一材料发布页](https://github.com/18yiba/visual-video-task/releases/tag/materials-v1-20260910)
+分包提供。首次安装环境后，双击根目录 `download_materials.bat`，自动下载并校验至 `stimuli/videos`。
+共 84 个视频 ZIP、7996 段、约 44.2 GB；下载脚本逐包解压，建议为材料预留至少 50 GB。
+源码 ZIP 不包含真实视频；发布页的 Source code ZIP 也不是视频包。
+手动下载、离线复制、校验及版本注意事项见 [视频库下载说明](MATERIALS_DOWNLOAD.zh-CN.md)。
+文件名须保留，例如 `0001.mp4`。支持两种布局：
 
 ```text
 方式 A：沿用实验室部署包
@@ -33,16 +41,17 @@ visual-video-task/
   run_video_formal.bat
 ```
 
-正式分组位于 `video_eeg/config/session_manifest.csv`，不要自行重命名视频、修改归属或更换清单。
+正式分组位于 `video_eeg/config/session_manifest_34.csv`，不要自行重命名视频、修改归属或更换清单。
 也可在配置中设置 `protocol.video_library_dir` 为实际母库路径。
 程序会检查目标 Session 文件是否存在；缺失时停止，不会静默跳过。
 
 若尚未拿到正式视频，安装器会生成十段合成练习视频，Demo 可以先验证显示、键盘、答题和模拟记录。
-这些练习素材不用于正式采集。完整正式实验必须另外复制真实视频母库；下载代码不能替代下载材料。
+这些练习素材不用于正式采集。完整正式实验必须另外下载或复制真实视频母库。
 
 ## 二、首次安装环境
 
-1. 双击 `scripts\install_lab_env_uv.bat`，也可双击根目录同名安装入口。
+1. 双击根目录 `install_lab_env_uv.bat`；它只转发至 `scripts\install_lab_env_uv.bat`，两者调用同一安装器。
+   使用下划线连成的实际文件名，不是 `install\_lab\_env\_uv.bat` 多层路径。
 2. 安装器优先检查项目内 `.venv`。健康环境直接复用，不重装。
 3. 新电脑无环境时，安装器下载项目本地 uv 和 Python 3.12，然后创建 `.venv`。
 4. 自动安装固定的 PsychoPy 及运行依赖、BrainCo SDK 和随源码提供的 BIDS 转换器。
@@ -69,7 +78,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install_lab_env_uv.p
 .\.venv\Scripts\python.exe scripts\audit_question_bank.py --require-materials
 ```
 
-第一条检查 Python/显示/采集相关依赖；第二条检查正式视频、题库及 17 个 Session 的抽查计划。
+第一条检查 Python/显示/采集相关依赖；第二条检查正式视频、题库及 34 个 Session 的抽查计划。
+自动下载已逐视频检查 SHA-256；手动复制后另运行
+`.\.venv\Scripts\python.exe scripts\download_materials.py --verify-only`，完整核验文件内容。
 当前题库缺三题的事实会显示在报告中，不代表软件故障。若要求每段视频都有题，可另外加
 `--require-full-coverage`，该检查在当前快照下会返回失败。
 
@@ -108,7 +119,7 @@ Demo 不读取正式 Session 进度。Demo 每次默认新随机种子，若要�
 | 项目 | 操作 |
 | --- | --- |
 | 被试编号 | 使用实验约定的匿名编号，例如 S001；同一人的续跑保持完全一致 |
-| Session | 选择 1–17；默认建议最近未完成的 Session，仍需主试核对 |
+| Session | 选择 1–34；默认建议最近未完成的 Session，仍需主试核对 |
 | 显示方式 | 正式建议全屏；调试可使用窗口 |
 | 脑电连接 | 按设备检查页面提示确认数据流；失败时先排查设备，不绕过为模拟采集 |
 
@@ -138,7 +149,7 @@ Demo 不读取正式 Session 进度。Demo 每次默认新随机种子，若要�
 程序读取队列、题库哈希和完成状态；已完成视频不重播，未提交完成的视频继续执行。
 抽查页退出时，先重播对应视频再问，避免脱离刚才画面作答。
 
-当前版本把新正式记录放到 `data/video_question_complete_runs`。
+当前 34 组版本把新正式记录放到 `data/video_question_complete_runs/protocol_34sessions`。
 旧 2779 题正式 Session 请用 `run_video_legacy_2779.bat` 继续，仍读取 `data/video_question_runs`。
 `run_ready_questions_formal.bat` 保留旧有题子集及 `data/ready_question_checks`。
 独立 `visual-video-task-complete-20260908` 的桌面入口仍使用自己的记录，不迁移或覆盖。
@@ -151,7 +162,7 @@ Demo 不读取正式 Session 进度。Demo 每次默认新随机种子，若要�
 下列路径均相对当前项目文件夹：
 
 ```text
-data/video_question_complete_runs/S001/session_01/
+data/video_question_complete_runs/protocol_34sessions/S001/session_01/
   session_state.json
   session_summary.json
   trial_log.csv
@@ -201,12 +212,13 @@ Demo 的行为进度位于 `data/demo_runs/<subject>/run_<seed>/session_<NN>/`�
 | --- | --- |
 | 双击后提示 Python 环境缺失 | 先双击安装器；完整解压后运行，不使用旧电脑复制来的失效 .venv |
 | 下载超时或安装失败 | 查看 logs 下安装日志，恢复联网后重试；不要删除 data |
-| 缺正式视频 | 按第一节复制母库到指定位置，运行材料审计；合成 Demo 不能代替正式视频 |
+| 缺正式视频 | 双击 download_materials.bat，或按材料下载说明解压全部 84 包并校验；合成 Demo 不能代替正式视频 |
 | SDK 连接失败 | 核对供电、佩戴、连接条件和设备占用；查看设备检查输出 |
 | 采样率不匹配 | 核实设备及配置，按预定实验参数设置；程序不静默改采样率 |
 | 题库哈希不一致 | 恢复原题库和原入口，或新开记录；不要混用正在进行的 Session |
 | 有视频没有题 | 当前已知三段不抽查；用审计脚本检查新版覆盖，不凭目录名判断 |
 | 中文或画面异常 | 在目标电脑用窗口 Demo 验证字体与显示；先排除环境/显卡问题 |
+| 按 Esc 后出现第二个 ExperimentAbort | 更新源码到本次修复版；保存提示阶段不再重复处理 Esc，保存完成后按空格退出 |
 | 程序异常退出 | 保留所有文件与 crash_report，核对断点再恢复，勿覆盖原始 EEG |
 
 ## 十二、代码发布与部署边界
@@ -215,3 +227,30 @@ Demo 的行为进度位于 `data/demo_runs/<subject>/run_<seed>/session_<NN>/`�
 题库、固定分组、安装器、测试、文档及 BIDS 转换器源代码随包提供。
 跨电脑可移植性依赖首次联网安装，以及正式材料和真实设备准备完成。
 模拟测试不能保证另一台电脑的设备驱动、电极接触或物理时序；首次正式采集前须在目标电脑试跑。
+
+## 仓库目录占位与本地记录
+
+GitHub 已提供 `stimuli/videos/.gitkeep`、`data/video_question_complete_runs/.gitkeep`、
+`data/sourcedata/.gitkeep` 三个空占位文件。它们只保留目录，不是视频或实验记录。
+本地已有数据不上传。当前正式采集在本机的 `data/video_question_complete_runs/protocol_34sessions` 生成记录；
+`data/sourcedata` 仅供历史数据兼容。保存提示页按空格关闭，重复 Esc 不再抛出退出异常。
+
+## 当前 34 组与旧 17 组
+
+7949 段正式视频总净时长约 50.30 小时。新分组每组 88.35–88.94 分钟，平均 88.76 分钟，
+每组 233–235 段，五档视频各至少 46 段；全库正式视频范围约 5.107–59.976 秒。
+每个原 Session 按五档时长均衡拆为两半，原 n 对应新 2n−1 和 2n。各组内部随机播放；
+播放顺序和 18 个抽查目标在开始时保存，续跑不重新抽签。没有 90 分钟强制停止。
+注视点、视频间隔、答题及休息不计入净观看，实际占用时间会更长。
+
+当前权威分组为 `video_eeg/config/session_manifest_34.csv`。
+旧 `session_manifest.csv` 保留原 17 组，不能用新文件覆盖旧文件。
+旧完整版 17 组请用 `run_video_legacy_17.bat`，其数据仍在 `data/video_question_complete_runs/<subject>`。
+新默认入口用 `data/video_question_complete_runs/protocol_34sessions/<subject>`，避免同编号读到旧状态。
+不自动迁移已开始的旧 Session，不把旧完成进度强行当作新分组的完成进度。
+
+`video_eeg/config/video_question_labels.csv` 是 7996 段视频的完整标签对照表；
+包含 SHA-256、题干、选项、答案、复核状态、`session_34` 和 `legacy_session_17`。
+Release 的 `material_metadata.zip` 也包含此表。题目经 `video_file` 文件名关联，未嵌入 MP4 画面或字幕。
+原题库可能保留历史 `session_id`，当前分组以 34 组清单和标签表的 `session_34` 列为准。
+详见 [34 组与标签审计](SESSION_34_AND_LABEL_AUDIT.zh-CN.md)。

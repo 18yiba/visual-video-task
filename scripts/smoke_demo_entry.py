@@ -46,6 +46,7 @@ def main():
     assert len(state['attention_attempts']) == 3
     report = dict(subject=subject, videos=10, questions=3, session_completed=True,
                   state_path=str(state_path), real_hardware_used=False)
+    (ROOT / 'logs').mkdir(exist_ok=True)
     (ROOT / 'logs/demo_entry_validation.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     print(json.dumps(report), flush=True)
 

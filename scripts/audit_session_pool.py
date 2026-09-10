@@ -9,9 +9,18 @@ import time
 
 import cv2
 import numpy as np
-from materialize_session_folders import PROJECT, write_csv
+PROJECT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT))
+from video_eeg.experiment.video_runner import load_config
 from video_eeg.utils.session_protocol import SessionManifest
-from video_eeg.utils.video_library import VIDEO_EXTENSIONS, _probe_mp4_mvhd_duration
+from video_eeg.utils.video_library import VIDEO_EXTENSIONS, _probe_mp4_mvhd_duration, load_video_library
+
+
+def write_csv(path, rows):
+    with path.open('w', encoding='utf-8-sig', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def inspect(path):
@@ -30,7 +39,9 @@ def inspect(path):
 
 
 def main():
-    root = PROJECT.parent / 'video_materials/formal_v1/videos'
+    config = load_config(PROJECT / 'video_eeg/config/video_config.yaml')
+    config['_project_dir'] = str(PROJECT)
+    root = load_video_library(config).root
     files = sorted(p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS)
     if '--refresh-container-durations' in sys.argv:
         with (root.parent / 'VIDEO_POOL_AUDIT.csv').open(encoding='utf-8-sig') as handle:
@@ -49,7 +60,7 @@ def main():
         with ThreadPoolExecutor(max_workers=4) as executor:
             rows = list(executor.map(inspect, files))
     write_csv(root.parent / 'VIDEO_POOL_AUDIT.csv', rows)
-    manifest = SessionManifest.load(PROJECT / 'video_eeg/config/session_manifest.csv')
+    manifest = SessionManifest.load(PROJECT / config['protocol']['session_manifest_path'], session_count=config['protocol']['num_sessions'])
     eligible = {r['filename'] for r in rows if r['first_frame_ok'] and 0 < r['duration_sec'] <= 60.000001}
     assigned = {e.video_path for e in manifest.entries}
     ds = [r['duration_sec'] for r in rows]

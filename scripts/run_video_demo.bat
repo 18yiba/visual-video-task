@@ -19,8 +19,6 @@ if not exist "%PYTHON_EXE%" (
     echo Cannot find Python environment.
     echo Expected:
     echo   %ROOT%.venv\Scripts\python.exe
-    echo or
-    echo   %ROOT%..\.venv\Scripts\python.exe
     pause
     exit /b 1
 )
@@ -30,8 +28,6 @@ if errorlevel 1 (
     echo.
     echo Video EEG Python environment is incomplete.
     echo Please run:
-    echo   "%ROOT%..\一键安装.vbs"
-    echo or:
     echo   "%ROOT%scripts\install_lab_env_uv.bat"
     echo.
     "%PYTHON_EXE%" "%ROOT%scripts\check_video_eeg_env.py"

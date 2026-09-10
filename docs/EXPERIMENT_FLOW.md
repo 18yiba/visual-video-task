@@ -1,6 +1,6 @@
 # Video EEG experiment flow
 
-正式启动时填写 subject ID 和 Session 01–17；默认建议该 subject 最近一个未完成 Session，也可
+正式启动时填写 subject ID 和 Session 01–34；默认建议该 subject 最近一个未完成 Session，也可
 用 `--session 1..17` 显式选择。若已有 state，队列从保存的断点继续。
 
 ```text

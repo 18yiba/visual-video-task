@@ -1,11 +1,11 @@
 # Video EEG Paradigm
 
-独立 PsychoPy 视频 EEG 范式。正式实验使用 1000 Hz BrainCo SDK 直连采集 EEG，固定 17 个
+独立 PsychoPy 视频 EEG 范式。正式实验使用 1000 Hz BrainCo SDK 直连采集 EEG，固定 34 个
 duration-balanced Session；Demo 使用模拟 EEG 和独立短流程。
 
 ## 环境配置
 
-Windows 10/11 64 位电脑：完整解压源码，双击 `scripts/install_lab_env_uv.bat`。
+Windows 10/11 64 位电脑：完整解压源码，双击根目录 `install_lab_env_uv.bat`（转发至 `scripts/install_lab_env_uv.bat`）。
 安装器可自动下载项目本地 Python 3.12 和依赖，不要求预装 Python 或 Node.js。
 首次安装需联网；已有健康环境直接复用。安装日志在 `logs/`。
 
@@ -14,6 +14,15 @@ Windows 10/11 64 位电脑：完整解压源码，双击 `scripts/install_lab_en
 - [本次维护记录](docs/MAINTENANCE_LOG_20260908.md)：审计、清理、验证和发布状态。
 
 ## 快速启动
+
+**视频附件尚在上传**，完整下载暂未就绪，见 [材料发布状态](docs/MATERIALS_UPLOAD_STATUS.md)。
+代码与题库可先下载、安装并运行合成 Demo；已有母库的电脑可直接使用。
+
+首次使用：**安装环境 → 下载视频 → Demo → 正式采集**。
+环境就绪后双击 `download_materials.bat`，自动获取并校验约 44.2 GB 的完整视频库。
+[统一视频下载页](https://github.com/18yiba/visual-video-task/releases/tag/materials-v1-20260910)
+· [下载、放置与校验说明](docs/MATERIALS_DOWNLOAD.zh-CN.md)。
+未下载真实视频时也可以先用合成 Demo 检查环境。
 
 双击根目录入口：
 
@@ -24,9 +33,14 @@ run_video_formal.bat
 
 也可以双击 `scripts/` 目录中的同名脚本。
 
-正式 Session 保留原 7949 个视频的 17 组分配，每组从已有题的视频中随机抽查 18 次，
+正式 Session 保留原 7949 个视频，改为 34 组，每组从已有题的视频中随机抽查 18 次，
 问题针对刚完整播放的视频，按 1–4 或 A–D 作答。Demo 为 10 个视频、3 次抽查。
-新正式数据保存在 `data/video_question_complete_runs`；历史记录保留。
+新正式数据保存在 `data/video_question_complete_runs/protocol_34sessions`；历史记录保留。
+每组视频净时长 88.35–88.94 分钟（平均 88.76 分钟），每组均有五档长短视频。
+原第 n 组拆为新第 2n−1、2n 组；每组内部随机播放，续跑保持原顺序。没有 90 分钟强制结束计时。
+注视点、答题和休息额外计时，实际实验总时长会更长。
+[34 组时长与分桶统计](video_eeg/config/session_34_summary.csv) · [分组与标签审计](docs/SESSION_34_AND_LABEL_AUDIT.zh-CN.md)。
+旧完整版 17 组用 `run_video_legacy_17.bat` 续跑，仍读取原 `data/video_question_complete_runs/<subject>`。
 旧 2779 题正式 Session 用 `run_video_legacy_2779.bat` 续跑。
 
 **题库审计：** 当前有 7993 道题，覆盖 7946/7949 个正式视频；仍缺 `5728.mp4`、`6722.mp4`、
@@ -38,15 +52,16 @@ run_video_formal.bat
 ```text
 docs/                  # 配置、数据和实现说明
 scripts/               # 启动、环境安装和维护脚本
-stimuli/videos/        # 视频刺激材料
+stimuli/videos/        # 视频下载到这里；源码仅含空 .gitkeep
 video_eeg/             # 视频 EEG 范式源码
   config/              # demo/正式 YAML 配置与固定 Session manifest
   devices/             # BrainCo、LSL、Neuracle、模拟采集后端
   experiment/          # session 运行、marker 调度和实验流程
   storage/             # 行为、事件和 EEG 文件写出
   utils/               # marker、视频库和通用工具
-data/video_question_complete_runs/ # 当前视频抽查实验输出
-data/sourcedata/       # 旧实验历史数据
+data/video_question_complete_runs/ # 仓库仅含空 .gitkeep，本地记录不上传
+  protocol_34sessions/ # 新 34 组正式输出，运行时自动生成
+data/sourcedata/       # 旧数据兼容目录；仓库仅含空 .gitkeep
 tests/                 # 自动化测试
 ```
 
@@ -59,10 +74,13 @@ stimuli/videos/
 ```
 
 Demo 默认从该目录随机抽取 10 个合法视频，不重复播放。正式实验按照版本化的
-`video_eeg/config/session_manifest.csv` 读取对应 Session 的固定视频集合；超过 60 秒的候选素材仅在
+`video_eeg/config/session_manifest_34.csv` 读取对应 Session 的固定视频集合；超过 60 秒的候选素材仅在
 `video_eeg/config/formal_excluded_over_60s.csv` 中审计记录，不从共享母库物理删除。
 也支持实验室现有的 `../video_materials/formal_v1/videos` 母库布局。
-源码包不包含正式视频和受试者数据；正式采集前须从实验室复制材料。
+源码包不包含正式视频和受试者数据。完整母库放在同一仓库的版本化 Release 中：84 个独立视频 ZIP、
+配套题库快照及 SHA-256 清单。推荐双击 `download_materials.bat` 自动处理；
+手动下载须把全部视频包解压到 `stimuli`，最终得到 `stimuli/videos/0001.mp4`，不要多套一层目录。
+详情见 [材料下载说明](docs/MATERIALS_DOWNLOAD.zh-CN.md)。
 无真实母库时 Demo 自动使用安装器生成的十段合成练习视频，仍验证三次答题和模拟 EEG。
 正式入口缺材料时停止，不以练习片代替。
 

@@ -158,7 +158,7 @@ class SessionPlanningTests(unittest.TestCase):
         self.assertEqual(formal_config["sfreq"], 1000.0)
         self.assertEqual(formal_config["eeg_sampling_rate_hz"], 1000.0)
         self.assertEqual(demo_config["eeg_sampling_rate_hz"], 1000.0)
-        self.assertEqual(formal.num_sessions, 17)
+        self.assertEqual(formal.num_sessions, 34)
         self.assertEqual(formal.attention_tasks_per_session, 18)
         self.assertEqual(formal.rest_min_net_minutes, 30.0)
         self.assertEqual(demo.num_sessions, 1)
