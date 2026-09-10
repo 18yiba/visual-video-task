@@ -659,7 +659,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="使用 video_demo_config.yaml，运行不污染正式进度的快速真人流程测试。",
     )
     parser.add_argument("--subject-id", type=str, default="", help="覆盖配置中的被试编号。")
-    parser.add_argument("--session-id", "--session", dest="session_id", type=int, default=0, help="覆盖配置中的 Session 编号（1-17）。")
+    parser.add_argument("--session-id", "--session", dest="session_id", type=int, default=0, help="覆盖配置中的 Session 编号（当前正式 1-34；旧配置按其组数）。")
     parser.add_argument("--windowed", action="store_true", help="使用窗口模式。")
     parser.add_argument("--no-dialog", action="store_true", help="跳过 PsychoPy 启动对话框。")
     parser.add_argument("--dummy-eeg", action="store_true", help="强制使用模拟 EEG。")
@@ -1118,20 +1118,20 @@ class VideoRunner:
                 self.termination_reason = "esc_emergency"
             self._checkpoint(self.termination_reason)
             if self.termination_reason == "rest_exit":
-                self._show_text(self._session_exit_text(), wait_for_key=False, duration=2.0)
+                self._show_text(self._session_exit_text(), wait_for_key=False, duration=2.0, allow_abort=False)
             else:
-                self._show_text("实验已安全中止，正在保存已采集的数据。", wait_for_key=False, duration=1.0)
+                self._show_text("实验已安全中止，正在保存已采集的数据。", wait_for_key=False, duration=1.0, allow_abort=False)
         except Exception as exc:
             self.termination_reason = "python_exception"
             self._run_traceback = traceback.format_exc()
             self._checkpoint("python_exception")
-            self._show_text(f"实验运行出错：\n{exc}\n\n按空格键退出。")
+            self._show_text(f"实验运行出错：\n{exc}\n\n按空格键退出。", allow_abort=False)
         finally:
             session_dir = self._stop_and_export()
             if session_dir is not None:
                 if self._run_traceback:
                     (session_dir / "crash_report.txt").write_text(self._run_traceback, encoding="utf-8")
-                self._show_text(f"数据已保存：\n{session_dir}\n\n按空格键退出。")
+                self._show_text(f"数据已保存：\n{session_dir}\n\n按空格键退出。", allow_abort=False)
 
     def _show_instructions(self) -> None:
         self._show_text(build_participant_instruction_text(
@@ -2149,6 +2149,7 @@ class VideoRunner:
         *,
         wait_for_key: bool = True,
         duration: float | None = None,
+        allow_abort: bool = True,
     ) -> None:
         self.message.text = text
         self.message.height = 0.035
@@ -2156,19 +2157,21 @@ class VideoRunner:
         self.message.draw()
         self.win.flip()
         if duration is not None:
-            self._wait_until(time.perf_counter() + duration)
+            self._wait_until(time.perf_counter() + duration, allow_abort=allow_abort)
             return
         if wait_for_key:
             self._clear_keyboard()
             while True:
-                self._check_abort()
+                if allow_abort:
+                    self._check_abort()
                 if self.keyboard.getKeys(["space"], waitRelease=False, clear=True):
                     return
                 core.wait(0.01)
 
-    def _wait_until(self, deadline: float) -> None:
+    def _wait_until(self, deadline: float, *, allow_abort: bool = True) -> None:
         while time.perf_counter() < deadline:
-            self._check_abort()
+            if allow_abort:
+                self._check_abort()
             core.wait(min(0.01, max(0.0, deadline - time.perf_counter())))
 
     def _check_abort(self) -> None:
@@ -2278,9 +2281,12 @@ def doctor() -> int:
             checks.append((label, True, str(getattr(module, "__version__", "installed"))))
         except Exception as exc:
             checks.append((label, False, f"{type(exc).__name__}: {exc}"))
-    manifest_path = CONFIG_DIR / "session_manifest.csv"
+    config = load_config(CONFIG_DIR / DEFAULT_CONFIG_FILENAME)
+    config['_project_dir'] = str(PROJECT_ROOT)
+    manifest_path = _session_manifest_path(config)
+    session_count = VideoExperimentConfig.from_config(config).num_sessions
     try:
-        manifest = SessionManifest.load(manifest_path)
+        manifest = SessionManifest.load(manifest_path, session_count=session_count)
         max_duration = max(item.video_duration_sec for item in manifest.entries)
         manifest_ok = (
             manifest.source_video_count > 0
@@ -2297,10 +2303,10 @@ def doctor() -> int:
             excluded = {row['filename'] for row in csv.DictReader(handle)}
         unexplained = set(report['unassigned']) - excluded
         checks.append(('formal_filesystem', not report['missing'] and not report['duplicate_assignments'] and not unexplained,
-                       f"root={report['video_root']}; manifest={manifest_path}; sessions=17; "
+                       f"root={report['video_root']}; manifest={manifest_path}; sessions={session_count}; "
                        f"eligible={report['assigned']}; missing={len(report['missing'])}; "
                        f"duplicate={len(report['duplicate_assignments'])}; unassigned_eligible={len(unexplained)}"))
-        print(f"Session folder views: {report['valid_session_folders']}/17 verified hardlink folders (optional for playback)")
+        print(f"Session folder views: {report['valid_session_folders']}/{session_count} verified hardlink folders (optional for playback)")
     except Exception as exc:
         checks.append(("formal_manifest", False, str(exc)))
     for name, ok, detail in checks:

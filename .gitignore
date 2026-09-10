@@ -29,7 +29,6 @@ build/
 .vscode/
 
 # Project data (large / sensitive)
-data/sourcedata/
 original_data/
 records/
 records_storage/
@@ -53,13 +52,23 @@ stimuli/videos/_run_rename.bat
 Thumbs.db
 
 # Every acquisition mode and practice run is private local output.
-data/
+data/*
+!data/video_question_complete_runs/
+!data/sourcedata/
+data/video_question_complete_runs/*
+data/sourcedata/*
+!data/video_question_complete_runs/.gitkeep
+!data/sourcedata/.gitkeep
 logs/
 .uv-cache/
 .pytest_cache/
 .venv_backup*/
 tools/*.exe
-stimuli/
+stimuli/*
+!stimuli/videos/
+stimuli/videos/*
+!stimuli/videos/.gitkeep
+.materials_download/
 *.mp4
 *.avi
 *.mov

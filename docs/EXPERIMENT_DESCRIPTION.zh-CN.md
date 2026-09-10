@@ -8,7 +8,7 @@
 ## 材料与实验组织
 
 视频母库共 7996 段；其中 47 段超过正式实验的 60 秒上限，保留原文件但不纳入正式 Session。
-正式实验为 7949 段，固定分配到 17 个 Session，每组 467 或 468 段。分组由版本化 CSV 确定，
+正式实验为 7949 段，固定分配到 34 个 Session，每组 233–235 段。分组由版本化 CSV 确定，
 每位被试在 Session 内的播放顺序随机生成并保存。已完成的视频不因再次启动而重新分配。
 
 2026-09-08 可取得的“完整版”题库有 7993 道题，覆盖正式视频 7946 段。
@@ -16,6 +16,10 @@
 2779 道题为原复核通过题；5214 道为已生成且通过结构检查、尚未独立复核的题。
 “有题”不代表已逐题核实视觉事实。本次审计核对了结构、文件覆盖和运行记录，未逐段复核题意。
 可复现统计见 `video_eeg/config/complete_questions_20260908/coverage_audit.json`。
+
+材料通过 [统一版本化 Release](https://github.com/18yiba/visual-video-task/releases/tag/materials-v1-20260910)
+分包分发。安装环境后运行 `download_materials.bat` 下载至 `stimuli/videos` 并验证每段视频的 SHA-256。
+固定分组、题库和材料清单必须使用同一版本；部署步骤见 [视频库下载说明](MATERIALS_DOWNLOAD.zh-CN.md)。
 
 ## 时间流程
 
@@ -47,7 +51,7 @@ S 中断当前视频，将其放回队列等待完整重播。Esc 保存并退�
 自然 EOF 的视频 attempt 与“已提交完成的 Session 视频”是两个层次，分析时须结合 state 和答题状态。
 题库 SHA-256、题目及随机计划写入断点。不同题库、不同抽查协议或次数的断点不能混用。
 
-当前常用入口使用 `data/video_question_complete_runs`；旧 2779 题正式入口的进度保留在
+当前常用入口使用 `data/video_question_complete_runs/protocol_34sessions`；旧 2779 题正式入口的进度保留在
 `data/video_question_runs`，可通过 `run_video_legacy_2779.bat` 完成旧 Session。
 
 ## 采集与数据契约
@@ -75,3 +79,23 @@ S 中断当前视频，将其放回队列等待完整重播。Esc 保存并退�
 
 软件测试与模拟 EEG 验证检查流程、日志、退出恢复和材料对应。
 真实硬件的电极接触、实际采样率、信号质量及刺激至采集的物理延迟仍需主试在实验设备上验证。
+
+## 当前 34 组与旧 17 组
+
+7949 段正式视频总净时长约 50.30 小时。新分组每组 88.35–88.94 分钟，平均 88.76 分钟，
+每组 233–235 段，五档视频各至少 46 段；全库正式视频范围约 5.107–59.976 秒。
+每个原 Session 按五档时长均衡拆为两半，原 n 对应新 2n−1 和 2n。各组内部随机播放；
+播放顺序和 18 个抽查目标在开始时保存，续跑不重新抽签。没有 90 分钟强制停止。
+注视点、视频间隔、答题及休息不计入净观看，实际占用时间会更长。
+
+当前权威分组为 `video_eeg/config/session_manifest_34.csv`。
+旧 `session_manifest.csv` 保留原 17 组，不能用新文件覆盖旧文件。
+旧完整版 17 组请用 `run_video_legacy_17.bat`，其数据仍在 `data/video_question_complete_runs/<subject>`。
+新默认入口用 `data/video_question_complete_runs/protocol_34sessions/<subject>`，避免同编号读到旧状态。
+不自动迁移已开始的旧 Session，不把旧完成进度强行当作新分组的完成进度。
+
+`video_eeg/config/video_question_labels.csv` 是 7996 段视频的完整标签对照表；
+包含 SHA-256、题干、选项、答案、复核状态、`session_34` 和 `legacy_session_17`。
+Release 的 `material_metadata.zip` 也包含此表。题目经 `video_file` 文件名关联，未嵌入 MP4 画面或字幕。
+原题库可能保留历史 `session_id`，当前分组以 34 组清单和标签表的 `session_34` 列为准。
+详见 [34 组与标签审计](SESSION_34_AND_LABEL_AUDIT.zh-CN.md)。

@@ -84,3 +84,11 @@ Git 只读 clone 两次尝试遇到连接重置/停滞；GitHub REST 只读文�
 实际登录账号 0hSophia 具有仓库写入权限；已通过 [PR #1](https://github.com/18yiba/visual-video-task/pull/1)
 合入 master，代码合并提交 `77ad8cb31d32e97945538bc84e97aeffd991b24e`。白名单源码与远端内容校验一致。
 完整回执见 [GitHub 发布记录](PUBLICATION_20260910.md)。本次没有运行实验或修改被试数据。
+
+## 2026-09-10 安装与材料分发修复
+
+后续修复和验证见 [安装、退出与视频分发记录](DEPLOYMENT_FIX_20260910.md)。本节之后的材料 Release 授权更新了此前不上传视频的发布范围；仍不上传任何本地被试记录。
+
+## 2026-09-10 用户追加的 34 组与标签核查
+
+默认正式已按用户确认的净视频时长口径改为 34 组，旧 17 组单独保留。完整变更与验证见 [34 组及标签审计](SESSION_34_AND_LABEL_AUDIT.zh-CN.md)，远端视频附件状态见 [材料发布状态](MATERIALS_UPLOAD_STATUS.md)。源码、题库标签和文档同步 GitHub，既有实验数据不上传。

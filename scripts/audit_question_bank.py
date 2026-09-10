@@ -19,19 +19,20 @@ def audit(config_path, *, require_materials=False):
     config['_project_dir'] = str(ROOT)
     bank_path = question_path(config)
     questions = load_questions(bank_path)
-    manifest = SessionManifest.load(ROOT / config['protocol']['session_manifest_path'])
+    session_count = int(config['protocol'].get('num_sessions', 17))
+    manifest = SessionManifest.load(ROOT / config['protocol']['session_manifest_path'], session_count=session_count)
     library = load_video_library(config)
     formal = {e.video_path for e in manifest.entries}
     missing_questions = sorted(formal - set(questions))
     missing_files = [p for p in sorted(formal) if not (library.root / p).is_file()]
     sessions = []
-    for session in range(1, 18):
+    for session in range(1, session_count + 1):
         assets = manifest.session_assets(session)
         schedule = build_video_question_schedule(assets, questions, task_count=18, random_seed=session)
         assert len({q['video_id'] for q in schedule}) == 18
         sessions.append(dict(session=session, videos=len(assets),
                              questions=sum(a.rel_path in questions for a in assets), checks=len(schedule)))
-    report = dict(question_count=len(questions), formal_count=len(formal),
+    report = dict(session_count=session_count, question_count=len(questions), formal_count=len(formal),
         formal_with_questions=len(formal & set(questions)), missing_questions=missing_questions,
         review_status_counts=dict(Counter(q['status'] for q in questions.values())),
         question_bank_sha256=hashlib.sha256(bank_path.read_bytes()).hexdigest(),
