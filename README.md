@@ -15,8 +15,7 @@ Windows 10/11 64 位电脑：完整解压源码，双击根目录 `install_lab_e
 
 ## 快速启动
 
-**视频附件尚在上传**，完整下载暂未就绪，见 [材料发布状态](docs/MATERIALS_UPLOAD_STATUS.md)。
-代码与题库可先下载、安装并运行合成 Demo；已有母库的电脑可直接使用。
+完整视频附件已公开，见 [材料发布状态](docs/MATERIALS_UPLOAD_STATUS.md)。
 
 首次使用：**安装环境 → 下载视频 → Demo → 正式采集**。
 环境就绪后双击 `download_materials.bat`，自动获取并校验约 44.2 GB 的完整视频库。

@@ -21,8 +21,7 @@ GitHub 源码包不包含受试者数据、正式视频、已安装环境或缓�
 
 ### 正式视频的放置
 
-当前远端视频包尚在上传，完整下载状态见 [材料发布状态](MATERIALS_UPLOAD_STATUS.md)。
-已有实验室母库可直接使用；新电脑可先安装并运行合成 Demo，等待材料公开后再完整下载。
+完整视频附件已公开，见 [材料发布状态](MATERIALS_UPLOAD_STATUS.md)。
 
 正式视频现通过 [统一材料发布页](https://github.com/18yiba/visual-video-task/releases/tag/materials-v1-20260910)
 分包提供。首次安装环境后，双击根目录 `download_materials.bat`，自动下载并校验至 `stimuli/videos`。

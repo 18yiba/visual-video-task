@@ -16,8 +16,8 @@
   },
   {
     "path": "README.md",
-    "bytes": 5791,
-    "sha256": "16f3ef91a19c2f365d90d82ac5354abf0629eacbcc63dbdae58a1c901a8b23a1"
+    "bytes": 5554,
+    "sha256": "570407b3c07aabcd8729a94a5d8433156dc8f0d38184bfcfed1364b466d208b6"
   },
   {
     "path": "THIRD_PARTY_NOTICES.md",
@@ -76,13 +76,18 @@
   },
   {
     "path": "docs/MATERIALS_DOWNLOAD.zh-CN.md",
-    "bytes": 7584,
-    "sha256": "133c3020d550e2f6b2a665ccb9e0d63ca2b18a45f2bb477c6572b5d48b0fda40"
+    "bytes": 7333,
+    "sha256": "c6ebf84c008c4c930fd15af9c68e517883e3cdebe9c4c7ceb9a49ba9861c7749"
+  },
+  {
+    "path": "docs/MATERIALS_RELEASE_v1_RECEIPT.json",
+    "bytes": 328,
+    "sha256": "15b7c392a84a3e389afaff7ebebde1c813d989b6d82e8908eae033dd4b4d3529"
   },
   {
     "path": "docs/MATERIALS_UPLOAD_STATUS.md",
-    "bytes": 997,
-    "sha256": "01521e054e385c03209502cbb0ac2bb67805e89283904dacb592546b481fbc08"
+    "bytes": 664,
+    "sha256": "9fa9af1590a18aee0a364f1892e8bc6b6369289066f098c32a2061af2714eff6"
   },
   {
     "path": "docs/OFFLINE_LAB_UPDATE.zh-CN.md",
@@ -96,8 +101,8 @@
   },
   {
     "path": "docs/OPERATOR_MANUAL.zh-CN.md",
-    "bytes": 15535,
-    "sha256": "502544867a869f5f040f12174daee78dca8eaa714d7a23356cd2872f4f421e1f"
+    "bytes": 15137,
+    "sha256": "d4f0d5945c2cf4df18cd2b61e053d8a00923050162f2a6a5d1b62498e2405086"
   },
   {
     "path": "docs/PUBLICATION_20260910.md",
@@ -141,8 +146,8 @@
   },
   {
     "path": "docs/\u89c6\u9891EEG_\u8be6\u7ec6\u64cd\u4f5c\u8bf4\u660e.docx",
-    "bytes": 9529,
-    "sha256": "6e46903eb1fb29e432f269f38dadf99b29b6acdeedc38ba2d3b9cc95d3778c75"
+    "bytes": 9468,
+    "sha256": "4af9888780fa29e8f7e8f4545e521e39547c7553f8f700f42f3a1f8d31e7b8c5"
   },
   {
     "path": "download_materials.bat",
