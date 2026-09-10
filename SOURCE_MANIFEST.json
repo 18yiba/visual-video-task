@@ -71,8 +71,8 @@
   },
   {
     "path": "docs/MAINTENANCE_LOG_20260908.md",
-    "bytes": 7565,
-    "sha256": "afb63af49ca155c90443689ecaa70b4f807adb7b03b7fc99a2ce0a9f1bfcbf23"
+    "bytes": 8183,
+    "sha256": "0eb59f1815c5a5cc60956606515631aeb100cfe7b061b658cb39ad35c3ec9b28"
   },
   {
     "path": "docs/MATERIALS_DOWNLOAD.zh-CN.md",
@@ -113,6 +113,11 @@
     "path": "docs/SYNC_20260910.md",
     "bytes": 1832,
     "sha256": "b7219371e945b9b6ffdfb4ae9cb2fbe55d789a21442855671b0378dc2eeaf7e6"
+  },
+  {
+    "path": "docs/WINERROR5_AND_EEG_MONITORING_AUDIT.zh-CN.md",
+    "bytes": 8235,
+    "sha256": "ac5cd79e8c51ededbfe3e567f401e8aae45c8a57762fe22f9b8642ec282d4dd6"
   },
   {
     "path": "docs/clean_install_validation.json",
