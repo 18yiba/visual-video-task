@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eeg-bids-converter"
+version = "0.1.0"
+description = "Portable Codex skill and CLI for planning and converting EEG/EMG experiments into BIDS"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["BIDS", "EEG", "MNE", "BrainVision", "neuroscience"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+  "colorama>=0.4,<1",
+  "mne>=1.9,<2",
+  "mne-bids>=0.17,<0.18",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "pybv>=0.7,<0.8",
+  "pybids>=0.18,<0.19",
+  "PyYAML>=6,<7",
+]
+
+[project.optional-dependencies]
+validation = ["bids-validator-deno>=3,<4"]
+
+[project.scripts]
+eeg-bids-converter = "eeg_bids_converter.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["eeg_bids_converter*"]

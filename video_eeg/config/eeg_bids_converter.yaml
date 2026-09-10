@@ -1,0 +1,95 @@
+# Converter configuration for the video EEG source contract.
+# This file is consumed after acquisition; the recorder keeps raw EEG/events
+# unchanged and the converter reads the source directory read-only.
+dataset:
+  name: Video EEG Paradigm
+  description: Continuous video viewing EEG experiment
+  bids_version: "1.11.1"
+  dataset_type: raw
+  authors: []
+
+timezone: Asia/Shanghai
+strict: true
+
+source:
+  subject_pattern: "^[sS](?P<subject>\\d+)$"
+  excluded_device_types:
+    - ego_camera
+    - ego-camera
+
+tasks:
+  default: video
+  mappings:
+    video:
+      task: video
+      description: Continuous video presentation EEG task
+      event_columns:
+        trial_type:
+          Description: Video EEG event type
+        completed:
+          Description: Whether the video attempt reached natural EOF
+        status:
+          Description: Video attempt status
+        abort_reason:
+          Description: Reason an attempt was interrupted
+      stimulus_presentation:
+        OperatingSystem: n/a
+        SoftwareName: PsychoPy
+        SoftwareRRID: "RRID:SCR_006571"
+        SoftwareVersion: n/a
+        Code: n/a
+
+stimuli:
+  libraries:
+    - formal_v1
+
+eeg:
+  power_line_frequency: 50
+  software_filters: n/a
+
+devices:
+  profiles:
+    brainco-32-numpy:
+      source_device_types:
+        - brainco
+      manufacturer: BrainCo
+      modality: eeg
+      data_format: numpy
+      header_source: config
+      sampling_frequency_source: metadata
+      unit: uV
+      reference: IO
+      sample_counter_row: 0
+      counter_threshold: 0.95
+      channel_names:
+        - FP1
+        - FP2
+        - F3
+        - F4
+        - F7
+        - F8
+        - Fz
+        - C3
+        - C4
+        - Cz
+        - P3
+        - P4
+        - P7
+        - P8
+        - Pz
+        - O1
+        - O2
+        - T7
+        - T8
+        - FC1
+        - FC2
+        - FC5
+        - FC6
+        - CP1
+        - CP2
+        - CP5
+        - CP6
+        - FT9
+        - FT10
+        - TP9
+        - TP10

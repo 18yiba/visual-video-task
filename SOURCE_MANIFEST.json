@@ -1,0 +1,622 @@
+[
+  {
+    "path": ".gitattributes",
+    "bytes": 100,
+    "sha256": "7e3c460b0ce772f7c698e5b1291fbd71e6a8824e8addd46a79644f994f57ccd1"
+  },
+  {
+    "path": ".gitignore",
+    "bytes": 897,
+    "sha256": "c71da8f5b2f1007f39dd70c83752bca8cb9dd2afbff6e45fda3e9a382db544e9"
+  },
+  {
+    "path": "AGENTS.md",
+    "bytes": 1048,
+    "sha256": "e2fbaaa525ff94d4611db8d6b1b5d0ae6ab4fb44077a0d5cb4154cf66fc9afa9"
+  },
+  {
+    "path": "docs/CHANGELOG_LAB_ENV.md",
+    "bytes": 14247,
+    "sha256": "742891759f53c0e9776daa803d783e09e750ff518c22be675c3418bdce75fc9d"
+  },
+  {
+    "path": "docs/clean_install_validation.json",
+    "bytes": 291,
+    "sha256": "9e9522a7a74b2087a0d1d35d2921da9816ba00bcc7d78eaefae855966967b449"
+  },
+  {
+    "path": "docs/CONFIGURATION.md",
+    "bytes": 2526,
+    "sha256": "91fd71baefa9ce7db44737de29dddf3951e832ae14f8a8056ebc5b51519722c5"
+  },
+  {
+    "path": "docs/DATA_MODEL.md",
+    "bytes": 4822,
+    "sha256": "be4f905fed4e9ef1582c6e8c513d416099c4875d312d50b511cdb7ab61208d6c"
+  },
+  {
+    "path": "docs/ENVIRONMENT_SETUP.md",
+    "bytes": 4549,
+    "sha256": "56f1a9fd315d825269bd93943b10a03bc0c4cf4253dd60198d852860ddc7847d"
+  },
+  {
+    "path": "docs/EXPERIMENT_DESCRIPTION.zh-CN.md",
+    "bytes": 5252,
+    "sha256": "70d0e1aee86cb26c332d1b03d46dd6402152218b03883545fbe7865130fa480a"
+  },
+  {
+    "path": "docs/EXPERIMENT_FLOW.md",
+    "bytes": 1779,
+    "sha256": "40f7d8e2eeeaf8a8ef2d8a68a8ed99dd2560e7def0147665dbfd53481bfd01f4"
+  },
+  {
+    "path": "docs/IMPLEMENTATION.md",
+    "bytes": 616,
+    "sha256": "847edc922f778104cd2ed753092671b76263bcf0678043e277c06f2b10e10c79"
+  },
+  {
+    "path": "docs/INSTRUCTION.md",
+    "bytes": 1132,
+    "sha256": "7a6048a9cda409782d6bc931a48ef672ec88ac75a298c883c1fcd0705c576362"
+  },
+  {
+    "path": "docs/MAINTENANCE_LOG_20260908.md",
+    "bytes": 5425,
+    "sha256": "fc9b6a3572a2663d7e4d30ba62cd3bddc8235834a7fb6e96744df82bd03e5260"
+  },
+  {
+    "path": "docs/material_audit_latest.json",
+    "bytes": 2325,
+    "sha256": "947abdc60f8edc23d8b9d6ecf68a2b2267124c999526e2e18e6ae229ba1ef000"
+  },
+  {
+    "path": "docs/OPERATOR_MANUAL.zh-CN.md",
+    "bytes": 11723,
+    "sha256": "d7dfdb13b7188f757506c976f30bfac9305cb3b75445bed9dc14c35405f61a72"
+  },
+  {
+    "path": "docs/SESSION_AUDIT_20260905.md",
+    "bytes": 9096,
+    "sha256": "699f59202c021592a97d0f0bf36519d872d016f1aab950888ad7d00766c8ef8b"
+  },
+  {
+    "path": "docs/VIDEO_QUESTION_AUDIT_20260908.md",
+    "bytes": 4458,
+    "sha256": "0c9a960d67367af0e3c08ce46804dba25724de26fae61510018e4d64b950898f"
+  },
+  {
+    "path": "docs/\u89c6\u9891EEG_\u5b9e\u9a8c\u8bf4\u660e.docx",
+    "bytes": 4812,
+    "sha256": "3144cabfde42bef1dfe9ae21f1cb7d8b9e02618f7d98fdcff4651ac9c4188fb7"
+  },
+  {
+    "path": "docs/\u89c6\u9891EEG_\u8be6\u7ec6\u64cd\u4f5c\u8bf4\u660e.docx",
+    "bytes": 7879,
+    "sha256": "19fb4cca7c8918d8c0c058f0ed0aa1420b186a2379d753fd6cd11696942c51f1"
+  },
+  {
+    "path": "install_lab_env_uv.bat",
+    "bytes": 7863,
+    "sha256": "3a52842db3498bc336324a37db8f84821a265f62c9c3f94e201786ca168dc84b"
+  },
+  {
+    "path": "lab_uv_env.toml",
+    "bytes": 2399,
+    "sha256": "10ee7a2776d97df0661d3126fbeed23501bb7fe6a2c81dc6aaf44f0e81014561"
+  },
+  {
+    "path": "pyproject.toml",
+    "bytes": 604,
+    "sha256": "8d04070ae0a9d2aa90ede1898f50aab9707bba05a3853c3b359beeca9e8eba52"
+  },
+  {
+    "path": "README.md",
+    "bytes": 3923,
+    "sha256": "cbd56bf493824324cec9b07d55caec6b925b31aeef479ec4123c8d3ba89692ee"
+  },
+  {
+    "path": "requirements-psychopy.txt",
+    "bytes": 143,
+    "sha256": "6af82f3acccf3eeb818517076e22803effffd3d06cc4b0f0540cd217ed89aa64"
+  },
+  {
+    "path": "run_ready_questions_demo.bat",
+    "bytes": 61,
+    "sha256": "a5ab91dffe66da4d4781fc6ae42d1b8d6916539b6f462efecc9dd7f0c93f7b07"
+  },
+  {
+    "path": "run_ready_questions_formal.bat",
+    "bytes": 63,
+    "sha256": "193be29206c0c30d92ad9484f5d9af24940bab90c162e04f9d1f26cb34e365ba"
+  },
+  {
+    "path": "run_video_demo.bat",
+    "bytes": 49,
+    "sha256": "91d037ea75183f74576a9a9d77519007257ad626215a296ce74c6930ee9a3919"
+  },
+  {
+    "path": "run_video_formal.bat",
+    "bytes": 51,
+    "sha256": "4843b9191abab97e91e7132cb08e6d8bc13044cef62ee2674eec50998f9baac6"
+  },
+  {
+    "path": "run_video_legacy_2779.bat",
+    "bytes": 134,
+    "sha256": "f61d96192a140ede883c6a28be28333015f0978c45379a2683b8a53f72fa30bb"
+  },
+  {
+    "path": "scripts/audit_question_bank.py",
+    "bytes": 3095,
+    "sha256": "4d991bb178de492161bcb6504d5e41b9792f190983eca960c993e373b06bc7a4"
+  },
+  {
+    "path": "scripts/audit_session_pool.py",
+    "bytes": 3669,
+    "sha256": "262a4be8af6a06fc385d7e32bfa4579b8a9ad6b6b11e2be885afbbac7e20739e"
+  },
+  {
+    "path": "scripts/brainco_device_doctor.py",
+    "bytes": 6215,
+    "sha256": "98c6c2913fab683dd98d52742b091107c15290b8e7cd2d7ac84522403306bad4"
+  },
+  {
+    "path": "scripts/build_release.py",
+    "bytes": 2603,
+    "sha256": "620a37a57ff9b69067f03ab84c8f5052efbf7f5e638b575f0ffa00a16d7981c0"
+  },
+  {
+    "path": "scripts/check_video_eeg_env.py",
+    "bytes": 2331,
+    "sha256": "58d8ac681f20bd52f98fae065808289297209377029b7887457ce5e38dbcba29"
+  },
+  {
+    "path": "scripts/export_manual_docx.py",
+    "bytes": 3860,
+    "sha256": "3d7b4d8f31c74591c03567f961ac8958d386bcb6bdc83e6e611702a1e8908f6b"
+  },
+  {
+    "path": "scripts/export_question_bank_csv.py",
+    "bytes": 988,
+    "sha256": "be151ae2ac0886f963d2cc44ef1d2ae13ece39666c32a49868d4b00fcb03cf5a"
+  },
+  {
+    "path": "scripts/install_lab_env_uv.bat",
+    "bytes": 202,
+    "sha256": "92de9ac49befeee794ddd4071de0dc847d5a791446be1f8c96812ae999864d7e"
+  },
+  {
+    "path": "scripts/install_lab_env_uv.ps1",
+    "bytes": 5840,
+    "sha256": "2422d541c5b2330c8a94a3939bfb0472b918be1a8e443407db7d21375440fcf3"
+  },
+  {
+    "path": "scripts/materialize_session_folders.py",
+    "bytes": 5779,
+    "sha256": "2a954989d82a6d1b63cfedc085994af6d1f833e95e6e1d0cb08374bcb895dc1a"
+  },
+  {
+    "path": "scripts/patch_pyglet_win32.py",
+    "bytes": 778,
+    "sha256": "87dab126416522104cb88c211b670d3ae83d3e52689d60c44368cf0215348e7f"
+  },
+  {
+    "path": "scripts/prepare_demo_materials.py",
+    "bytes": 2127,
+    "sha256": "fb66d312f4eb04b17f42396eab6cc1b1d70af5038324dac93810a9c68d166394"
+  },
+  {
+    "path": "scripts/run_ready_questions_demo.bat",
+    "bytes": 1202,
+    "sha256": "2bf39648a136289c808bc522dffd2b111282c6b3d4d7d8b2b5cc8b2a6a8f41ce"
+  },
+  {
+    "path": "scripts/run_ready_questions_formal.bat",
+    "bytes": 1323,
+    "sha256": "59ef9effdb6caaa4ebded03745653c5e6e3dde7fcbd84c1bd8ef3bf05dd1425c"
+  },
+  {
+    "path": "scripts/run_video_demo.bat",
+    "bytes": 1193,
+    "sha256": "338c2ab66dbe3fa2b91087f5863d4edb6f107a653cc2beffcb9983a7eef5fe68"
+  },
+  {
+    "path": "scripts/run_video_formal.bat",
+    "bytes": 1381,
+    "sha256": "a57ea6a338b51afcb08c10116414353046d4ac93701798288ebd106c0256f483"
+  },
+  {
+    "path": "scripts/smoke_demo_entry.py",
+    "bytes": 1781,
+    "sha256": "6d23987c17b8c98a077a53a0eb68536835a0eec3f17377a7f253c4cf22de07f5"
+  },
+  {
+    "path": "scripts/smoke_ready_questions.py",
+    "bytes": 3666,
+    "sha256": "1c9d8d07b5cad6d5270b3a13ca2bdbdc0430c9681cc9b565726961dcb687dfe8"
+  },
+  {
+    "path": "scripts/verify_session_randomness.py",
+    "bytes": 2582,
+    "sha256": "923403559b332496bd560bc378cc2e2c2214d3f309268fd4c9fdcd90c61d9328"
+  },
+  {
+    "path": "setup.py",
+    "bytes": 39,
+    "sha256": "dad977c0e28121827bc42ee786411eb3d8903817f643584602fbd61baaf9d9e5"
+  },
+  {
+    "path": "tests/test_distribution.py",
+    "bytes": 2729,
+    "sha256": "0a682991c400d0e69d6ddaf13cb6c105b74b93396f7df91b0e6724a1f982404e"
+  },
+  {
+    "path": "tests/test_psychopy_video_experiment.py",
+    "bytes": 21262,
+    "sha256": "eb132d823cfa16ade319ab29302489adb8ec180618b715b18420cefe881317f8"
+  },
+  {
+    "path": "tests/test_ready_questions.py",
+    "bytes": 10858,
+    "sha256": "b2812b42698a3153b8cffd40fd3c5d96ef39216f147431db9d06df3deb47e12e"
+  },
+  {
+    "path": "tests/test_session_filesystem.py",
+    "bytes": 1726,
+    "sha256": "87aa058933331acd5d8bf0cc83b2b1fd975192f76c853bf7cfe99d0af408d4ce"
+  },
+  {
+    "path": "tests/test_video_session_protocol.py",
+    "bytes": 16788,
+    "sha256": "ae891942f2bd82348864a261fd9062cd125a384ef3bae546a125cb720776fb77"
+  },
+  {
+    "path": "tests/test_video_short_rest.py",
+    "bytes": 2469,
+    "sha256": "b4588a7c481a1628962417b376291f387c23a768ef50c8c9f2e190bedb0a0090"
+  },
+  {
+    "path": "THIRD_PARTY_NOTICES.md",
+    "bytes": 755,
+    "sha256": "6dcc4e45273f360d7a141663cde6d1f1f971042ffaedff8f2ca9a0b305d2b2cc"
+  },
+  {
+    "path": "uv.toml",
+    "bytes": 218,
+    "sha256": "29e75f6adc03922d5b7001a7af8615cdde70a7a0dd02e19aef6dac10a41f54af"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/__init__.py",
+    "bytes": 73,
+    "sha256": "8c63dacde3ea6d582deda67cdad15e135b3e86da887ab69cf6b89927354501ac"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/__main__.py",
+    "bytes": 81,
+    "sha256": "2cdd23d4f5cd6c3b3e4cb690ad16d560637767b9ca5b2a3cf129fcc0a5ebc82b"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/adapters/__init__.py",
+    "bytes": 71,
+    "sha256": "547f3a3328ae1cc6f175f4ad208336bb536221ee68f744713fa679663a5f4986"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/adapters/eeg_base.py",
+    "bytes": 500,
+    "sha256": "f28fdf1bec81100c7555f7c53e1293bac2d22d3543f5fee214f41681c8f7e84e"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/adapters/eeg_numpy.py",
+    "bytes": 13782,
+    "sha256": "313b9d05472b4487dd6c0e69d2cc2088e87c5eee0a8d16161cc8bb7c22a24187"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/adapters/neuracle_header.py",
+    "bytes": 2417,
+    "sha256": "5f29b36322e3ec206b9701fe91922f4923b8ade3a279a7c86e92ac5aef06e158"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/bids/__init__.py",
+    "bytes": 58,
+    "sha256": "84db369536f8d306d55e022a94ae63151a21da412fff578baa0199ddfa1151e8"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/bids/writer.py",
+    "bytes": 10415,
+    "sha256": "bfa8fbf25ca85c8911eba0c83efbbc84b3e2a03e3c7628f85cba8294954cff12"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/cli.py",
+    "bytes": 14418,
+    "sha256": "dfa340f210912f4ca500381dfab0f6e24efd49f39b5513c684ad260123982fc4"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/config.py",
+    "bytes": 9822,
+    "sha256": "004b425fd576878f1b93f0e8806d727d70ecdb8442e46d7f8d77a8c437e31728"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/conversion/__init__.py",
+    "bytes": 201,
+    "sha256": "14076ef6c5f48d058f9cad7743a4cfb9198bb37584fabf986fee3b39104ecac1"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/conversion/events.py",
+    "bytes": 11204,
+    "sha256": "f1f912213d3da0b0881394cb3b31258c38d07f91b39f7d348508efc4499f86d7"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/conversion/stimuli.py",
+    "bytes": 8370,
+    "sha256": "49dba52c0e35d77f3a6e5361547a2106ef7d8a2dcaba1f1de0e2d0fe067220c4"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/discovery/__init__.py",
+    "bytes": 71,
+    "sha256": "02973d80c87e832fc6854c8a33467cf8109743e9f40fa852c07cc290cd3af6e1"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/discovery/scanner.py",
+    "bytes": 11986,
+    "sha256": "6f3cb246f9ab84070755d4fa75837a6d391aa8a3d75b141dc3946a8b62e3de37"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/errors.py",
+    "bytes": 473,
+    "sha256": "3d0493a8fbd3f8f5e7fd5806581226b19ab7a959fe461549fc562d08343bf844"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/models.py",
+    "bytes": 1705,
+    "sha256": "15bb7d7e3e1a3d995a0d80614806ab71db6a8f2bdfe89ceb29facb4932edafd6"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/provenance/__init__.py",
+    "bytes": 56,
+    "sha256": "af6bf45dc883f6302416c4fed9527e533082059e5d852dd21b3a4b1ad8b1c2c0"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/provenance/manifest.py",
+    "bytes": 4040,
+    "sha256": "4a96f30e0665511bbcb940f8c46d2fad6bed699a6b0810f559dc995f4fb5ef81"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/validation/__init__.py",
+    "bytes": 151,
+    "sha256": "9f5c590c9bbfd3ad86ccf145e91ca2b5056faa62265880f0b651edd40f433be6"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/validation/bids_validator.py",
+    "bytes": 2887,
+    "sha256": "55f584c85b19e068a9d2bddefee9826dc976ad4334237ab0026078a648083da4"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/eeg_bids_converter/validation/pybids_check.py",
+    "bytes": 1386,
+    "sha256": "26e539d445928365c5b3e87d0f720a7de1750d96a879690363a05d32295df6e1"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/LICENSE",
+    "bytes": 1088,
+    "sha256": "2f42b2c07aba210bccb8a91e0a30902d83ca79e78c91e926b72db5b1b17b7eee"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/pyproject.toml",
+    "bytes": 1182,
+    "sha256": "e23934c30312abfecf1ae0d64568a471a280a85e00c659acd8a5fc14927abaa3"
+  },
+  {
+    "path": "vendor/eeg-bids-converter/README.md",
+    "bytes": 20029,
+    "sha256": "bfcbaf7f3555cade3e6cb4ef7b789b0cc18da3ead84d336cca876be9e7a98bc8"
+  },
+  {
+    "path": "video_eeg/__init__.py",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "video_eeg/config/complete_questions_20260908/coverage_audit.json",
+    "bytes": 1965,
+    "sha256": "d6d26b9b2aa54f25fc8c6a9068dddc4d3dcbb5786ba68daeeb69b64d3aa87fad"
+  },
+  {
+    "path": "video_eeg/config/complete_questions_20260908/question_bank.json",
+    "bytes": 8201645,
+    "sha256": "6ed36faaccdb4b4d3982c1304ae1252967dd50e2543353c2707fc4231ed2466a"
+  },
+  {
+    "path": "video_eeg/config/complete_questions_20260908/questions_audit.csv",
+    "bytes": 1479348,
+    "sha256": "c2e8364cc84a3c90f4f2b9f120ba50a1f0bc838cd69add600ae241a01c4c5436"
+  },
+  {
+    "path": "video_eeg/config/eeg_bids_converter.yaml",
+    "bytes": 1980,
+    "sha256": "1fad52e57da9225f428588695f763979e5fdb0e2039aa78ec9c8250c9fef7f5c"
+  },
+  {
+    "path": "video_eeg/config/formal_excluded_over_60s.csv",
+    "bytes": 3426,
+    "sha256": "40376c2792a35c884887778e87d56ca914760950b46447d90001f8a2e1c99b57"
+  },
+  {
+    "path": "video_eeg/config/ready_questions_20260908/coverage.json",
+    "bytes": 1528,
+    "sha256": "6a994aa585e77de8fb24d9f3192dd5198181402cab63158afb49f53bb740d498"
+  },
+  {
+    "path": "video_eeg/config/ready_questions_20260908/question_bank.json",
+    "bytes": 2530765,
+    "sha256": "5988239d41b1ad021cd021f8323a701f427f5280e442540083ec9aad1fe90368"
+  },
+  {
+    "path": "video_eeg/config/ready_questions_20260908/session_manifest.csv",
+    "bytes": 473144,
+    "sha256": "0607e281415ddfdfb117406adb0e08280735905938f9295c78f0969188464410"
+  },
+  {
+    "path": "video_eeg/config/ready_questions_20260908/\u9898\u5e93\u67e5\u770b.csv",
+    "bytes": 343957,
+    "sha256": "8208291d119d624ba9655f20908bc14c91ea9a2e2e80cca5991cb073a83603a3"
+  },
+  {
+    "path": "video_eeg/config/session_manifest.csv",
+    "bytes": 8300710,
+    "sha256": "56dc9fa3bcfeb90c5e42fdccc114c633dc9284dba6e17295e4f95de7671679b9"
+  },
+  {
+    "path": "video_eeg/config/video_config.yaml",
+    "bytes": 1799,
+    "sha256": "58ec0dedfae336c066ee957297e1b71b104cc883eb5e6237ff362b8f545dbb5b"
+  },
+  {
+    "path": "video_eeg/config/video_demo_config.yaml",
+    "bytes": 1721,
+    "sha256": "93f79d6efadeefb19d86cf641b4e2baa53f18f21a12627c26c0a5f560e41fbda"
+  },
+  {
+    "path": "video_eeg/config/video_legacy_2779_config.yaml",
+    "bytes": 1789,
+    "sha256": "c226fffd2e094e020b089ae9a117341be65d6eb053274fddffae0a56ce8a5b89"
+  },
+  {
+    "path": "video_eeg/config/video_ready_config.yaml",
+    "bytes": 1754,
+    "sha256": "43073c7d31e8e8033f408843f5c8e6d07012ab090ab3ce556caba21a9d2af2e6"
+  },
+  {
+    "path": "video_eeg/config/video_ready_demo_config.yaml",
+    "bytes": 1655,
+    "sha256": "762f314e044ad65c0a446096ddcf9be99bce506300961841c7250b46264fde23"
+  },
+  {
+    "path": "video_eeg/devices/__init__.py",
+    "bytes": 166,
+    "sha256": "60bcbfdf579cb0a928c961202da9e813de0d074eb36c21ceaab66dc3d1f58d8c"
+  },
+  {
+    "path": "video_eeg/devices/base.py",
+    "bytes": 1202,
+    "sha256": "b0eacbd3bc43197e36a1683fa0313b7e7a55cf27dc6bdfcbe868d661fded0caa"
+  },
+  {
+    "path": "video_eeg/devices/brainco_acquirer.py",
+    "bytes": 35822,
+    "sha256": "1be22ee965a07769a4f2b562545560a503a014a27717840a3e86eea358cb4f15"
+  },
+  {
+    "path": "video_eeg/devices/collect/__init__.py",
+    "bytes": 106,
+    "sha256": "c3a3573904a3aae2168ff558f761a9e4d896674cd2f81ab9d0525961967cc2a9"
+  },
+  {
+    "path": "video_eeg/devices/collect/neuracle_api.py",
+    "bytes": 44914,
+    "sha256": "0a5d2740c7a24712f2b51fd3778c4538163cb6faed22a990d47482a69756ec1b"
+  },
+  {
+    "path": "video_eeg/devices/collect/README.md",
+    "bytes": 798,
+    "sha256": "481314390879591e478550af247fe7b1816296485b7aa0c61b2e4b7f06d71834"
+  },
+  {
+    "path": "video_eeg/devices/collect/triggerBox.py",
+    "bytes": 14991,
+    "sha256": "8723cfea6ab9a9b50842207cf8091aa0ab376eed00a70a6ecdbc09ff869da513"
+  },
+  {
+    "path": "video_eeg/devices/dummy_acquirer.py",
+    "bytes": 9154,
+    "sha256": "c52d8d56f945098fcec3b36919e770f0467ac6c5c77f71c475bc2c1608558d2c"
+  },
+  {
+    "path": "video_eeg/devices/external_recorder_acquirer.py",
+    "bytes": 1479,
+    "sha256": "c9b35a7887c8838b01f007d5e4fd9ceac2ac2fad8e42ef0b21fc252a1c028021"
+  },
+  {
+    "path": "video_eeg/devices/factory.py",
+    "bytes": 2125,
+    "sha256": "07f8cfe206757f2397d1179a0287846ffdcd158e41b37bc99a61ddff19598999"
+  },
+  {
+    "path": "video_eeg/devices/lsl_acquirer.py",
+    "bytes": 9695,
+    "sha256": "9309e1f1aa0fa7c2a40ac03e499571efdcaf6404788754a7eecc8849bfd3e5e2"
+  },
+  {
+    "path": "video_eeg/devices/neuracle_acquirer.py",
+    "bytes": 8088,
+    "sha256": "493670cf9e1921d84aa5fc2e5c4352399d38e0dbc20de81319df115ccd721970"
+  },
+  {
+    "path": "video_eeg/experiment/__init__.py",
+    "bytes": 302,
+    "sha256": "5813ac874174b3e47d569662d92ec11ade203dc0d5771e31dc0ded10210674f7"
+  },
+  {
+    "path": "video_eeg/experiment/ready_question_runner.py",
+    "bytes": 10703,
+    "sha256": "1cf11c57ca963a3c91c9f54df542ec961c64b1a2956a72db688311c19320482c"
+  },
+  {
+    "path": "video_eeg/experiment/video_protocol.py",
+    "bytes": 12863,
+    "sha256": "2c4934a8009fca9b3eda2483ceae622d77a154915e5624dd513aca128fd35b62"
+  },
+  {
+    "path": "video_eeg/experiment/video_runner.py",
+    "bytes": 107941,
+    "sha256": "0e819b6d6ad22e0fba91aa13791c549607e88999a31231024374be5d5477b4e2"
+  },
+  {
+    "path": "video_eeg/storage/__init__.py",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "video_eeg/storage/session_recorder.py",
+    "bytes": 14441,
+    "sha256": "5608a5525062bf1150c13614fbf720495b36ca20d0024897677cd3dae1f0778a"
+  },
+  {
+    "path": "video_eeg/utils/__init__.py",
+    "bytes": 53,
+    "sha256": "798b0541b761d0b24acae2dea70865ab39341053034518572c92d4e556ecebcf"
+  },
+  {
+    "path": "video_eeg/utils/markers.py",
+    "bytes": 16476,
+    "sha256": "d88d1c664f9b01daace691af822d7d7a4e919eb348025d21ed7010f27efcf1da"
+  },
+  {
+    "path": "video_eeg/utils/preprocessing.py",
+    "bytes": 1499,
+    "sha256": "2dd058b68d753dbfcc08935a698fa65db47b565b9b2cc8852b6c303c2c23503c"
+  },
+  {
+    "path": "video_eeg/utils/session_integrity.py",
+    "bytes": 1573,
+    "sha256": "575668ca47aa19600149a0e8a043b7c0aa1d20ff92e3c1108ad2cd4497d8845f"
+  },
+  {
+    "path": "video_eeg/utils/session_protocol.py",
+    "bytes": 30990,
+    "sha256": "60cfb52e7c7303ab425b95da7d385d06f907be77096a3a6b99a3ef0cf04e09e4"
+  },
+  {
+    "path": "video_eeg/utils/session_store.py",
+    "bytes": 1894,
+    "sha256": "a51fbd6ec6b0565d747fa104dd281368a9d7cb05cf9fdc2b81e46ee428d94839"
+  },
+  {
+    "path": "video_eeg/utils/stream_writer.py",
+    "bytes": 4392,
+    "sha256": "f8ad5566aecdf9fed478d7d891b0ec05ffdafc5512be14141e9825032d5f95eb"
+  },
+  {
+    "path": "video_eeg/utils/video_library.py",
+    "bytes": 20766,
+    "sha256": "f2080adcff04cc6f967005f524bdd8389e49eb6bc6343b64682c0bbd9cfc068a"
+  }
+]

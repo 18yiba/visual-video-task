@@ -1,0 +1,3 @@
+# Project-local uv configuration for laboratory deployment.
+# The installer selects the per-process default index after probing the mirror.
+# Network timeout is intentionally configured by UV_HTTP_TIMEOUT in the .bat.

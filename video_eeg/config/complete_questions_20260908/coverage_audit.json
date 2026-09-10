@@ -1,0 +1,110 @@
+{
+  "bank_questions": 7993,
+  "bank_sha256": "6ed36faaccdb4b4d3982c1304ae1252967dd50e2543353c2707fc4231ed2466a",
+  "formal_videos": 7949,
+  "formal_with_questions": 7946,
+  "formal_missing_questions": [
+    "5728.mp4",
+    "6722.mp4",
+    "6883.mp4"
+  ],
+  "physical_videos": 7996,
+  "physical_missing_questions": [
+    "5728.mp4",
+    "6722.mp4",
+    "6883.mp4"
+  ],
+  "missing_question_video_files": [],
+  "duplicate_video_questions": [],
+  "status_counts": {
+    "ready": 2779,
+    "generated_unreviewed": 5214
+  },
+  "sessions": [
+    {
+      "session": 1,
+      "videos": 468,
+      "questions": 468
+    },
+    {
+      "session": 2,
+      "videos": 467,
+      "questions": 467
+    },
+    {
+      "session": 3,
+      "videos": 468,
+      "questions": 468
+    },
+    {
+      "session": 4,
+      "videos": 467,
+      "questions": 466
+    },
+    {
+      "session": 5,
+      "videos": 468,
+      "questions": 468
+    },
+    {
+      "session": 6,
+      "videos": 468,
+      "questions": 468
+    },
+    {
+      "session": 7,
+      "videos": 468,
+      "questions": 467
+    },
+    {
+      "session": 8,
+      "videos": 467,
+      "questions": 467
+    },
+    {
+      "session": 9,
+      "videos": 468,
+      "questions": 468
+    },
+    {
+      "session": 10,
+      "videos": 468,
+      "questions": 467
+    },
+    {
+      "session": 11,
+      "videos": 467,
+      "questions": 467
+    },
+    {
+      "session": 12,
+      "videos": 468,
+      "questions": 468
+    },
+    {
+      "session": 13,
+      "videos": 468,
+      "questions": 468
+    },
+    {
+      "session": 14,
+      "videos": 467,
+      "questions": 467
+    },
+    {
+      "session": 15,
+      "videos": 467,
+      "questions": 467
+    },
+    {
+      "session": 16,
+      "videos": 468,
+      "questions": 468
+    },
+    {
+      "session": 17,
+      "videos": 467,
+      "questions": 467
+    }
+  ]
+}

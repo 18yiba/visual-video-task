@@ -1,0 +1,75 @@
+{
+  "questions": 2779,
+  "bank": "/mnt/d/users/edy/desktop/video/visual-video-task-master/video_eeg/config/ready_questions_20260908/question_bank.json",
+  "csv": "/mnt/d/users/edy/desktop/video/visual-video-task-master/video_eeg/config/ready_questions_20260908/题库查看.csv",
+  "sessions": {
+    "1": {
+      "videos": 166,
+      "net_video_minutes": 33.45
+    },
+    "2": {
+      "videos": 162,
+      "net_video_minutes": 32.59
+    },
+    "3": {
+      "videos": 162,
+      "net_video_minutes": 32.59
+    },
+    "4": {
+      "videos": 164,
+      "net_video_minutes": 33.1
+    },
+    "5": {
+      "videos": 164,
+      "net_video_minutes": 33.12
+    },
+    "6": {
+      "videos": 162,
+      "net_video_minutes": 32.45
+    },
+    "7": {
+      "videos": 162,
+      "net_video_minutes": 32.45
+    },
+    "8": {
+      "videos": 163,
+      "net_video_minutes": 32.84
+    },
+    "9": {
+      "videos": 164,
+      "net_video_minutes": 33.15
+    },
+    "10": {
+      "videos": 163,
+      "net_video_minutes": 32.7
+    },
+    "11": {
+      "videos": 165,
+      "net_video_minutes": 33.35
+    },
+    "12": {
+      "videos": 164,
+      "net_video_minutes": 32.95
+    },
+    "13": {
+      "videos": 163,
+      "net_video_minutes": 32.76
+    },
+    "14": {
+      "videos": 164,
+      "net_video_minutes": 33.1
+    },
+    "15": {
+      "videos": 164,
+      "net_video_minutes": 33.1
+    },
+    "16": {
+      "videos": 164,
+      "net_video_minutes": 33.41
+    },
+    "17": {
+      "videos": 163,
+      "net_video_minutes": 32.91
+    }
+  }
+}
