@@ -1,0 +1,123 @@
+{
+  "question_count": 7993,
+  "formal_count": 7949,
+  "formal_with_questions": 7946,
+  "missing_questions": [
+    "5728.mp4",
+    "6722.mp4",
+    "6883.mp4"
+  ],
+  "review_status_counts": {
+    "ready": 2779,
+    "generated_unreviewed": 5214
+  },
+  "question_bank_sha256": "6ed36faaccdb4b4d3982c1304ae1252967dd50e2543353c2707fc4231ed2466a",
+  "video_root": "D:\\Users\\EDY\\Desktop\\video\\video_materials\\formal_v1\\videos",
+  "missing_video_count": 0,
+  "missing_video_examples": [],
+  "sessions": [
+    {
+      "session": 1,
+      "videos": 468,
+      "questions": 468,
+      "checks": 18
+    },
+    {
+      "session": 2,
+      "videos": 467,
+      "questions": 467,
+      "checks": 18
+    },
+    {
+      "session": 3,
+      "videos": 468,
+      "questions": 468,
+      "checks": 18
+    },
+    {
+      "session": 4,
+      "videos": 467,
+      "questions": 466,
+      "checks": 18
+    },
+    {
+      "session": 5,
+      "videos": 468,
+      "questions": 468,
+      "checks": 18
+    },
+    {
+      "session": 6,
+      "videos": 468,
+      "questions": 468,
+      "checks": 18
+    },
+    {
+      "session": 7,
+      "videos": 468,
+      "questions": 467,
+      "checks": 18
+    },
+    {
+      "session": 8,
+      "videos": 467,
+      "questions": 467,
+      "checks": 18
+    },
+    {
+      "session": 9,
+      "videos": 468,
+      "questions": 468,
+      "checks": 18
+    },
+    {
+      "session": 10,
+      "videos": 468,
+      "questions": 467,
+      "checks": 18
+    },
+    {
+      "session": 11,
+      "videos": 467,
+      "questions": 467,
+      "checks": 18
+    },
+    {
+      "session": 12,
+      "videos": 468,
+      "questions": 468,
+      "checks": 18
+    },
+    {
+      "session": 13,
+      "videos": 468,
+      "questions": 468,
+      "checks": 18
+    },
+    {
+      "session": 14,
+      "videos": 467,
+      "questions": 467,
+      "checks": 18
+    },
+    {
+      "session": 15,
+      "videos": 467,
+      "questions": 467,
+      "checks": 18
+    },
+    {
+      "session": 16,
+      "videos": 468,
+      "questions": 468,
+      "checks": 18
+    },
+    {
+      "session": 17,
+      "videos": 467,
+      "questions": 467,
+      "checks": 18
+    }
+  ],
+  "complete_question_coverage": false
+}

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "video-eeg"
 version = "0.1.0"
-description = "Video neuro-response experiment with EEG acquisition and trigger alignment"
+description = "PsychoPy video EEG paradigm with BrainCo SDK acquisition"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
@@ -25,12 +25,7 @@ dependencies = [
 ]
 
 [project.scripts]
-video-eeg = "psychopy_video_experiment:main"
-image-b-eeg = "psychopy_image_b_experiment:main"
-image-b-rating = "psychopy_image_b_rating:main"
-
-[tool.setuptools]
-py-modules = ["psychopy_video_experiment", "psychopy_image_b_experiment", "psychopy_image_b_rating"]
+video-eeg = "video_eeg.experiment.video_runner:main"
 
 [tool.setuptools.packages.find]
-include = ["acquisition*", "collect*", "protocol*", "tasks*", "utils*"]
+include = ["video_eeg*"]

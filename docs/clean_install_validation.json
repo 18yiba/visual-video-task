@@ -1,0 +1,12 @@
+{
+  "clean_install": true,
+  "python": "3.12.14",
+  "full_demo_entry": true,
+  "completed_videos": 10,
+  "completed_checks": 3,
+  "all_expected_event_pairs": true,
+  "nonempty_eeg": true,
+  "tests_passed": 47,
+  "tests_skipped_missing_corpus": 2,
+  "real_hardware_tested": false
+}

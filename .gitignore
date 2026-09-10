@@ -1,4 +1,4 @@
-﻿# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -8,6 +8,12 @@ __pycache__/
 venv/
 env/
 .runtime/
+.uv_lab_env/
+.venv_broken*/
+
+# PsychoPy/local runtime cache
+.psychopy_appdata/
+.tmp/
 
 # Environment variables
 .env
@@ -23,6 +29,7 @@ build/
 .vscode/
 
 # Project data (large / sensitive)
+data/sourcedata/
 original_data/
 records/
 records_storage/
@@ -30,17 +37,33 @@ ratings_storage/
 video_records_storage/
 video_demo_records_storage/
 models/
-video_library/selected_540_balanced_videos/
 *.npy
 *.npz
 *.bdf
+*.edf
 
 # Generated video-library rename logs
-video_library/_list_after.txt
-video_library/_rename_result.txt
-video_library/_spawn_exit.txt
-video_library/_run_rename.bat
+stimuli/videos/_list_after.txt
+stimuli/videos/_rename_result.txt
+stimuli/videos/_spawn_exit.txt
+stimuli/videos/_run_rename.bat
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Every acquisition mode and practice run is private local output.
+data/
+logs/
+.uv-cache/
+.pytest_cache/
+.venv_backup*/
+tools/*.exe
+stimuli/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.zip
+*.tar.gz
+*.log
