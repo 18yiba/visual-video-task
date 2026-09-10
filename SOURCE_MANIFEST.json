@@ -1,8 +1,8 @@
 [
   {
     "path": ".gitattributes",
-    "bytes": 100,
-    "sha256": "7e3c460b0ce772f7c698e5b1291fbd71e6a8824e8addd46a79644f994f57ccd1"
+    "bytes": 177,
+    "sha256": "ccc78317508f915f57cf439f97139d8ef7c60e8ab7eea59eec5511776cfcc3c5"
   },
   {
     "path": ".gitignore",
@@ -96,8 +96,8 @@
   },
   {
     "path": "docs/SESSION_34_AND_LABEL_AUDIT.zh-CN.md",
-    "bytes": 4396,
-    "sha256": "8a2ff3a70f005f62bbece9fbb1b0fe9352ad1080dd09b73f2a3cc3f31bbefd14"
+    "bytes": 4653,
+    "sha256": "fc48a1d61e5633a06bb026a4f71d87e2b38437e9d604fb84ff88d49f0d746a2a"
   },
   {
     "path": "docs/\u89c6\u9891EEG_\u5b9e\u9a8c\u8bf4\u660e.docx",
