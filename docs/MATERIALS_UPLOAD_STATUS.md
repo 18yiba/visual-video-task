@@ -1,5 +1,9 @@
 # 视频附件发布状态
 
+此页指**普通视频母库**。新 Emotion EEG v1 还需独立的 3,138 个情绪视频，
+这些不在此 Release 内；见 [新协议材料放置说明](EMOTION_EEG_PROTOCOL.zh-CN.md)。
+下文的 34 组/内容题描述属于旧协议。
+
 完整材料已公开：[统一下载页](https://github.com/18yiba/visual-video-task/releases/tag/materials-v1-20260910)。
 
 全部 84 个视频 ZIP、元数据 ZIP 和材料清单均完成上传，远端字节数和 SHA-256 全部核验通过。

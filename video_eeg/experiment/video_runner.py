@@ -827,43 +827,51 @@ def main(argv: list[str] | None = None) -> int:
     config["subject_id"] = startup["subject_id"]
     config["session_id"] = startup["session_id"]
 
-    library = load_video_library(config)
-    if args.demo and not library.list_candidate_assets():
-        demo_root = PROJECT_ROOT / 'stimuli' / 'demo'
-        if not (demo_root / 'question_bank.json').is_file():
-            raise RuntimeError('Practice materials missing. Run scripts/install_lab_env_uv.bat first.')
-        config['protocol']['video_library_dir'] = str(demo_root)
-        config['protocol']['question_bank_path'] = 'stimuli/demo/question_bank.json'
-        config['practice_materials'] = True
+    emotion_protocol = config.get('protocol', {}).get('kind') == 'emotion-v1'
+    if emotion_protocol:
+        from video_eeg.experiment.emotion_runner import EmotionVideoRunner
+        from video_eeg.utils.emotion_protocol import prepare
+        library, playlist = prepare(config, args.demo)
+        runner_class = EmotionVideoRunner
+        playlist_seed = protocol.random_seed + int(config['session_id'])
+    else:
         library = load_video_library(config)
-    runner_class = VideoRunner
-    if config.get('protocol', {}).get('question_bank_path'):
-        from video_eeg.experiment.ready_question_runner import QuestionVideoRunner, ReadyLibrary, load_questions, question_path
-        runner_class = QuestionVideoRunner
-        if args.demo:
-            library = ReadyLibrary(library, load_questions(question_path(config)))
-    playlist_seed = protocol.random_seed + int(config["session_id"])
-    requested_trials = protocol.trials_per_session or 10
-    try:
-        if args.demo and requested_trials > 0 and protocol.playlist_mode == "shuffle":
-            playlist, probed_count = build_fast_valid_playlist(
-                library,
-                trials_per_session=requested_trials,
-                random_seed=playlist_seed,
-            )
-            print(f"Demo 快速选片完成：从 {probed_count} 个候选视频中找到 {len(playlist)} 个合法视频。")
-        elif args.demo:
-            playlist = build_playlist(library, trials_per_session=requested_trials, random_seed=playlist_seed)
-        else:
-            manifest = ensure_session_manifest(config, library)
-            playlist = manifest.session_assets(int(config["session_id"]))
-            if not playlist:
-                raise RuntimeError(f"Session {config['session_id']} has no assigned videos")
-            config["session_manifest_path"] = str(_session_manifest_path(config))
-            config["session_manifest_hash"] = manifest.content_hash
-    except RuntimeError as exc:
-        print(f"\n视频库检查失败：{exc}\n视频目录：{library.root}\n", file=sys.stderr)
-        return 1
+        if args.demo and not library.list_candidate_assets():
+            demo_root = PROJECT_ROOT / 'stimuli' / 'demo'
+            if not (demo_root / 'question_bank.json').is_file():
+                raise RuntimeError('Practice materials missing. Run scripts/install_lab_env_uv.bat first.')
+            config['protocol']['video_library_dir'] = str(demo_root)
+            config['protocol']['question_bank_path'] = 'stimuli/demo/question_bank.json'
+            config['practice_materials'] = True
+            library = load_video_library(config)
+        runner_class = VideoRunner
+        if config.get('protocol', {}).get('question_bank_path'):
+            from video_eeg.experiment.ready_question_runner import QuestionVideoRunner, ReadyLibrary, load_questions, question_path
+            runner_class = QuestionVideoRunner
+            if args.demo:
+                library = ReadyLibrary(library, load_questions(question_path(config)))
+        playlist_seed = protocol.random_seed + int(config["session_id"])
+        requested_trials = protocol.trials_per_session or 10
+        try:
+            if args.demo and requested_trials > 0 and protocol.playlist_mode == "shuffle":
+                playlist, probed_count = build_fast_valid_playlist(
+                    library,
+                    trials_per_session=requested_trials,
+                    random_seed=playlist_seed,
+                )
+                print(f"Demo 快速选片完成：从 {probed_count} 个候选视频中找到 {len(playlist)} 个合法视频。")
+            elif args.demo:
+                playlist = build_playlist(library, trials_per_session=requested_trials, random_seed=playlist_seed)
+            else:
+                manifest = ensure_session_manifest(config, library)
+                playlist = manifest.session_assets(int(config["session_id"]))
+                if not playlist:
+                    raise RuntimeError(f"Session {config['session_id']} has no assigned videos")
+                config["session_manifest_path"] = str(_session_manifest_path(config))
+                config["session_manifest_hash"] = manifest.content_hash
+        except RuntimeError as exc:
+            print(f"\n视频库检查失败：{exc}\n视频目录：{library.root}\n", file=sys.stderr)
+            return 1
     config["playlist_seed"] = playlist_seed
     config["playlist_version"] = "fixed-session-manifest" if not args.demo else "demo-random-playlist"
     missing = [asset.rel_path for asset in playlist if not library.is_available(asset)]
@@ -932,7 +940,8 @@ def startup_dialog(
         }
     dlg = gui.Dlg(title="PsychoPy 视频 EEG 实验")
     resume_hint = "；默认 Session 为最近一个未完成 Session" if not args.demo else ""
-    dlg.addText(f"连续视频观看范式：固定 Session 清单，视频完整播放，无主观评分{resume_hint}。")
+    description = "连续观看视频；部分视频后依次评价主观感受和唤醒程度" if config.get('protocol', {}).get('kind') == 'emotion-v1' else "连续视频观看范式：固定 Session 清单，视频完整播放，无主观评分"
+    dlg.addText(f"{description}{resume_hint}。")
     dlg.addField("被试编号", defaults["subject_id"])
     dlg.addField("Session 编号", defaults["session_id"])
     dlg.addField("全屏显示", defaults["fullscreen"])
@@ -977,7 +986,7 @@ class VideoRunner:
         self.state_path: Path | None = None
         self.progress_dir: Path | None = None
         demo_mode = bool(self.config.get("demo_mode", False))
-        if demo_mode:
+        if demo_mode and self.config.get('protocol', {}).get('kind') != 'emotion-v1':
             records_dir = _records_dir({**self.config, "storage": {"records_dir": "data/demo_runs"}})
         else:
             records_dir = _records_dir(self.config)
@@ -997,7 +1006,7 @@ class VideoRunner:
         existing = load_state(self.state_path)
         expected_manifest_hash = str(self.config.get("session_manifest_hash", manifest.content_hash))
         if existing is not None:
-            expected_task_type = 'video_mcq' if hasattr(self, 'questions') else 'arithmetic'
+            expected_task_type = getattr(self, 'task_type', 'video_mcq' if hasattr(self, 'questions') else 'arithmetic')
             if existing.attention_task_type != expected_task_type:
                 raise RuntimeError('Saved Session uses a different attention protocol; use a new subject ID or records directory')
             if existing.question_bank_sha256 != getattr(self, 'question_bank_sha256', ''):
@@ -1033,6 +1042,8 @@ class VideoRunner:
             )
             self.state.question_bank_sha256 = getattr(self, 'question_bank_sha256', '')
             self.state.question_bank_sha256 = getattr(self, 'question_bank_sha256', '')
+            if hasattr(self, '_initialize_new_state'):
+                self._initialize_new_state()
             save_state_atomic(self.state_path, self.state)
         if self.state is not None:
             self.state.manifest_hash = expected_manifest_hash
@@ -1100,7 +1111,7 @@ class VideoRunner:
                     self.state.current_video_id = video_id
                     self._checkpoint("video_attempt_started")
                 completed = self._run_trial(trial_idx, asset)
-                if completed:
+                if completed or getattr(self, 'natural_eof_only', False):
                     self._run_due_attention_tasks()
                     self._maybe_run_rest_prompt()
                 trial_idx += 1
@@ -1483,7 +1494,11 @@ class VideoRunner:
         media_load_sec = time.perf_counter() - media_load_started
         planned_duration = asset.duration_sec
         self.win.callOnFlip(manager.fixation_off, trial_idx=trial_idx)
-        self.win.callOnFlip(movie.play)
+        if getattr(self, 'natural_eof_only', False):
+            movie.play()
+            movie.draw()
+        else:
+            self.win.callOnFlip(movie.play)
         self.win.callOnFlip(self._set_phase_started_at)
         self.win.callOnFlip(
             manager.emit,
@@ -1516,10 +1531,13 @@ class VideoRunner:
                     status = "skipped"
                     break
                 if bool(getattr(movie, "isFinished", False)):
+                    if getattr(self, 'natural_eof_only', False) and getattr(movie, '_ended_prematurely', False):
+                        status, abort_reason = 'aborted', 'premature_eof'
+                        break
                     completed_naturally = True
                     status = "completed"
                     break
-                if planned_duration is not None and elapsed >= max(0.0, planned_duration - 0.25):
+                if not getattr(self, 'natural_eof_only', False) and planned_duration is not None and elapsed >= max(0.0, planned_duration - 0.25):
                     completed_naturally = True
                     status = "completed"
                     break
@@ -1561,7 +1579,7 @@ class VideoRunner:
             status=status,
             abort_reason=abort_reason,
         )
-        self.message.text = "正在保存本次视频 attempt…"
+        self.message.text = "" if getattr(self, "natural_eof_only", False) else "正在保存本次视频 attempt…"
         self.message.height = 0.035
         self.message.pos = (0, 0)
         self.message.draw()
@@ -2470,6 +2488,5 @@ if __name__ == "__main__":
     # Keep PsychoPy globals shared with the question runner when launched via -m.
     from video_eeg.experiment.video_runner import main
     raise SystemExit(main(sys.argv[1:]))
-
 
 

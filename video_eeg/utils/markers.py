@@ -40,6 +40,15 @@ PROTOCOL_EVENT_CODES = {
     "trial_start": 140,
     "trial_end": 141,
     "attention_task_on": 142,
+    "EMOTION_VIDEO_ONSET": 150,
+    "EMOTION_VIDEO_OFFSET": 151,
+    "VALENCE_RATING_ONSET": 152,
+    "VALENCE_RATING_RESPONSE": 153,
+    "AROUSAL_RATING_ONSET": 154,
+    "AROUSAL_RATING_RESPONSE": 155,
+    "SHORT_REST_ONSET": 156,
+    "SHORT_REST_OFFSET": 157,
+
 }
 
 # These events remain in events.json and the behavioral CSV files, but are not
@@ -80,6 +89,15 @@ TRIGGER_REFERENCE = {
     140: "trial_start — 单个 trial 开始",
     141: "trial_end — 单个 trial 结束",
     142: "attention_task_on — 随机注意力题目出现",
+    150: "EMOTION_VIDEO_ONSET",
+    151: "EMOTION_VIDEO_OFFSET",
+    152: "VALENCE_RATING_ONSET",
+    153: "VALENCE_RATING_RESPONSE",
+    154: "AROUSAL_RATING_ONSET",
+    155: "AROUSAL_RATING_RESPONSE",
+    156: "SHORT_REST_ONSET",
+    157: "SHORT_REST_OFFSET",
+
 }
 
 

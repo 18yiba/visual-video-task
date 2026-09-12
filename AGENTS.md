@@ -23,3 +23,14 @@
   `run_video_legacy_17.bat` retains the old complete-bank recordings and original 17-Session manifest.
 - Every Session contains all five duration buckets. Randomize playback independently, persist order on resume;
   do not impose a hard 90-minute cutoff or mix time spent in questions/rest with net video duration.
+
+## Emotion EEG v1 (2026-09-12)
+
+- New experiments use run_video_emotion_formal.bat / run_video_emotion_demo.bat. Legacy entries retain their original behavior.
+- session_manifest_emotion_v1.csv: 45 Sessions, all 7949 ordinary + 3138 emotion videos exactly once, per-Session positive=neutral=negative.
+- Emotion trials require natural EOF, then integer 1-9 Valence and Arousal, then rest. Commit only after both answers.
+- Keep partial attempts and replay the video plus both ratings on resume; never migrate legacy state automatically.
+- New output: data/video_emotion_eeg_runs/protocol_emotion_v1. Actual playback (including partial replays) drives the rest clock; ratings/rest do not.
+- Maintain fixed membership and saved subject/session queue. Do not regenerate the manifest during a running study.
+- No eMotions binaries or local emotion_library.local.json in source publication. Third-party video redistribution is not presumed from the dataset card license.
+- See docs/EMOTION_EEG_PROTOCOL.zh-CN.md and docs/EMOTION_EEG_INTEGRATION_20260912.md before changes.

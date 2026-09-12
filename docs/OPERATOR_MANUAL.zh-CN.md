@@ -1,3 +1,27 @@
+# 视频 EEG 主试操作手册
+
+## 新实验：Emotion EEG v1（45 个 Session）
+
+新实验使用 `run_video_emotion_demo.bat` 和 `run_video_emotion_formal.bat`。
+环境仍用根目录 `install_lab_env_uv.bat` 或 `scripts/install_lab_env_uv.bat` 安装。
+四段合成 Demo 不依赖正式视频；正式采集需要原普通库和最终 eMotions 3,138 个视频。
+
+请按 [Emotion EEG 完整操作说明](EMOTION_EEG_PROTOCOL.zh-CN.md) 完成：
+材料放置和本机路径 → `check_emotion_materials.bat` → Demo → 真实设备短测 → 正式采集。
+该文档包含两页九级评分、F/J/S/Esc/空格、实际净计时、恢复、数据字段和离线更新流程。
+实验依据见 [评分维度与量表](EMOTION_RATING_RATIONALE.md)。
+
+新数据只写 `data/video_emotion_eeg_runs/protocol_emotion_v1`。
+旧被试继续使用原 17/34 组入口，不能直接迁移进度。原文件/环境/数据全部保留。
+本次已执行自动测试、真实 PsychoPy 窗口和 dummy EEG 软件验证；真实 BrainCo 验证待主试完成。
+
+---
+
+## 旧内容题协议参考：以下仅供已有 17/34 组被试续跑
+
+以下内容中的“当前”“正式”“Demo”均指旧内容题协议，不是 Emotion EEG v1。
+新被试请使用上面的新协议文档。
+
 # 视频 EEG 详细操作说明
 
 适用入口：`run_video_formal.bat`、`run_video_demo.bat`。
