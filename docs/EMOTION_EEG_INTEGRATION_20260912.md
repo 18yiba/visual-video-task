@@ -95,4 +95,12 @@ CSV 被占用时写可恢复副本，先保存权威 state；退出仍尝试导�
 ## 发布记录
 
 分支：`emotion-eeg-v1`。仅同步 `scripts/build_release.py` 白名单内的本次修改。
-发布提交、PR、合并 SHA 在发布完成后追加。保护基线 332 个文件均通过逐字节 SHA256 核验。
+保护基线 332 个文件均通过逐字节 SHA256 核验。
+
+- 实现提交：`fbed956`（评分/连续 EEG/恢复）、`737a44c`（45 组清单）、
+  `c302cf3`（测试和材料核验）、`e2a53b6`（文档及 Windows 入口）。
+- PR：[Integrate valence-arousal emotion trials into the video EEG protocol #3](https://github.com/18yiba/visual-video-task/pull/3)。
+- 远端合并前基线：`9a5e3dd2a1bbe26986126cc67946cddee1f05413`。
+- 源码发布白名单：35 个本次改动文件；没有新增 data、stimuli 视频、环境或本机路径配置。
+- Git 直连超时后使用本机已配置代理完成 fetch/push，未修改全局代理设置、未 force push。
+- 合并 SHA 在完成合并后追加。
