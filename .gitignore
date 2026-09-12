@@ -76,3 +76,5 @@ stimuli/videos/*
 *.zip
 *.tar.gz
 *.log
+
+/emotion_library.local.json
