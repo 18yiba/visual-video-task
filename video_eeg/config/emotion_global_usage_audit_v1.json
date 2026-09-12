@@ -1,0 +1,31 @@
+{
+  "protocol": "emotion-v1",
+  "seed": 20260912,
+  "ordinary_count": 7949,
+  "emotion_count": 3138,
+  "total_count": 11087,
+  "session_count": 45,
+  "total_net_hours": 67.64262182222222,
+  "min_session_minutes": 90.13296135,
+  "max_session_minutes": 90.22570726666666,
+  "emotion_counts": {
+    "positive": 1046,
+    "negative": 1046,
+    "neutral": 1046
+  },
+  "original_label_counts": {
+    "Excitation": 523,
+    "Fear": 349,
+    "Neutral": 1046,
+    "Relaxation": 523,
+    "Tension": 348,
+    "Sad": 349
+  },
+  "legacy_manifest_sha256": "cf72477e07bd15b929da45d58ed04cd4e5069695fd4e2fd5cc55fee9153d6488",
+  "final_emotion_csv_sha256": "9cd3611eb7d69e30f6216451d76e9e47f052a0b1d20655dd40201b0b8e671112",
+  "new_manifest_sha256": "cf59e1d8550d6945d61a68b55a8c9a52479ee0dfa3f3d3295d653ba0af476a23",
+  "media_verified": true,
+  "unique_usage": "PASS",
+  "every_session_class_balance": "PASS",
+  "session_duration_85_95": "PASS"
+}
