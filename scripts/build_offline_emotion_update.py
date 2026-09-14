@@ -14,7 +14,7 @@ def build(destination):
     target=Path(destination).resolve()/NAME
     if target.exists():raise ValueError('Use a new destination; never overwrite an installed update')
     allowed=set(source_files())
-    paths=list((ROOT/'video_eeg').rglob('*.py'))
+    paths=[p for p in (ROOT/'video_eeg').rglob('*.py') if p in allowed]
     paths += [p for p in (ROOT/'video_eeg/config').glob('*emotion*') if p.is_file()]
     paths += [ROOT/'scripts'/p for p in ('offline_emotion_update.py','check_video_eeg_env.py','audit_emotion_materials.py')]
     paths += [ROOT/'docs'/p for p in ('OFFLINE_EMOTION_UPDATE.zh-CN.md','EMOTION_EEG_PROTOCOL.zh-CN.md','EMOTION_RATING_RATIONALE.md')]
