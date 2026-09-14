@@ -6,6 +6,9 @@
 
 ## 快速开始
 
+实验室只有旧 17 组且不能联网：使用 [17 组到情绪协议的离线最小更新说明](docs/OFFLINE_EMOTION_UPDATE.zh-CN.md)，
+只新增更新文件夹，复用该机环境和普通视频，另复制情绪库；无需先更新到 34 组。
+
 1. Windows 10/11 64 位，完整解压源码，双击 `install_lab_env_uv.bat`。
    它转发至 `scripts/install_lab_env_uv.bat`，自动准备项目 Python 3.12 和依赖；不需要 Node.js。
 2. 双击 **`run_video_emotion_demo.bat`**：自动生成四段练习视频，含三段 emotion trial、六次评分和 dummy EEG。
