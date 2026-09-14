@@ -52,6 +52,13 @@ exit /b %RESULT%
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
         for p in target.rglob('*'):
             if p.is_file():z.write(p,Path(NAME)/p.relative_to(target))
+    # One-click handoff lives beside the package; materials remain in video/video_materials.
+    deploy_script=ROOT/'scripts/deploy_offline_emotion.ps1'
+    assert deploy_script in allowed
+    (target.parent/deploy_script.name).write_text(deploy_script.read_text(encoding='utf-8-sig'),encoding='utf-8-sig')
+    (target.parent/'00_一键部署到实验室电脑.bat').write_text(
+        '@echo off\nsetlocal\nchcp 65001 >nul\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0deploy_offline_emotion.ps1"\npause\n',
+        encoding='ascii',newline='\r\n')
     print(json.dumps(dict(archive=str(archive),bytes=archive.stat().st_size,files=len(files)),ensure_ascii=False))
     return target,archive
 
