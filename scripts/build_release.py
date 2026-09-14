@@ -16,7 +16,14 @@ PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/video_question_complete_runs/.g
 # Superseded deployment/history documents remain local; the current operator manual replaces them.
 EXCLUDED = {'docs/CHANGELOG_LAB_ENV.md', 'docs/ENVIRONMENT_SETUP.md',
             'docs/SESSION_AUDIT_20260905.md', 'docs/VIDEO_QUESTION_AUDIT_20260908.md',
-            'scripts/materialize_session_folders.py', 'scripts/verify_session_randomness.py'}
+            'scripts/materialize_session_folders.py', 'scripts/verify_session_randomness.py',
+            # Replaced manuals and unused pre-integration helpers; see cleanup record.
+            'docs/CONFIGURATION.md', 'docs/DATA_MODEL.md', 'docs/EXPERIMENT_FLOW.md',
+            'docs/IMPLEMENTATION.md', 'docs/INSTRUCTION.md',
+            'docs/视频EEG_实验说明.docx', 'docs/视频EEG_详细操作说明.docx',
+            'scripts/export_manual_docx.py',
+            'video_eeg/utils/preprocessing.py', 'video_eeg/utils/session_store.py',
+            'video_eeg/utils/stream_writer.py'}
 
 
 def source_files():

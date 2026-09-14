@@ -60,6 +60,9 @@ S 将当前视频放回待播队列，Esc 保存退出；未完成视频/两页�
 
 ## 文档和目录
 
+- [34组视频 EEG 被试与主试说明](docs/reports/视频EEG_34组_被试与主试说明.docx) · [在线阅读](docs/reports/视频EEG_34组_被试与主试说明.md)
+- [45组融合情绪评分 被试与主试说明](docs/reports/视频EEG_45组融合情绪评分_被试与主试说明.docx) · [在线阅读](docs/reports/视频EEG_45组融合情绪评分_被试与主试说明.md)
+- [本次仓库清理范围与验证](docs/REPOSITORY_CLEANUP_20260914.md)
 - [新协议详细操作说明](docs/EMOTION_EEG_PROTOCOL.zh-CN.md)
 - [九级 Valence/Arousal 评分依据](docs/EMOTION_RATING_RATIONALE.md)
 - [完整主试手册与旧协议参考](docs/OPERATOR_MANUAL.zh-CN.md)
