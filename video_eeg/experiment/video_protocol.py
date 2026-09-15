@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import threading
 import time
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
 from video_eeg.devices.base import AbstractAcquirer
+from video_eeg.experiment.eeg_health import EegAcquisitionError, SampleWatchdog
 from video_eeg.storage.session_recorder import SessionRecorder
 from video_eeg.utils.markers import LOCAL_ONLY_EVENT_NAMES, PROTOCOL_EVENT_CODES, MarkerBackend
 
@@ -28,6 +30,8 @@ class EegSessionManager:
         subject_id: str,
         session_id: int,
         record_local_eeg: bool = True,
+        no_sample_timeout_sec: float = 5.0,
+        startup_timeout_sec: float = 10.0,
     ) -> None:
         self._acquirer = acquirer
         self._marker_backend = marker_backend
@@ -55,6 +59,13 @@ class EegSessionManager:
         self._running = False
         self._start_metadata: dict[str, Any] = {}
         self._background_error: BaseException | None = None
+        self._watchdog = SampleWatchdog(time.monotonic(), timeout=no_sample_timeout_sec,
+                                       startup_timeout=startup_timeout_sec)
+        self._health_thread = None
+        self._fault_lock = threading.Lock()
+        self._health_file = None
+        self._health_error = None
+        self._shutdown_errors = []
 
     @property
     def running(self) -> bool:
@@ -122,6 +133,10 @@ class EegSessionManager:
         self._stop_event.clear()
         self._background_error = None
         if self._record_local_eeg:
+            self._watchdog.started = self._watchdog.last_sample_time = time.monotonic()
+            self._health_file = (self._session_dir / f'eeg_health_part_{self.eeg_part:03d}.jsonl').open('x', encoding='utf-8')
+            self._health_thread = threading.Thread(target=self._health_loop, name='video-eeg-health', daemon=True)
+            self._health_thread.start()
             self._thread = threading.Thread(
                 target=self._pull_loop,
                 name="video-eeg-pull",
@@ -188,17 +203,19 @@ class EegSessionManager:
         if self._background_error is None:
             self.emit("session_end", subject_id=self._subject_id, session_id=self._session_id)
         self._stop_event.set()
+        if self._health_thread is not None:
+            self._health_thread.join(timeout=2.0)
         if self._thread is not None:
             self._thread.join(timeout=2.0)
             self._thread = None
 
         if self._record_local_eeg:
+            # Freeze before closing a failed SDK: a blocked read may return later.
+            self._recorder.freeze()
             try:
-                self._recorder.pull()
-            except BaseException as exc:
-                if self._background_error is None:
-                    self._background_error = exc
-            self._acquirer.stop_stream()
+                self._acquirer.stop_stream()
+            except Exception as exc:
+                self._shutdown_errors.append(repr(exc))
         self._running = False
 
         if self._session_dir is None:
@@ -240,13 +257,23 @@ class EegSessionManager:
         if self._background_error is not None:
             export_metadata["termination_reason"] = "eeg_background_error"
             export_metadata["background_error"] = repr(self._background_error)
+        export_metadata['eeg_health_monitor'] = dict(enabled=self._record_local_eeg,
+            no_sample_timeout_sec=self._watchdog.timeout, startup_timeout_sec=self._watchdog.startup_timeout,
+            error=self._health_error, shutdown_errors=self._shutdown_errors,
+            measures='sample arrival only; does not measure impedance, battery, or signal quality')
         try:
-            self._recorder.export(self._session_dir, metadata=export_metadata)
+            self._recorder.export(self._session_dir, metadata=export_metadata, pull_final=False)
         finally:
             self._marker_backend.close()
         return self._session_dir
 
     def emit(self, event_name: str, **payload: Any) -> None:
+        # Preserve abort offsets locally; never send hardware markers after a fault.
+        if self._background_error is not None and event_name in {'video_off', 'trial_end'}:
+            payload.update(completed=False, eeg_available=False, background_error=repr(self._background_error),
+                           external_marker_sent=False, marker_code=None)
+            self._recorder.add_event(event_name, **payload)
+            return
         self.raise_if_background_failed()
         code = PROTOCOL_EVENT_CODES.get(event_name)
         is_local_only = event_name in LOCAL_ONLY_EVENT_NAMES
@@ -306,12 +333,56 @@ class EegSessionManager:
                 time.sleep(0.01)
         except BaseException as exc:
             if not self._stop_event.is_set():
-                self._background_error = exc
-                self._stop_event.set()
+                self._latch_fault('acquisition_exception', repr(exc))
+
+    def _latch_fault(self, code, detail, observation=None):
+        with self._fault_lock:
+            if self._background_error is not None or self._stop_event.is_set():
+                return
+            self._recorder.freeze()
+            self._health_error = dict(code=code, detail=detail, timestamp_unix_sec=time.time(),
+                monotonic_sec=time.monotonic(), sample_count=self._recorder.sample_count,
+                observation=observation, hardware_cause='unknown')
+            self._background_error = EegAcquisitionError(detail)
+            self._recorder.add_event('eeg_acquisition_error', **self._health_error)
+            # Persist independently of final export and never overwrite another run.
+            try:
+                path=self._session_dir/f'eeg_error_part_{self.eeg_part:03d}.json'
+                with path.open('x',encoding='utf-8') as f:
+                    json.dump(self._health_error,f,ensure_ascii=False,indent=2)
+            except Exception as exc:
+                self._shutdown_errors.append('error log: '+repr(exc))
+            self._stop_event.set()
+
+    def _health_loop(self):
+        next_log=0.
+        last_log_time=time.monotonic();last_log_count=0
+        try:
+            while not self._stop_event.is_set():
+                now=time.monotonic()
+                observation=self._watchdog.observe(self._recorder.sample_count,now)
+                if now>=next_log or observation['status']!='ok':
+                    interval=max(0.,now-last_log_time)
+                    delta=observation['sample_count']-last_log_count
+                    self._health_file.write(json.dumps(dict(observation, timestamp_unix_sec=time.time(),
+                        monotonic_sec=now, relative_time_sec=self._recorder.elapsed_sec,
+                        sample_delta=delta, interval_sec=interval,
+                        effective_samples_per_sec=delta/interval if interval>0 else None))+'\n')
+                    self._health_file.flush();next_log=now+1.
+                    last_log_time=now;last_log_count=observation['sample_count']
+                if observation['status']!='ok':
+                    self._latch_fault('no_samples_timeout',
+                        f"连续 {observation['seconds_without_new_samples']:.1f} 秒未收到新的EEG样本（阈值 {observation['timeout_sec']:g} 秒）。设备或数据链路可能中断，具体硬件原因未知。", observation)
+                    break
+                self._stop_event.wait(.1)
+        except Exception as exc:
+            self._latch_fault('health_monitor_error',repr(exc))
+        finally:
+            if self._health_file is not None:self._health_file.close()
 
     def raise_if_background_failed(self) -> None:
         if self._background_error is not None:
-            raise RuntimeError(f"EEG 后台采集失败：{self._background_error}") from self._background_error
+            raise EegAcquisitionError(f"EEG 后台采集失败：{self._background_error}") from self._background_error
 
     @staticmethod
     def _sleep(duration_sec: float, *, heartbeat: Heartbeat = None) -> None:

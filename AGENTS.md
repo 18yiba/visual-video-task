@@ -44,3 +44,4 @@
 - 疲劳自评是文献启发的研究自编二分类，不宣称已验证量表。
 - 离线包新目录_video_eeg_emotion_v2_update，优先复用本机已有情绪材料，不覆盖旧包和旧data。
 - 维护记录见docs/EMOTION_V2_MAINTENANCE_20260915.md。
+- 本地EEG新增采集看门狗：5秒无样本、启动10秒。保留每秒健康日志与即时错误；不能将断流推断为确定的电池/关机原因，也不宣称质量阈值监测。维护见docs/EEG_GUARD_MAINTENANCE_20260915.md。
