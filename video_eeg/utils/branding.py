@@ -15,6 +15,20 @@ def configure_startup_dialog(dialog):
     # Wrap descriptive text instead of letting a long line expand the window.
     for label in dialog.findChildren(widgets.QLabel):
         label.setWordWrap(True)
+    if hasattr(dialog,'inputFields'):
+        # Keep the header compact; give the form rows comfortable, deliberate
+        # heights instead of letting Qt spread blank space above the fields.
+        dialog.layout.setContentsMargins(16,12,16,12)
+        dialog.layout.setSpacing(10)
+        dialog.layout.setRowMinimumHeight(1,64)
+        dialog.layout.setRowMinimumHeight(2,42)
+        for row in range(3,dialog.irow):
+            dialog.layout.setRowMinimumHeight(row,54)
+        dialog.layout.setRowMinimumHeight(dialog.irow,32)
+        for field in dialog.inputFields:
+            if isinstance(field,widgets.QLineEdit):field.setMinimumHeight(28)
+        dialog.okBtn.setMinimumHeight(30)
+        dialog.cancelBtn.setMinimumHeight(30)
     dialog.setFixedSize(*STARTUP_SIZE)
     def center():
         screen=qtgui.QtGui.QGuiApplication.primaryScreen()
