@@ -25,7 +25,7 @@ import numpy as np
 from video_eeg.experiment.video_protocol import EegSessionManager
 from video_eeg.experiment.eeg_health import EegAcquisitionError, failure_message
 from video_eeg.utils.recording_paths import recording_root
-from video_eeg.utils.branding import add_dialog_logo
+from video_eeg.utils.branding import add_dialog_logo, configure_startup_dialog
 from video_eeg.utils.video_library import (
     VideoAsset,
     build_balanced_playlist,
@@ -957,6 +957,7 @@ def startup_dialog(
     dlg.addField("被试编号", defaults["subject_id"])
     dlg.addField("Session 编号", defaults["session_id"])
     dlg.addField("全屏显示", defaults["fullscreen"])
+    configure_startup_dialog(dlg)
     values = dlg.show()
     if not dlg.OK:
         return None
