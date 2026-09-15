@@ -23,6 +23,7 @@ from typing import Any
 import numpy as np
 
 from video_eeg.experiment.video_protocol import EegSessionManager
+from video_eeg.experiment.eeg_health import EegAcquisitionError, failure_message
 from video_eeg.utils.video_library import (
     VideoAsset,
     build_balanced_playlist,
@@ -1135,6 +1136,20 @@ class VideoRunner:
                 self._show_text(self._session_exit_text(), wait_for_key=False, duration=2.0, allow_abort=False)
             else:
                 self._show_text("实验已安全中止，正在保存已采集的数据。", wait_for_key=False, duration=1.0, allow_abort=False)
+        except EegAcquisitionError as exc:
+            self.termination_reason = "eeg_background_error"
+            self._run_traceback = traceback.format_exc()
+            self._eeg_failure = exc
+            movie = getattr(self, '_active_movie', None)
+            if movie is not None:
+                try: movie.stop()
+                except Exception: pass
+            if self.state is not None and self.state.current_video_id:
+                if self.state.current_video_id not in self.state.completed_video_ids:
+                    self.state.preserve_aborted_video(self.state.current_video_id)
+            try: self._checkpoint(self.termination_reason)
+            except Exception: pass  # EEG export must still be attempted.
+            self._show_text(failure_message(exc), wait_for_key=False, duration=0, allow_abort=False)
         except Exception as exc:
             self.termination_reason = "python_exception"
             self._run_traceback = traceback.format_exc()
@@ -1145,7 +1160,11 @@ class VideoRunner:
             if session_dir is not None:
                 if self._run_traceback:
                     (session_dir / "crash_report.txt").write_text(self._run_traceback, encoding="utf-8")
-                self._show_text(f"数据已保存：\n{session_dir}\n\n按空格键退出。", allow_abort=False)
+                if getattr(self, '_eeg_failure', None) is not None:
+                    print(f'EEG故障数据已保存：{session_dir}')
+                    self._show_text(failure_message(self._eeg_failure)+f'\n\n已保存本次采集：{session_dir.name}\n完整路径见退出终端，详情见eeg_error与eeg_health文件。', allow_abort=False)
+                else:
+                    self._show_text(f"数据已保存：\n{session_dir}\n\n按空格键退出。", allow_abort=False)
 
     def _show_instructions(self) -> None:
         self._show_text(build_participant_instruction_text(
@@ -1355,6 +1374,8 @@ class VideoRunner:
             subject_id=str(self.config.get("subject_id", "S001")),
             session_id=int(self.config.get("session_id", 1)),
             record_local_eeg=not uses_bcigo_external_recording(self.config),
+            no_sample_timeout_sec=float(self.config.get('device', {}).get('eeg_no_sample_timeout_sec', 5.0)),
+            startup_timeout_sec=float(self.config.get('device', {}).get('eeg_startup_timeout_sec', 10.0)),
         )
         session_dir = self.manager.start(
             metadata={
@@ -1494,6 +1515,7 @@ class VideoRunner:
         media_path = self.library.resolve(asset)
         media_load_started = time.perf_counter()
         movie = self._create_movie(media_path)
+        self._active_movie = movie
         media_load_sec = time.perf_counter() - media_load_started
         planned_duration = asset.duration_sec
         self.win.callOnFlip(manager.fixation_off, trial_idx=trial_idx)
@@ -1521,6 +1543,7 @@ class VideoRunner:
         status = "running"
         try:
             while True:
+                manager.raise_if_background_failed()
                 keys = self.keyboard.getKeys(["escape", "s"], waitRelease=False, clear=True)
                 names = {str(getattr(key, "name", key)).lower() for key in keys}
                 elapsed = time.perf_counter() - self._phase_started_at
@@ -1564,6 +1587,9 @@ class VideoRunner:
                     break
         except ExperimentAbort:
             abort_reason = "esc"
+            status = "aborted"
+        except EegAcquisitionError:
+            abort_reason = "eeg_background_error"
             status = "aborted"
         actual_duration = max(0.0, time.perf_counter() - self._phase_started_at)
         video_offset = time.perf_counter()
@@ -1671,6 +1697,8 @@ class VideoRunner:
         self._write_trial_log()
         if status == "aborted" and abort_reason == "esc":
             raise ExperimentAbort()
+        if status == "aborted" and abort_reason == "eeg_background_error":
+            manager.raise_if_background_failed()
         if completed_naturally:
             self._run_post_video_rest(trial_idx=trial_idx, asset=asset, record=record)
         return completed_naturally
@@ -1832,6 +1860,7 @@ class VideoRunner:
         rest_total = 0.0
         while True:
             # Waiting for release prevents a held Space key from toggling twice.
+            manager.raise_if_background_failed()
             keys = self.keyboard.getKeys(["escape", "f", "j", "space"], waitRelease=True, clear=True)
             names = [str(getattr(key, "name", key)).lower() for key in keys]
             if "escape" in names:
@@ -1963,6 +1992,7 @@ class VideoRunner:
                 page_onset = time.perf_counter()
                 page_onset_timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
                 rest_started = True
+            manager.raise_if_background_failed()
             keys = self.keyboard.getKeys(["escape", "f", "j"], waitRelease=False, clear=True)
             names = {str(getattr(key, "name", key)).lower() for key in keys}
             action = ""
@@ -2196,6 +2226,9 @@ class VideoRunner:
             core.wait(min(0.01, max(0.0, deadline - time.perf_counter())))
 
     def _check_abort(self) -> None:
+        manager = getattr(self, 'manager', None)
+        if manager is not None and getattr(manager, 'running', False):
+            manager.raise_if_background_failed()
         if self.keyboard.getKeys(["escape"], waitRelease=False, clear=False):
             raise ExperimentAbort()
 

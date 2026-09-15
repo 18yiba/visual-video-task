@@ -62,6 +62,7 @@ PROTOCOL_EVENT_CODES = {
 # rather than EEG stimulus boundaries.
 LOCAL_ONLY_EVENT_NAMES = frozenset(
     {
+        "eeg_acquisition_error",
         "rating_on",
         "rating_off",
         "attention_response",

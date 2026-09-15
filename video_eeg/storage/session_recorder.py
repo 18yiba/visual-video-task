@@ -7,6 +7,7 @@ import json
 import os
 import re
 import time
+import threading
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -51,6 +52,8 @@ class SessionRecorder:
         self._events: list[SessionEvent] = []
         self._sample_count = 0
         self._started_at = time.monotonic()
+        self._write_lock = threading.RLock()
+        self._frozen = False
 
     @property
     def sample_count(self) -> int:
@@ -95,16 +98,22 @@ class SessionRecorder:
         if samples.ndim != 2 or samples.shape[0] < self._n_channels:
             raise RuntimeError(f"Unexpected incremental EEG shape: {samples.shape}")
         eeg = np.asarray(samples[: self._n_channels], dtype=np.float32)
-        if self._spool_handle is not None:
-            np.ascontiguousarray(eeg.T).tofile(self._spool_handle)
-            now = time.monotonic()
-            if now - self._last_spool_flush >= self._spool_flush_interval_sec:
-                self._spool_handle.flush()
-                self._last_spool_flush = now
-        else:
-            self._chunks.append(eeg.copy())
-        self._sample_count += int(eeg.shape[1])
+        with self._write_lock:
+            if self._frozen:return np.empty((self._n_channels,0),dtype=np.float32)
+            if self._spool_handle is not None:
+                np.ascontiguousarray(eeg.T).tofile(self._spool_handle)
+                now = time.monotonic()
+                if now - self._last_spool_flush >= self._spool_flush_interval_sec:
+                    self._spool_handle.flush()
+                    self._last_spool_flush = now
+            else:
+                self._chunks.append(eeg.copy())
+            self._sample_count += int(eeg.shape[1])
         return eeg
+
+    def freeze(self):
+        """Reject late SDK reads before export; retain all samples already written."""
+        with self._write_lock:self._frozen=True
 
     def start_spooling(self, output_dir: Path) -> None:
         """Stream samples to a bounded-memory temporary file for this session."""
@@ -136,9 +145,9 @@ class SessionRecorder:
             )
         )
 
-    def export(self, output_dir: Path, *, metadata: dict[str, Any]) -> Path:
+    def export(self, output_dir: Path, *, metadata: dict[str, Any], pull_final: bool = True) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
-        if not self._event_only:
+        if not self._event_only and pull_final:
             try:
                 self.pull()
             except BaseException:
