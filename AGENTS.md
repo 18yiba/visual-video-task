@@ -34,3 +34,13 @@
 - Maintain fixed membership and saved subject/session queue. Do not regenerate the manifest during a running study.
 - No eMotions binaries or local emotion_library.local.json in source publication. Third-party video redistribution is not presumed from the dataset card license.
 - See docs/EMOTION_EEG_PROTOCOL.zh-CN.md and docs/EMOTION_EEG_INTEGRATION_20260912.md before changes.
+
+## Emotion EEG v2 2026年9月15日
+
+- 最新默认为emotion-v2：原45组成员不变，七级效价/唤醒，普通视频后F/J喜好。
+- 每组9道普通视频内容题，绑定约10分钟净视频目标；题后下一页必须是F/J精神疲劳。
+- 普通视频与全部行为一起提交；中止保留部分attempt且完整重播重答，不重新抽题。
+- 新数据protocol_emotion_v2；旧九级保留legacy_v1入口与配置，不迁移旧状态。
+- 疲劳自评是文献启发的研究自编二分类，不宣称已验证量表。
+- 离线包新目录_video_eeg_emotion_v2_update，优先复用本机已有情绪材料，不覆盖旧包和旧data。
+- 维护记录见docs/EMOTION_V2_MAINTENANCE_20260915.md。

@@ -1,3 +1,5 @@
+> 2026年9月15日：本文保留V1及更早协议的历史说明。当前V2七级、喜好、抽查和疲劳流程见 [V2说明](EMOTION_EEG_V2_PROTOCOL.zh-CN.md)，最新硬盘部署见 [V2离线更新](OFFLINE_EMOTION_V2_UPDATE.zh-CN.md)。
+
 # 情绪评分的维度和量表依据
 
 本协议测量观看者当时的主观体验：Valence（愉快—不愉快）和 Arousal（平静—激活），

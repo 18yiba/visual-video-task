@@ -827,12 +827,15 @@ def main(argv: list[str] | None = None) -> int:
     config["subject_id"] = startup["subject_id"]
     config["session_id"] = startup["session_id"]
 
-    emotion_protocol = config.get('protocol', {}).get('kind') == 'emotion-v1'
+    emotion_protocol = config.get('protocol', {}).get('kind') in {'emotion-v1','emotion-v2'}
     if emotion_protocol:
         from video_eeg.experiment.emotion_runner import EmotionVideoRunner
         from video_eeg.utils.emotion_protocol import prepare
         library, playlist = prepare(config, args.demo)
         runner_class = EmotionVideoRunner
+        if config['protocol']['kind']=='emotion-v2':
+            from video_eeg.experiment.emotion_v2_runner import EmotionV2Runner
+            runner_class = EmotionV2Runner
         playlist_seed = protocol.random_seed + int(config['session_id'])
     else:
         library = load_video_library(config)
@@ -940,7 +943,7 @@ def startup_dialog(
         }
     dlg = gui.Dlg(title="PsychoPy 视频 EEG 实验")
     resume_hint = "；默认 Session 为最近一个未完成 Session" if not args.demo else ""
-    description = "连续观看视频；部分视频后依次评价主观感受和唤醒程度" if config.get('protocol', {}).get('kind') == 'emotion-v1' else "连续视频观看范式：固定 Session 清单，视频完整播放，无主观评分"
+    description = "连续观看视频；部分视频后依次评价主观感受和唤醒程度" if config.get('protocol', {}).get('kind') in {'emotion-v1','emotion-v2'} else "连续视频观看范式：固定 Session 清单，视频完整播放，无主观评分"
     dlg.addText(f"{description}{resume_hint}。")
     dlg.addField("被试编号", defaults["subject_id"])
     dlg.addField("Session 编号", defaults["session_id"])
@@ -986,7 +989,7 @@ class VideoRunner:
         self.state_path: Path | None = None
         self.progress_dir: Path | None = None
         demo_mode = bool(self.config.get("demo_mode", False))
-        if demo_mode and self.config.get('protocol', {}).get('kind') != 'emotion-v1':
+        if demo_mode and self.config.get('protocol', {}).get('kind') not in {'emotion-v1','emotion-v2'}:
             records_dir = _records_dir({**self.config, "storage": {"records_dir": "data/demo_runs"}})
         else:
             records_dir = _records_dir(self.config)

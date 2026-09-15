@@ -1,3 +1,5 @@
+> 2026年9月15日：本文保留V1及更早协议的历史说明。当前V2七级、喜好、抽查和疲劳流程见 [V2说明](EMOTION_EEG_V2_PROTOCOL.zh-CN.md)，最新硬盘部署见 [V2离线更新](OFFLINE_EMOTION_V2_UPDATE.zh-CN.md)。
+
 # 视频 EEG 主试操作手册
 
 ## 新实验：Emotion EEG v1（45 个 Session）

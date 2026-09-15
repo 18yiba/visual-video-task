@@ -1,3 +1,5 @@
+> 2026年9月15日：本文保留V1及更早协议的历史说明。当前V2七级、喜好、抽查和疲劳流程见 [V2说明](EMOTION_EEG_V2_PROTOCOL.zh-CN.md)，最新硬盘部署见 [V2离线更新](OFFLINE_EMOTION_V2_UPDATE.zh-CN.md)。
+
 # 从旧 17 组更新到 Emotion EEG v1：离线最小操作说明
 
 适用：实验室电脑已有能正常运行的旧 17 Session 视频 EEG 范式，不能联网。

@@ -12,6 +12,10 @@ from video_eeg.utils.session_protocol import save_state_atomic
 class EmotionVideoRunner(base.VideoRunner):
     task_type = 'emotion_rating'
     natural_eof_only = True
+    protocol_version = 'emotion-v1'
+    rating_max = 9
+    rating_pages = RATING_PAGES
+    ordinary_behavior_required = False
 
     def _initialize_new_state(self):
         self.state.attention_task_type = self.task_type
@@ -38,9 +42,9 @@ class EmotionVideoRunner(base.VideoRunner):
         def emit(name, **payload):
             source_name = name
             row = self._active_row
-            if name=='trial_end' and row and row['trial_type']=='emotion' and payload.get('completed') and not payload.get('ratings_completed'):
+            if name=='trial_end' and row and (row['trial_type']=='emotion' or self.ordinary_behavior_required) and payload.get('completed') and not payload.get('ratings_completed'):
                 return  # A complete emotion trial includes both ratings.
-            context = dict(protocol_version='emotion-v1', timestamp_unix_sec=time.time(),
+            context = dict(protocol_version=self.protocol_version, timestamp_unix_sec=time.time(),
                            monotonic_sec=time.perf_counter(), eeg_part=self.manager.eeg_part)
             if row:
                 context.update(trial_type=row['trial_type'], video_id=row['video_id'],
@@ -94,12 +98,13 @@ class EmotionVideoRunner(base.VideoRunner):
         self.state.continuous_net_video_duration_sec += actual
         record.session_completed_net_sec = self.state.completed_net_video_duration_sec
         attempt = dict(**asdict(record), video_id=record.asset_id,
-                       completed=completed_naturally and row['trial_type']=='ordinary',
+                       completed=completed_naturally and row['trial_type']=='ordinary' and not self.ordinary_behavior_required,
                        original_label=row['original_label'], three_class_label=row['three_class_label'],
                        image_onset=record.eeg_relative_onset_sec, image_offset=record.eeg_relative_offset_sec)
         if row['trial_type']=='emotion':
             onset, offset = self._event_times.get('video_on', {}), self._event_times.get('video_off', {})
-            attempt['emotion_rating'] = dict(subject_id=self.state.subject_id, session_id=self.state.session_id,
+            attempt['emotion_rating'] = dict(protocol_version=self.protocol_version, rating_scale_min=1, rating_scale_max=self.rating_max,
+                subject_id=self.state.subject_id, session_id=self.state.session_id,
                 trial_id=record.trial_idx, attempt_id=record.attempt_id, video_id=record.asset_id,
                 video_path=record.rel_path, original_label=row['original_label'], three_class_label=row['three_class_label'],
                 duration_sec=record.video_duration_sec, actual_video_sec=actual,
@@ -125,9 +130,9 @@ class EmotionVideoRunner(base.VideoRunner):
             attempt = self.state.video_attempts[-1]
             row = attempt['emotion_rating']
             try:
-                for page, wording, anchors in RATING_PAGES:
+                for page, wording, anchors in self.rating_pages:
                     self._rating_page(row, page, wording, anchors)
-                assert all(isinstance(row[p+'_rating'], int) and 1<=row[p+'_rating']<=9 for p,_,_ in RATING_PAGES)
+                assert all(isinstance(row[p+'_rating'], int) and 1<=row[p+'_rating']<=self.rating_max for p,_,_ in self.rating_pages)
                 self.manager.emit('trial_end', completed=True, ratings_completed=True, status='completed')
                 row['completed'], row['interrupted'] = True, False
                 attempt['completed'] = True
@@ -148,7 +153,9 @@ class EmotionVideoRunner(base.VideoRunner):
 
     def _rating_page(self, row, page, wording, anchors):
         self._clear_keyboard()
-        self.message.text = wording+'\n\n'+anchors+'\n\n1    2    3    4    5    6    7    8    9\n\n请按数字键 1–9 作答，答题不限时。'
+        digits = list('123456789'[:self.rating_max])
+        key_names = digits+['num_'+i for i in digits]
+        self.message.text = wording+'\n\n'+anchors+'\n\n'+'    '.join(digits)+f'\n\n请按数字键 1–{self.rating_max} 作答，答题不限时。'
         self.message.height = .032
         self.message.pos = (0, 0)
         self.message.draw()
@@ -163,18 +170,18 @@ class EmotionVideoRunner(base.VideoRunner):
         row[page+'_onset_sample_index'] = stamp['sample_index']
         self._checkpoint(page+'_onset')
         # The preceding page's held key must be released before the next answer.
-        released = not hasattr(self.keyboard, 'getState') or not any(self.keyboard.getState(list('123456789')))
+        released = not hasattr(self.keyboard, 'getState') or not any(self.keyboard.getState(key_names))
         while True:
             self._require_manager()
-            keys = self.keyboard.getKeys(['escape']+list('123456789')+['num_'+str(i) for i in range(1,10)], waitRelease=False, clear=True)
+            keys = self.keyboard.getKeys(['escape']+key_names, waitRelease=False, clear=True)
             if any(str(getattr(k,'name',k)).lower()=='escape' for k in keys):
                 raise base.ExperimentAbort()
             if not released:
-                released = not any(self.keyboard.getState(list('123456789')))
+                released = not any(self.keyboard.getState(key_names))
                 base.core.wait(.005)
                 continue
             for key in keys:
-                rating = parse_rating(key)
+                rating = parse_rating(key, self.rating_max)
                 if rating is None:
                     continue
                 detected_time = time.perf_counter()
@@ -254,20 +261,20 @@ class EmotionVideoRunner(base.VideoRunner):
     def _stop_and_export(self):
         if self.manager is None:
             return None
-        for write in (self._write_trial_log, self._write_rating_log, self._write_rest_log,
+        for write in (self._write_trial_log, self._write_rating_log, self._write_rest_log, self._write_attention_log,
                       lambda: self._checkpoint(self.termination_reason)):
             try:
                 write()
             except Exception as exc:
                 self._warn(repr(exc))
-        return self.manager.stop_and_export(metadata=dict(protocol_version='emotion-v1',
+        return self.manager.stop_and_export(metadata=dict(protocol_version=self.protocol_version,
             completed=self.completed, termination_reason=self.termination_reason,
             session_completed=self.state.session_completed, completed_video_trials=len(self.state.completed_video_ids),
-            rating_stage_present=True, attention_enabled=False, attention_tasks_per_session=0,
+            rating_stage_present=True, attention_enabled=self.protocol.attention_enabled, attention_tasks_per_session=self.protocol.attention_tasks_per_session,
             emotion_rating_log=str(self.progress_dir/'emotion_rating_log.csv'),
             actual_net_video_duration_sec=self.state.completed_net_video_duration_sec,
             net_clock_definition='actual ordinary + emotion playback including partial attempts; excludes ratings/rest',
-            rating_scale='integer 1-9', rating_order=['valence','arousal'],
+            rating_scale=f'integer 1-{self.rating_max}', rating_order=['valence','arousal'],
             export_warnings=getattr(self, '_warnings', []), real_hardware_validation='pending'))
 
 def main(argv=None):

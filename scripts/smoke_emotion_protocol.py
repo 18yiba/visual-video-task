@@ -19,7 +19,7 @@ def main():
     parser.add_argument('--real-materials',action='store_true',help='Exercise three existing eMotions clips with original sound')
     args=parser.parse_args()
     base._load_psychopy()
-    config=base.load_config(base.CONFIG_DIR/'video_emotion_demo_config.yaml')
+    config=base.load_config(base.CONFIG_DIR/'video_emotion_demo_v1_config.yaml')
     config['_project_dir']=str(base.PROJECT_ROOT)
     config['protocol'].update(fixation_sec=.1,post_video_rest_seconds=.15,random_seed=20260912)
     config['storage']['records_dir']='data/video_emotion_eeg_runs/software_smoke'

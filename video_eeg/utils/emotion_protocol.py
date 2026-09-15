@@ -16,11 +16,11 @@ RATING_PAGES = (
      '1 非常平静／几乎没有被激活\n5 中等\n9 非常激动／强烈被激活'),
 )
 
-def parse_rating(key):
+def parse_rating(key, maximum=9):
     name = str(getattr(key, 'name', key)).lower()
     if name.startswith('num_'):
         name = name[4:]
-    return int(name) if name in '123456789' and len(name)==1 else None
+    return int(name) if name in '123456789' and len(name)==1 and int(name)<=maximum else None
 
 def presentation_order(rows, seed, subject_id, session_id):
     digest = hashlib.sha256(f'{seed}|{subject_id}|{session_id}'.encode()).digest()
@@ -97,7 +97,7 @@ def prepare(config, demo=False):
     roots = {'original': load_video_library(config).root}
     # Machine-specific file is deliberately excluded from source publication.
     settings_path = root/'emotion_library.local.json'
-    settings = json.loads(settings_path.read_text(encoding='utf-8')) if settings_path.exists() else {}
+    settings = json.loads(settings_path.read_text(encoding='utf-8-sig')) if settings_path.exists() else {}
     emotion_root = os.environ.get('VIDEO_EEG_EMOTION_ROOT') or settings.get('emotion_root') or protocol.get('emotion_library_dir', '../video_materials/formal_v1/emotion_video')
     roots['emotion'] = (root/Path(emotion_root)/'selected').resolve()
     if demo:

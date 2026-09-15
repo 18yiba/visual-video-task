@@ -48,11 +48,11 @@ def configure():
         cfg['protocol']['video_library_dir']=str(library.root)
         cfg['protocol']['emotion_library_dir']=str(ROOT/'emotion_video')
         cfg['subject_id']='DEMO_EMOTION' if demo else 'NEW_EMOTION_001'
-        cfg['storage']['records_dir']=str(OLD/'data/video_emotion_eeg_runs'/('offline_demo' if demo else 'protocol_emotion_v1'))
+        cfg['storage']['records_dir']=str(OLD/'data/video_emotion_eeg_runs'/('offline_demo_v2' if demo else 'protocol_emotion_v2'))
         return cfg
     base.load_config=local_config
     print(f'旧程序（保留）：{OLD}\n读取的旧设备配置：{old_path}\n复用解释器：{sys.executable}\n普通视频：{library.root}',flush=True)
-    print(f'新正式数据：{OLD / "data/video_emotion_eeg_runs/protocol_emotion_v1"}',flush=True)
+    print(f'新正式数据：{OLD / "data/video_emotion_eeg_runs/protocol_emotion_v2"}',flush=True)
     return base
 
 def main():
