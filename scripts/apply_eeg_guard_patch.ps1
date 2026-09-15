@@ -16,7 +16,7 @@ $busy = Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^python(w
 if ($busy) { throw '所选目录仍有Python程序运行，请先正常退出实验，再安装。' }
 $entries = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'PATCH_FILES.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 foreach ($entry in $entries) {
-    if ($entry.path -notmatch '^video_eeg/.*\.py$' -or $entry.path.Contains('..')) { throw '补丁文件路径无效。' }
+    if (($entry.path -notmatch '^video_eeg/.*\.py$' -and $entry.path -ne 'assets/brand/company_logo.png') -or $entry.path.Contains('..')) { throw '补丁文件路径无效。' }
     $destination = [IO.Path]::GetFullPath((Join-Path $target $entry.path))
     if (-not $destination.StartsWith($target+'\',[StringComparison]::OrdinalIgnoreCase)) { throw '目标路径越界。' }
     $ancestor = Split-Path -Parent $destination

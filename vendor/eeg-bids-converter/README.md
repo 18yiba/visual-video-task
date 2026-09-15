@@ -13,7 +13,7 @@
 > 工具始终只读 source，不移动、改名或删除原始数据。
 
 快速入口：[安装并调用 Skill](#1-推荐作为便携-skill-使用) ·
-[完整 Skill 使用说明](docs/eeg-bids-converter-skill-usage.md) ·
+[完整 Skill 使用说明](https://github.com/Omni-Intel/eeg-bids-converter/blob/main/docs/eeg-bids-converter-skill-usage.md) ·
 [直接使用 CLI](#3-直接使用-cli获取和安装) ·
 [第一次转换](#5-第一次运行)
 
@@ -43,7 +43,7 @@ cp -R ./skills/eeg-bids-converter "${CODEX_HOME:-$HOME/.codex}/skills/"
 Python 转换器，不会自动安装 Skill；团队更新仓库后应重新复制 Skill 目录。
 
 完整的安装、角色分工、契约字段、设备 profile、EMG/Ego 路由和对话示例见
-[`docs/eeg-bids-converter-skill-usage.md`](docs/eeg-bids-converter-skill-usage.md)。
+[`docs/eeg-bids-converter-skill-usage.md`](https://github.com/Omni-Intel/eeg-bids-converter/blob/main/docs/eeg-bids-converter-skill-usage.md)。
 
 ### 1.2 第一步：告诉 Skill 你处于哪个阶段
 
@@ -89,7 +89,7 @@ EMG 是 EEG 中的同步通道还是独立 `emg/` 模态。回答后，Skill 会
 5. 指出下一组问题应由范式设计者、采集工程师还是数据管理员确认。
 
 完整的离线填写表见
-[`study-intake.template.md`](skills/eeg-bids-converter/assets/study-intake.template.md)。可填写后整段交给 Skill，
+[`study-intake.template.md`](https://github.com/Omni-Intel/eeg-bids-converter/blob/main/skills/eeg-bids-converter/assets/study-intake.template.md)。可填写后整段交给 Skill，
 也可以完全通过对话逐轮完成。
 
 ### 1.4 问题会在什么时候出现
