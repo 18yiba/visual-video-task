@@ -14,34 +14,40 @@ PROTOCOLS={
 }
 
 def choose():
-    import tkinter as tk
-    from tkinter import ttk
-    root=tk.Tk();root.title('视频EEG实验启动');root.geometry('570x380');root.resizable(False,False)
-    from PIL import Image,ImageTk
-    from video_eeg.utils.branding import LOGO
+    # Use the subject dialog's Qt backend so Windows DPI scaling and frames match.
+    from psychopy.gui import qtgui
+    from video_eeg.utils.branding import LOGO,LOGO_SIZE,configure_startup_dialog
+    qtgui.ensureQtApp()
+    W=qtgui.QtWidgets;Qt=qtgui.Qt;Gui=qtgui.QtGui
+    root=W.QDialog();root.setWindowTitle('视频EEG实验启动')
+    layout=W.QVBoxLayout(root);layout.setContentsMargins(24,12,24,20);layout.setSpacing(10)
+    center=Qt.AlignmentFlag.AlignCenter if hasattr(Qt,'AlignmentFlag') else Qt.AlignCenter
     if LOGO.is_file():
-        with Image.open(LOGO) as original:display=original.copy()
-        display.thumbnail((76,76))
-        root.company_logo=ImageTk.PhotoImage(display)
-        ttk.Label(root,image=root.company_logo).pack(pady=(8,0))
-    selection=tk.StringVar(value=PROTOCOLS['emotion-v2'][0]);mode=tk.StringVar(value='demo');answer=[]
-    ttk.Label(root,text='选择实验版本与运行方式',font=('Microsoft YaHei',16)).pack(pady=10)
-    combo=ttk.Combobox(root,textvariable=selection,state='readonly',width=44,
-        values=[PROTOCOLS[k][0] for k in ('emotion-v2','legacy17')]);combo.pack(pady=8)
-    advanced=tk.BooleanVar()
+        keep=Qt.AspectRatioMode.KeepAspectRatio if hasattr(Qt,'AspectRatioMode') else Qt.KeepAspectRatio
+        smooth=Qt.TransformationMode.SmoothTransformation if hasattr(Qt,'TransformationMode') else Qt.SmoothTransformation
+        logo=W.QLabel();logo.setPixmap(Gui.QPixmap(str(LOGO)).scaled(LOGO_SIZE,LOGO_SIZE,keep,smooth));logo.setAlignment(center)
+        layout.addWidget(logo)
+    title=W.QLabel('选择实验版本与运行方式');title.setFont(Gui.QFont('Microsoft YaHei',16));title.setAlignment(center)
+    layout.addWidget(title)
+    combo=W.QComboBox();combo.addItems([PROTOCOLS[k][0] for k in ('emotion-v2','legacy17')]);layout.addWidget(combo)
+    advanced=W.QCheckBox('显示其他历史版本（已有被试续跑）');layout.addWidget(advanced,alignment=center)
     def toggle():
-        values=[v[0] for v in PROTOCOLS.values()] if advanced.get() else [PROTOCOLS[k][0] for k in ('emotion-v2','legacy17')]
-        combo['values']=values
-        if selection.get() not in values:selection.set(values[0])
-    ttk.Checkbutton(root,text='显示其他历史版本（已有被试续跑）',variable=advanced,command=toggle).pack()
-    frame=ttk.Frame(root);frame.pack(pady=12)
-    ttk.Radiobutton(frame,text='Demo（模拟EEG）',variable=mode,value='demo').pack(side='left',padx=15)
-    ttk.Radiobutton(frame,text='正式（真实EEG）',variable=mode,value='formal').pack(side='left',padx=15)
-    ttk.Label(root,text='下一页填写被试编号和Session。已有被试请选择原协议。').pack(pady=8)
+        selected=combo.currentText()
+        values=[v[0] for v in PROTOCOLS.values()] if advanced.isChecked() else [PROTOCOLS[k][0] for k in ('emotion-v2','legacy17')]
+        combo.clear();combo.addItems(values)
+        if selected in values:combo.setCurrentText(selected)
+    advanced.toggled.connect(toggle)
+    row=W.QHBoxLayout();row.addStretch()
+    demo=W.QRadioButton('Demo（模拟EEG）');formal=W.QRadioButton('正式（真实EEG）');demo.setChecked(True)
+    row.addWidget(demo);row.addSpacing(24);row.addWidget(formal);row.addStretch();layout.addLayout(row)
+    hint=W.QLabel('下一页填写被试编号和Session。已有被试请选择原协议。');hint.setAlignment(center);layout.addWidget(hint)
+    answer=[]
     def start():
-        answer.extend([next(k for k,v in PROTOCOLS.items() if v[0]==selection.get()),mode.get()]);root.destroy()
-    ttk.Button(root,text='进入实验',command=start).pack(pady=10)
-    root.mainloop();return answer or None
+        answer.extend([next(k for k,v in PROTOCOLS.items() if v[0]==combo.currentText()),'demo' if demo.isChecked() else 'formal']);root.accept()
+    button=W.QPushButton('进入实验');button.clicked.connect(start);layout.addWidget(button,alignment=center)
+    configure_startup_dialog(root)
+    execute=getattr(root,'exec',None) or root.exec_
+    execute();return answer or None
 
 def launch(protocol, mode, extra=None):
     from video_eeg.experiment import video_runner as base
