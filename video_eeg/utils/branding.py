@@ -34,18 +34,22 @@ def configure_startup_dialog(dialog):
     center()
 
 def add_dialog_logo(dialog):
-    if not LOGO.is_file():return
     try:
         from psychopy.gui.qtgui import QtGui,Qt,QtWidgets
         if QtWidgets.QApplication.instance() is None or not isinstance(dialog,QtWidgets.QDialog):return
+        # This form has defaults and no asterisk-marked required fields.
+        dialog.requiredMsg.hide()
+        if not LOGO.is_file():return
         label=dialog.addText('')
         pixmap=QtGui.QPixmap(str(LOGO))
         if pixmap.isNull():return
         # PyQt5/6 enum spelling differs. QLabel owns the image for the dialog lifetime.
-        align=Qt.AlignmentFlag.AlignCenter if hasattr(Qt,'AlignmentFlag') else Qt.AlignCenter
+        align=(Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignTop) if hasattr(Qt,'AlignmentFlag') else (Qt.AlignLeft|Qt.AlignTop)
         keep=Qt.AspectRatioMode.KeepAspectRatio if hasattr(Qt,'AspectRatioMode') else Qt.KeepAspectRatio
         smooth=Qt.TransformationMode.SmoothTransformation if hasattr(Qt,'TransformationMode') else Qt.SmoothTransformation
-        label.setPixmap(pixmap.scaled(LOGO_SIZE,LOGO_SIZE,keep,smooth));label.setAlignment(align)
+        label.setPixmap(pixmap.scaled(64,64,keep,smooth));label.setAlignment(align)
+        label.setFixedSize(64,64)
+        dialog.layout.setAlignment(label,align)
         label.setAccessibleName('公司标志')
     except (ImportError,AttributeError):
         # Non-Qt fallback dialogs and test doubles remain functional.
