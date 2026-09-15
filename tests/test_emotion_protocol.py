@@ -58,7 +58,7 @@ def test_scale_words_do_not_expose_labels_and_two_pages_only():
 def test_marker_codes_preserve_legacy_and_add_unique_events():
     assert [PROTOCOL_EVENT_CODES[k] for k in ('video_on','video_off','break_start','break_end','attention_task_on')]==[132,133,136,137,142]
     new = [value for key,value in PROTOCOL_EVENT_CODES.items() if key.isupper()]
-    assert len(new)==len(set(new))==8
+    assert len(new)==len(set(new))==14
     assert not set(new)&{value for key,value in PROTOCOL_EVENT_CODES.items() if not key.isupper()}
 
 @pytest.mark.parametrize('phase', ['video','valence','arousal'])
@@ -83,6 +83,7 @@ def test_export_failure_still_stops_and_exports_eeg():
     runner.manager=Mock()
     runner.state=SimpleNamespace(session_completed=False,completed_video_ids=[],completed_net_video_duration_sec=8)
     runner.completed=False; runner.termination_reason='esc_emergency'; runner.progress_dir=Path('test')
+    runner.protocol=SimpleNamespace(attention_enabled=False,attention_tasks_per_session=0)
     runner._write_trial_log=Mock(side_effect=PermissionError('locked'))
     runner._write_rating_log=Mock(); runner._write_rest_log=Mock(); runner._checkpoint=Mock()
     runner._stop_and_export()

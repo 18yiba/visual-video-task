@@ -3,13 +3,14 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 import pytest
 from video_eeg.experiment import emotion_runner, video_runner as base
+from video_eeg.experiment import emotion_v2_runner
 from video_eeg.utils import emotion_protocol
 from video_eeg.utils.video_library import VideoAsset
 
 ROOT=Path(__file__).resolve().parents[1]
 
 @pytest.mark.parametrize('demo',[True,False])
-def test_new_main_dispatches_to_emotion_runner_without_question_bank(monkeypatch,demo):
+def test_new_main_dispatches_to_v2_with_question_bank(monkeypatch,demo):
     seen={}
     class Runner:
         def __init__(self,**kw):
@@ -18,7 +19,7 @@ def test_new_main_dispatches_to_emotion_runner_without_question_bank(monkeypatch
             seen['ran']=True
     asset=VideoAsset('test','practice/test.mp4',5.)
     library=SimpleNamespace(is_available=lambda a:True)
-    monkeypatch.setattr(emotion_runner,'EmotionVideoRunner',Runner)
+    monkeypatch.setattr(emotion_v2_runner,'EmotionV2Runner',Runner)
     monkeypatch.setattr(emotion_protocol,'prepare',lambda cfg,demo:(library,[asset]))
     monkeypatch.setattr(base,'_load_psychopy',lambda:None)
     monkeypatch.setattr(base,'visual',SimpleNamespace(Window=lambda **kw:Mock()))
@@ -26,9 +27,9 @@ def test_new_main_dispatches_to_emotion_runner_without_question_bank(monkeypatch
     monkeypatch.setattr(base,'core',Mock())
     args=['--no-dialog','--session-id','1','--windowed']+(['--demo'] if demo else [])
     assert emotion_runner.main(args)==0
-    assert seen['ran'] and seen['config']['protocol']['kind']=='emotion-v1'
-    assert not seen['config']['protocol'].get('question_bank_path')
-    assert seen['protocol'].attention_tasks_per_session==0
+    assert seen['ran'] and seen['config']['protocol']['kind']=='emotion-v2'
+    assert seen['config']['protocol'].get('question_bank_path')
+    assert seen['protocol'].attention_tasks_per_session==(1 if demo else 9)
     assert seen['config']['storage']['records_dir'].startswith('data/video_emotion_eeg_runs/')
 
 def test_new_bats_use_new_config_and_legacy_entry_preserves_old_config():

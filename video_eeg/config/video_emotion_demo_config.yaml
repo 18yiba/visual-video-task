@@ -11,8 +11,8 @@ protocol:
   formal_max_video_duration_sec: 60.0
   post_video_rest_seconds: 2.0
   num_sessions: 1
-  attention_tasks_per_session: 0
-  attention_enabled: false
+  attention_tasks_per_session: 1
+  attention_enabled: true
   rest_min_net_minutes: 30
   rest_max_net_minutes: 45
   attention_timeout: null
@@ -23,10 +23,13 @@ protocol:
   video_library_mode: local
   playlist_mode: shuffle
   random_seed: 20260912
-  kind: emotion-v1
+  kind: emotion-v2
   trials_per_session: 4
   session_manifest: video_eeg/config/session_manifest_emotion_v1.csv
   emotion_library_dir: ../video_materials/formal_v1/emotion_video
+  alarm_interval_net_sec: 10
+  rating_scale_max: 7
+  question_bank_path: video_eeg/config/complete_questions_20260908/question_bank.json
 device:
   neuracle_host: 127.0.0.1
   neuracle_port: 8712
@@ -55,5 +58,5 @@ device:
   trigger_serial_port: ''
   trigger_serial_timeout_sec: 1.5
 storage:
-  records_dir: data/video_emotion_eeg_runs/demo
+  records_dir: data/video_emotion_eeg_runs/demo_v2
 demo_mode: true

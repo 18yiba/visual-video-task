@@ -1,7 +1,7 @@
 param([string]$OldProject, [switch]$NoOpen)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
-$packageName = '_video_eeg_emotion_v1_update'
+$packageName = '_video_eeg_emotion_v2_update'
 $sourcePackage = Join-Path $PSScriptRoot $packageName
 $sourceVideos = Join-Path (Split-Path -Parent $PSScriptRoot) 'video_materials\formal_v1\emotion_video\selected'
 $deployLog = Join-Path $PSScriptRoot 'deployment_copy.log'
@@ -31,8 +31,34 @@ try {
             throw ('硬盘代码包校验失败：' + $entry.path)
         }
     }
-    $sourceFiles = @(Get-ChildItem -LiteralPath $sourceVideos -Filter '*.mp4' -File -Recurse)
-    if ($sourceFiles.Count -ne 3138) { throw '硬盘selected文件夹不是完整3138个视频，请核对材料路径。' }
+    # Reuse local emotion media if present. No junction or recursive replacement.
+    $reuseEmotion = $null
+    $candidates = @(
+        (Join-Path $oldRoot '_video_eeg_emotion_v1_update\emotion_video'),
+        (Join-Path $oldRoot 'emotion_video'),
+        (Join-Path (Split-Path -Parent $oldRoot) 'video_materials\formal_v1\emotion_video')
+    )
+    $localSettings = Join-Path $oldRoot 'emotion_library.local.json'
+    if (Test-Path -LiteralPath $localSettings) {
+        $setting = Get-Content -LiteralPath $localSettings -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($setting.emotion_root) {
+            $configured = [string]$setting.emotion_root
+            if (-not [IO.Path]::IsPathRooted($configured)) { $configured = Join-Path $oldRoot $configured }
+            $candidates = @($configured) + $candidates
+        }
+    }
+    foreach ($candidate in $candidates) {
+        $selected = Join-Path $candidate 'selected'
+        if (Test-Path -LiteralPath $selected) {
+            $localFiles = @(Get-ChildItem -LiteralPath $selected -Filter '*.mp4' -File -Recurse)
+            if ($localFiles.Count -eq 3138) { $reuseEmotion = [IO.Path]::GetFullPath($candidate); break }
+        }
+    }
+    $sourceFiles = @()
+    if (-not $reuseEmotion) {
+        $sourceFiles = @(Get-ChildItem -LiteralPath $sourceVideos -Filter '*.mp4' -File -Recurse)
+        if ($sourceFiles.Count -ne 3138) { throw '本机没有完整情绪库，硬盘也未提供3138段selected材料。' }
+    }
     $destination = [System.IO.Path]::GetFullPath((Join-Path $oldRoot $packageName))
     if ((Split-Path -Parent $destination) -ne $oldRoot.TrimEnd('\')) { throw '目标路径验证失败。' }
     $marker = Join-Path $destination 'DEPLOYMENT.json'
@@ -51,9 +77,14 @@ try {
     & robocopy $sourcePackage $destination /E /COPY:DAT /DCOPY:T /Z /R:2 /W:1 /MT:8 /NP "/LOG+:$deployLog"
     if ($LASTEXITCODE -ge 8) { throw '代码复制未完成。保留硬盘并重新运行即可继续。' }
     $videoDestination = Join-Path $destination 'emotion_video\selected'
-    Write-Host '复制3138个情绪视频（9.87 GB），请勿拔出硬盘……'
-    & robocopy $sourceVideos $videoDestination /E /COPY:DAT /DCOPY:T /Z /R:2 /W:1 /MT:8 /NP "/LOG+:$deployLog"
-    if ($LASTEXITCODE -ge 8) { throw '视频复制未完成。重新运行可继续，不用删除已复制文件。' }
+    if ($reuseEmotion) {
+        @{emotion_root=$reuseEmotion} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $destination 'emotion_library.local.json') -Encoding UTF8
+        Write-Host ('复用本机情绪库，不复制视频：' + $reuseEmotion)
+    } else {
+        Write-Host '复制3138个情绪视频（9.87 GB），请勿拔出硬盘……'
+        & robocopy $sourceVideos $videoDestination /E /COPY:DAT /DCOPY:T /Z /R:2 /W:1 /MT:8 /NP "/LOG+:$deployLog"
+        if ($LASTEXITCODE -ge 8) { throw '视频复制未完成。重新运行可继续，不用删除已复制文件。' }
+    }
     foreach ($file in $sourceFiles) {
         $relative = $file.FullName.Substring($sourceVideos.TrimEnd('\').Length).TrimStart('\')
         $copied = Join-Path $videoDestination $relative
