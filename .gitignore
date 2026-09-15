@@ -53,11 +53,8 @@ Thumbs.db
 
 # Every acquisition mode and practice run is private local output.
 data/*
-!data/video_question_complete_runs/
 !data/sourcedata/
-data/video_question_complete_runs/*
 data/sourcedata/*
-!data/video_question_complete_runs/.gitkeep
 !data/sourcedata/.gitkeep
 logs/
 .uv-cache/

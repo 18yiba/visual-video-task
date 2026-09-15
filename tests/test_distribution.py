@@ -34,7 +34,7 @@ class DistributionTests(unittest.TestCase):
             self.assertEqual(load_video_library(config).root, project / 'operator_custom_path')
 
     def test_release_allowlist_excludes_data_media_and_credentials(self):
-        path = ROOT / 'scripts/build_release.py'
+        path = ROOT / 'scripts/maintenance/build_release.py'
         spec = importlib.util.spec_from_file_location('release_builder', path)
         builder = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(builder)

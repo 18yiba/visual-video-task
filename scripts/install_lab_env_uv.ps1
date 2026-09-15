@@ -90,8 +90,8 @@ try {
     Run-Checked $pythonExe @($checker)
     Run-Checked $pythonExe @((Join-Path $PSScriptRoot 'prepare_demo_materials.py'))
     Write-Host 'Environment ready. No data or materials were deleted.' -ForegroundColor Green
-    Write-Host 'Double-click run_video_demo.bat, then run_video_formal.bat for real EEG.'
-    Write-Host 'Full experiment materials: see docs/OPERATOR_MANUAL.zh-CN.md.'
+    Write-Host 'Double-click run_experiment.bat, choose protocol and Demo first, then Formal.'
+    Write-Host 'Installation, materials, device configuration and data: see README.md.'
     Stop-Transcript | Out-Null
     exit 0
 } catch {

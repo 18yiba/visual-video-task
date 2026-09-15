@@ -24,6 +24,8 @@ import numpy as np
 
 from video_eeg.experiment.video_protocol import EegSessionManager
 from video_eeg.experiment.eeg_health import EegAcquisitionError, failure_message
+from video_eeg.utils.recording_paths import recording_root
+from video_eeg.utils.branding import add_dialog_logo
 from video_eeg.utils.video_library import (
     VideoAsset,
     build_balanced_playlist,
@@ -716,6 +718,8 @@ def _session_manifest_path(config: dict[str, Any]) -> Path:
 
 
 def _records_dir(config: dict[str, Any]) -> Path:
+    if config.get('_unified_protocol'):
+        return recording_root(config, PROJECT_ROOT)
     return _resolve_config_value(
         config,
         str(config.get("storage", {}).get("records_dir", "data/sourcedata")),
@@ -779,7 +783,7 @@ def _write_formal_exclusion_report(path: Path, excluded: list[VideoAsset]) -> No
 
 def next_incomplete_session(config: dict[str, Any], subject_id: str, *, num_sessions: int) -> int:
     for session_id in range(1, int(num_sessions) + 1):
-        state = load_state(session_state_path(_records_dir(config), subject_id, session_id))
+        state = load_state(session_state_path(_records_dir({**config, 'subject_id':subject_id}), subject_id, session_id))
         if state is None or not state.session_completed:
             return session_id
     return int(num_sessions)
@@ -827,6 +831,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     config["subject_id"] = startup["subject_id"]
     config["session_id"] = startup["session_id"]
+    if config.get('_unified_protocol'):
+        config.setdefault('storage', {})['records_dir'] = str(_records_dir(config))
+        print('本次数据保存位置：'+config['storage']['records_dir'])
 
     emotion_protocol = config.get('protocol', {}).get('kind') in {'emotion-v1','emotion-v2'}
     if emotion_protocol:
@@ -943,6 +950,7 @@ def startup_dialog(
             "fullscreen": fullscreen_raw not in {"n", "no", "0"},
         }
     dlg = gui.Dlg(title="PsychoPy 视频 EEG 实验")
+    add_dialog_logo(dlg)
     resume_hint = "；默认 Session 为最近一个未完成 Session" if not args.demo else ""
     description = "连续观看视频；部分视频后依次评价主观感受和唤醒程度" if config.get('protocol', {}).get('kind') in {'emotion-v1','emotion-v2'} else "连续视频观看范式：固定 Session 清单，视频完整播放，无主观评分"
     dlg.addText(f"{description}{resume_hint}。")
@@ -990,7 +998,7 @@ class VideoRunner:
         self.state_path: Path | None = None
         self.progress_dir: Path | None = None
         demo_mode = bool(self.config.get("demo_mode", False))
-        if demo_mode and self.config.get('protocol', {}).get('kind') not in {'emotion-v1','emotion-v2'}:
+        if demo_mode and not self.config.get('_unified_protocol') and self.config.get('protocol', {}).get('kind') not in {'emotion-v1','emotion-v2'}:
             records_dir = _records_dir({**self.config, "storage": {"records_dir": "data/demo_runs"}})
         else:
             records_dir = _records_dir(self.config)
