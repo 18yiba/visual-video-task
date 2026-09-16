@@ -7,7 +7,7 @@ from video_eeg.experiment import video_runner as base
 from launch_experiment import launch
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--protocol',choices=['legacy17','emotion-v2'],required=True);args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--protocol',choices=['v1','v2'],required=True);args=p.parse_args()
     subject='AUTO_LAYOUT_'+str(time.time_ns());original=base._load_psychopy
     class Keyboard:
         def clearEvents(self):pass
@@ -25,8 +25,8 @@ def main():
     root=ROOT/'data/sourcedata/demo'/args.protocol/subject
     path=next(root.rglob('session_state.json'));state=json.loads(path.read_text(encoding='utf-8'))
     assert state['session_completed']
-    assert len(state['completed_video_ids'])==(10 if args.protocol=='legacy17' else 4)
-    assert len(state['completed_attention_ids'])==(3 if args.protocol=='legacy17' else 1)
+    assert len(state['completed_video_ids'])==(10 if args.protocol=='v1' else 4)
+    assert len(state['completed_attention_ids'])==(3 if args.protocol=='v1' else 1)
     assert list((ROOT/'data/sourcedata/demo'/args.protocol/subject).rglob('continuous_eeg*.npy'))
     assert list((ROOT/'data/sourcedata/demo'/args.protocol/subject).rglob('eeg_health*.jsonl'))
     print(json.dumps(dict(protocol=args.protocol,result='PASS',videos=len(state['completed_video_ids']),questions=len(state['completed_attention_ids']),state=str(path)),ensure_ascii=False),flush=True)

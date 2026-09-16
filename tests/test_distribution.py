@@ -15,10 +15,10 @@ class DistributionTests(unittest.TestCase):
         bank = load_questions(ROOT / 'video_eeg/config/complete_questions_20260908/question_bank.json')
         self.assertEqual(len(bank), 7993)
         self.assertEqual(sum(q['status'] == 'generated_unreviewed' for q in bank.values()), 5214)
-        manifest = SessionManifest.load(ROOT / 'video_eeg/config/session_manifest_34.csv', session_count=34)
+        manifest = SessionManifest.load(ROOT / 'video_eeg/config/session_manifest.csv', session_count=17)
         self.assertEqual({e.video_path for e in manifest.entries} - set(bank),
                          {'5728.mp4', '6722.mp4', '6883.mp4'})
-        for session in range(1, 35):
+        for session in range(1, 18):
             schedule = build_video_question_schedule(manifest.session_assets(session), bank, random_seed=session)
             self.assertEqual(len({q['video_id'] for q in schedule}), 18)
 

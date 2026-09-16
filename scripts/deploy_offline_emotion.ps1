@@ -14,7 +14,7 @@ try {
         $OldProject = $dialog.SelectedPath
     }
     $oldRoot = (Resolve-Path -LiteralPath $OldProject).Path
-    if (-not (Test-Path -LiteralPath (Join-Path $oldRoot 'video_eeg\config\video_config.yaml'))) {
+    if (-not (Test-Path -LiteralPath (Join-Path $oldRoot 'video_eeg\config\video_config.yaml')) -and -not (Test-Path -LiteralPath (Join-Path $oldRoot 'video_eeg\config\video_legacy_17_config.yaml'))) {
         throw '没有找到旧配置，请选择真正的旧程序目录，不是桌面或快捷方式目录。'
     }
     $pythonPath = Join-Path $oldRoot '.venv\Scripts\python.exe'

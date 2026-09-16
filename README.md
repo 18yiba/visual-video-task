@@ -1,6 +1,6 @@
 <p align="center"><img src="assets/brand/company_logo.png" alt="公司标志" width="96"></p>
 
-# 视频EEG实验：17组旧版与45组情绪融合版
+# visual-video-task：v1 与 v2
 
 本仓库提供Windows实验室电脑使用的PsychoPy视频EEG程序。**只保留一个实验启动入口：`run_experiment.bat`**，在窗口中选择版本和Demo/正式。
 
@@ -50,7 +50,7 @@
 启动选择页和被试/Session填写页使用一致的570×380逻辑像素窗口，在主屏幕可用区域居中弹出，按Windows显示缩放比例显示。启动页标志居中、96×96；填写页标志位于左上角、64×64，右侧同一行显示11pt加粗说明，均为逻辑像素框、等比例且透明背景。正式实验的Session续跑提示独立显示在页头下方；填写页不显示不适用的英文必填字段提示。
 
 1. 双击`run_experiment.bat`。
-2. 选择“旧版视频EEG：17组”或“最新融合版：45组，七级评分”。
+2. 选择“visual-video-task v1：17个Session，视频EEG”或“visual-video-task v2：45个Session，视频EEG＋情绪评分”。
 3. 选择“Demo（模拟EEG）”，点击“进入实验”。
 4. 在下一页填写测试编号（如`DEMO_TEST`）和Session，选择全屏或窗口；不要用正式被试做练习。
 5. 普通Demo应完成10段合成视频、3道练习内容题；融合Demo应出现普通视频喜好、1道内容题、紧接的疲劳页及情绪视频的七级效价/唤醒页。
@@ -69,15 +69,12 @@
 
 | 窗口选项 | 用途 | 固定Session数 | 普通内容抽查 | 情绪与其他主观评分 |
 |---|---|---:|---|---|
-| 旧版视频EEG：17组 | 原17组实验继续采集；仍可部署到新电脑 | 17 | 每组18道，原完整版题库 | 无情绪、喜好和疲劳页 |
-| 最新融合版：45组，七级评分 | 当前融合协议 | 45 | 每组9道，约10分钟净视频一道 | 普通视频喜好；抽查后疲劳；情绪效价/唤醒1–7 |
-| 兼容：34组视频EEG | 勾选“显示其他历史版本”后可选，供已有34组续跑 | 34 | 每组18道 | 无情绪评分 |
-| 兼容：45组九级评分 | 已有V1被试继续原量尺 | 45 | 保持V1原设置 | 情绪效价/唤醒1–9 |
-| 兼容：旧2779题库 | 极早期题库记录续跑 | 按旧配置17组 | 使用原2779题快照 | 保持原配置 |
+| visual-video-task v1：17个Session，视频EEG | 原17组实验继续采集；仍可部署到新电脑 | 17 | 每组18道，原完整版题库 | 无情绪、喜好和疲劳页 |
+| visual-video-task v2：45个Session，视频EEG＋情绪评分 | 当前融合协议 | 45 | 每组9道，约10分钟净视频一道 | 普通视频喜好；抽查后疲劳；情绪效价/唤醒1–7 |
 
-17组净视频平均约177.5分钟，34组约88.76分钟，融合45组约90.13–90.23分钟；都是净视频时间，答题、休息和重播另计，没有到90分钟自动截断。固定成员不能为了整理文件而重新生成。
+v1净视频平均约177.5分钟，v2约90.13–90.23分钟；都是净视频时间，答题、休息和重播另计，没有到90分钟自动截断。固定成员不能为了整理文件而重新生成。
 
-各版完整说明： [17组](docs/versions/legacy17.md) · [34组](docs/versions/legacy34.md) · [九级V1](docs/versions/emotion-v1.md) · [七级V2](docs/versions/emotion-v2.md)。
+两个版本的完整说明：[visual-video-task v1](docs/versions/v1.md) · [visual-video-task v2](docs/versions/v2.md)。
 
 ## 每个目录和根目录文件有什么用
 
@@ -95,7 +92,7 @@ visual-video-task/
   THIRD_PARTY_NOTICES.md              第三方组件说明
   .gitignore / .gitattributes         Git排除数据、环境及文件字节处理规则
   video_eeg/                         范式源码，不能只复制其中一个runner
-    config/                          各版本YAML、固定清单、题库及材料索引
+    config/                          v1/v2的YAML、固定清单、题库及材料索引
     devices/                         BrainCo、Neuracle、模拟等采集接口
     experiment/                      显示、视频播放、回答、休息和采集管理
     storage/                         连续EEG与事件文件写入
@@ -117,7 +114,6 @@ visual-video-task/
     operations/                     跨版本材料、离线部署、数据/EEG排查
     maintenance/                    总维护记录与逐文件清理去向
     evidence/                       普通材料Release机器可读核验回执
-    reports/                        两份历史汇报Word：34组与九级V1
   stimuli/videos/                   普通正式视频可放此处，源码仅空占位
   data/sourcedata/                  统一新数据入口，源码仅空占位
   tests/                           自动化测试，不是实验记录
@@ -125,24 +121,6 @@ visual-video-task/
 ```
 
 运行后还会生成`.venv`（环境）、`.uv_lab_env`（安装工作文件）、`.psychopy_appdata`（PsychoPy设置）、`.tmp`（临时文件）、`logs`（安装/核查日志）、`stimuli/demo`及融合练习材料、`runtime_patch_backups`（安全补丁备份）。这些不随源码上传。不要把本机已有的`runtime/python312`、data或视频库当作GitHub未包含的“无用目录”删除。
-
-### config目录为何还保留多个相似文件
-
-| 文件/目录 | 作用 | 能否改名或删掉 |
-|---|---|---|
-| video_legacy_17_config.yaml | 17组正式参数与原保存位置兼容信息 | 保留 |
-| video_emotion_config.yaml | 最新45组V2正式参数 | 保留 |
-| video_emotion_demo_config.yaml | V2合成Demo参数 | 保留 |
-| video_config.yaml / video_demo_config.yaml | 34组正式与普通Demo；旧脚本也依赖 | 保留，不能因名字通用就改写成V2 |
-| video_emotion_v1_config.yaml / video_emotion_demo_v1_config.yaml | 九级V1兼容配置 | 保留已有V1状态所需量尺 |
-| video_legacy_2779_config.yaml / video_ready*.yaml | 早期题库/程序兼容 | 保留，统一入口不把它们冒充最新版 |
-| session_manifest.csv | 原17组固定成员 | 禁止重新生成以覆盖在采分组 |
-| session_manifest_34.csv | 34组固定成员 | 同上 |
-| session_manifest_emotion_v1.csv | V1与V2共享的45组固定成员 | 名字含v1但V2仍使用，不是废文件 |
-| complete_questions_20260908/ | 完整版普通视频题库、哈希/标注信息 | 不随意替换被试正在使用的题库 |
-| 其他题库目录 | 旧2779题与历史兼容 | 不删旧状态依赖的快照 |
-| emotion_source_index_v1.csv | 最终情绪视频ID、路径、标签、时长、SHA256等 | 不是最初随机抽样计划，必须保留 |
-| materials_manifest*.json / 标签CSV / 排除清单 | 下载校验、正式纳入/排除、来源追踪 | 文件名相似不表示内容重复 |
 
 ## 视频下载、复制和路径配置
 
@@ -202,15 +180,12 @@ D:/Experiments/
 
 ```text
 data/sourcedata/
-  legacy17/<被试>/session_01/...
-  emotion-v2/<被试>/session_01/...
-  legacy34/...                        仅使用历史兼容模式时生成
-  emotion-v1/...                      仅使用九级兼容模式时生成
-  legacy2779/...
+  v1/<被试>/session_01/...
+  v2/<被试>/session_01/...
   demo/<协议>/<测试编号>/run_.../session_01/...
 ```
 
-虽然都在sourcedata之下，仍保留协议目录：不同Session成员、题库和1–7/1–9量尺不能混在同一被试状态里。这里是原始采集资料目录，不表示已经转换为BIDS。源码只有空目录占位，不含本机已有数据。
+虽然都在sourcedata之下，仍保留版本目录：v1、v2的Session成员和行为任务不同，不能混在同一被试状态里。这里是原始采集资料目录，不表示已经转换为BIDS。源码只有空目录占位，不含本机已有数据。
 
 ### 原来的complete等目录怎么办
 
@@ -218,13 +193,10 @@ data/sourcedata/
 
 | 版本 | 自动兼容的原目录 | 新被试目录 |
 |---|---|---|
-| 17组 | data/video_question_complete_runs | data/sourcedata/legacy17 |
-| 34组 | data/video_question_complete_runs/protocol_34sessions | data/sourcedata/legacy34 |
-| 九级V1 | data/video_emotion_eeg_runs/protocol_emotion_v1 | data/sourcedata/emotion-v1 |
-| 七级V2 | data/video_emotion_eeg_runs/protocol_emotion_v2 | data/sourcedata/emotion-v2 |
-| 旧2779题 | data/video_question_runs | data/sourcedata/legacy2779 |
+| v1（17个Session） | data/video_question_complete_runs、data/sourcedata/legacy17 | data/sourcedata/v1 |
+| v2（45个Session） | data/video_emotion_eeg_runs/protocol_emotion_v2、data/sourcedata/emotion-v2 | data/sourcedata/v2 |
 
-例如旧17组被试P001原本在`data/video_question_complete_runs/P001/session_08`：选17组并输入P001，继续读取和写入原目录，后续Session也保持同一根目录；不会因为换入口而在sourcedata里重新开始。新编号P002在没有历史进度时才使用sourcedata/legacy17。
+例如旧17组被试P001原本在`data/video_question_complete_runs/P001/session_08`：选17组并输入P001，继续读取和写入原目录，后续Session也保持同一根目录；不会因为换入口而在sourcedata里重新开始。新编号P002在没有历史进度时才使用sourcedata/v1。
 
 同一被试在两个候选根目录都有状态时，程序会停止并列出位置，主试核对后处理，**不会自动选最新、合并或覆盖**。找不到进度时不要直接当新被试继续：先核对版本、编号、路径，以及是否完整带回session_state和题库快照。
 
@@ -240,7 +212,7 @@ storage:
   source_data_root: E:/EEG/sourcedata             # 新被试统一根目录
 ```
 
-统一启动器会在该根目录下再分legacy17/emotion-v2等协议。`source_data_root`不设置时默认本项目data/sourcedata。已有被试继续其检测到的原根目录；该设置不会迁移旧数据。启动终端打印的实际路径为准。
+统一启动器会在该根目录下再分v1/v2两个版本。`source_data_root`不设置时默认本项目data/sourcedata。已有被试继续其检测到的原根目录；该设置不会迁移旧数据。启动终端打印的实际路径为准。
 
 ### Session内各文件是什么
 
@@ -267,7 +239,7 @@ storage:
 
 ## 实验流程与全部按键
 
-| 场景 | 17组 | 最新融合V2 |
+| 场景 | visual-video-task v1（17个Session） | visual-video-task v2（45个Session） |
 |---|---|---|
 | 普通视频 | 正常完整观看 | 正常完整观看 |
 | 普通视频后 | 被抽中才回答内容题 | 每条先F不喜欢/J喜欢；被抽中再答内容题 |
@@ -279,9 +251,9 @@ storage:
 | 视频中S | 暂时跳过，未完成视频随后重播 | 相同，绑定内容题不重新抽签 |
 | Esc | 保存中止，未完成任务续跑重做 | 相同，未完成评分时完整重播视频并重答 |
 
-V2效价：1非常不愉快、4中性、7非常愉快；唤醒：1非常平静/几乎没有被激活、4中等、7非常激动/强烈被激活。原九级V1仍按原1–9，不能把旧分数直接当七级或机械改写旧数据。
+V2效价：1非常不愉快、4中性、7非常愉快；唤醒：1非常平静/几乎没有被激活、4中等、7非常激动/强烈被激活。
 
-V2疲劳题干为“请判断您此刻的精神状态。”这是文献启发的研究自编即时二分类，尚不是经过验证的标准中文版量表；文献和测量限制合并在[V2说明](docs/versions/emotion-v2.md)。正确率、喜好、疲劳回答都不自动决定停止实验。
+V2疲劳题干为“请判断您此刻的精神状态。”这是文献启发的研究自编即时二分类，尚不是经过验证的标准中文版量表；文献和测量限制合并在[V2说明](docs/versions/v2.md)。正确率、喜好、疲劳回答都不自动决定停止实验。
 
 融合版9道内容题按约10、20……90分钟净视频附近的普通视频结束绑定，计入普通和情绪视频时长，答题/休息不计。重播或S重排会影响实际间隔，程序不打断正在播放的视频硬性出题；续跑保留原抽查计划。
 
@@ -306,14 +278,14 @@ YAML中的`storage.records_dir`保留旧版本值用于恢复兼容。通过统�
 | hardware_dummy_mode | Demo模拟开关；正式模式必须false |
 | sfreq / eeg_sampling_rate_hz | 预期采样率，两者保持一致，程序不自动重采样假装匹配 |
 | buffer_sec | 接收缓存时长，不是Session长度 |
-| protocol.kind | 融合v1/v2分支；17/34保持各自内容题分支 |
+| protocol.kind | v2使用内部emotion-v2标识；v1使用普通视频内容题流程 |
 | protocol.fixation_sec | 视频前注视时长 |
 | protocol.default_video_sec / formal_max_video_duration_sec | 原协议视频设置及正式最大时长筛选，不能用来裁剪长视频 |
 | protocol.post_video_rest_seconds | 单视频后短休息时长 |
 | protocol.num_sessions | 固定Session总数，须与manifest匹配 |
 | protocol.attention_enabled / attention_tasks_per_session | 是否内容题及每组次数，不在已采Session中随意改 |
 | protocol.alarm_interval_net_sec | V2目标净视频间隔，默认600秒 |
-| protocol.rating_scale_max | V2固定7，九级旧版用专门V1配置 |
+| protocol.rating_scale_max | v2固定7，不修改已有评分 |
 | protocol.attention_timeout | null表示内容题无倒计时强制结束 |
 | protocol.rest_min_net_minutes / rest_max_net_minutes | 长休息触发的连续净观看范围 |
 | protocol.session_manifest_path / session_manifest | 普通协议/融合协议各自固定成员清单；字段不同并非重复 |
@@ -343,7 +315,7 @@ YAML中的`storage.records_dir`保留旧版本值用于恢复兼容。通过统�
 | storage.source_data_root | 可选，新被试统一根目录，默认data/sourcedata |
 | demo_mode | 配置/启动器使用的练习标记，不把Demo状态当正式状态 |
 
-### 17组正式配置原文
+### v1正式配置原文
 
 文件：`video_eeg/config/video_legacy_17_config.yaml`。
 
@@ -410,7 +382,7 @@ storage:
   records_dir: data/video_question_complete_runs
 ```
 
-### 最新融合V2正式配置原文
+### v2正式配置原文
 
 文件：`video_eeg/config/video_emotion_config.yaml`。
 
@@ -485,13 +457,13 @@ demo_mode: false
 
 ```powershell
 # 17组Demo，窗口模式；无需正式视频或真实设备
-.\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol legacy17 --mode demo --windowed
+.\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol v1 --mode demo --windowed
 
 # 最新融合正式版，填写编号与Session后仍按所选YAML设备配置运行
-.\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol emotion-v2 --mode formal --subject-id P001 --session-id 1
+.\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol v2 --mode formal --subject-id P001 --session-id 1
 
 # 只有实际使用Neuracle时才显式覆盖设备；地址/通道仍在对应YAML配置
-.\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol legacy17 --mode formal --device-type neuracle
+.\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol v1 --mode formal --device-type neuracle
 ```
 
 `--no-dialog`跳过信息填写，`--windowed`窗口模式；`--seed`仅在需要固定复现且已记录种子时使用，会影响运行目录和顺序，不作为每日常规参数。不要绕过正式模式强行开dummy。SDK/LSL/BCIGo切换会影响采集位置和质量可见性，切换后必须重新短测。
@@ -556,8 +528,6 @@ demo_mode: false
 .\.venv\Scripts\python.exe scripts/maintenance/build_eeg_guard_patch.py D:/Release/eeg-guard-new
 ```
 
-`scripts/maintenance/build_34_session_manifest.py`和`build_emotion_sessions.py`用于研究设计阶段，不是每次启动的步骤；不得重新生成并覆盖已在采的固定清单。导出题库、材料标签和诊断脚本也集中于maintenance，命令参数先看`--help`。
+`scripts/maintenance/build_emotion_sessions.py`用于v2研究设计阶段，不是每次启动的步骤；不得重新生成并覆盖已在采的固定清单。导出题库、材料标签和诊断脚本也集中于maintenance，命令参数先看`--help`。
 
 本次按版本合并文档、移除重复启动BAT和旧上传回执。每个被移除文件原来写了什么、为何重复、有效信息放在哪里，见[逐文件清理表](docs/maintenance/FILE_CLEANUP.md)；跨版本进展见[维护记录](docs/maintenance/CHANGELOG.md)。没有删除被试记录、母库或运行所需环境。
-
-`docs/reports`两份Word分别属于34组和九级V1历史汇报；七级V2当前规范以versions/emotion-v2.md和本README为准，避免把旧Word的1–9说明用于当前实验。

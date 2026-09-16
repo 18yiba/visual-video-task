@@ -198,8 +198,8 @@ def main(argv=None):
     original_demo = base.DEMO_CONFIG_FILENAME
     original_default = base.DEFAULT_CONFIG_FILENAME
     try:
-        base.DEMO_CONFIG_FILENAME = 'video_ready_demo_config.yaml'
-        base.DEFAULT_CONFIG_FILENAME = 'video_ready_config.yaml'
+        base.DEMO_CONFIG_FILENAME = 'video_demo_config.yaml'
+        base.DEFAULT_CONFIG_FILENAME = 'video_legacy_17_config.yaml'
         return base.main(argv)
     finally:
         base.DEMO_CONFIG_FILENAME = original_demo

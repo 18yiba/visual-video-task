@@ -60,7 +60,7 @@ FONT_NAME = "Microsoft YaHei"
 BACKGROUND = "black"
 FOREGROUND = "white"
 MUTED = "#94a3b8"
-DEFAULT_CONFIG_FILENAME = "video_config.yaml"
+DEFAULT_CONFIG_FILENAME = "video_legacy_17_config.yaml"
 DEMO_CONFIG_FILENAME = "video_demo_config.yaml"
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = PACKAGE_ROOT.parent
@@ -655,7 +655,7 @@ def _marker_mode(backend: Any) -> str:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="运行独立的 PsychoPy 视频 EEG 实验。")
-    parser.add_argument("--config", type=Path, default=None, help="视频实验配置文件，默认 video_config.yaml。")
+    parser.add_argument("--config", type=Path, default=None, help="视频实验配置文件，默认 video_legacy_17_config.yaml。")
     parser.add_argument(
         "--demo",
         action="store_true",

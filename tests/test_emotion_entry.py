@@ -36,7 +36,7 @@ def test_new_bats_use_new_config_and_legacy_entry_preserves_old_config():
     source=(ROOT/'scripts/launch_experiment.py').read_text(encoding='utf-8')
     assert 'video_emotion_config.yaml' in source
     assert 'video_legacy_17_config.yaml' in source
-    assert 'video_emotion_v1_config.yaml' in source
+    assert 'video_emotion_v1_config.yaml' not in source
     assert 'launch_experiment.py' in (ROOT/'run_experiment.bat').read_text()
 
 def test_prepare_uses_portable_ordinary_fallback_and_local_emotion_override(tmp_path):

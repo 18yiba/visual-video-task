@@ -15,11 +15,11 @@ def build(destination):
     if target.exists():raise ValueError('Use a new destination; never overwrite an installed update')
     allowed=set(source_files())
     paths=[p for p in (ROOT/'video_eeg').rglob('*.py') if p in allowed]
-    paths += [p for p in (ROOT/'video_eeg/config').glob('*emotion*') if p.is_file()]
+    paths += [p for p in (ROOT/'video_eeg/config').glob('*emotion*') if p.is_file() and p in allowed]
     paths += [ROOT/'video_eeg/config/complete_questions_20260908/question_bank.json', ROOT/'README.md']
     paths += [ROOT/'assets/brand/company_logo.png']
     paths += [ROOT/'scripts'/p for p in ('offline_emotion_update.py','check_video_eeg_env.py','audit_emotion_materials.py')]
-    paths += [ROOT/'docs'/p for p in ('operations/OFFLINE_UPDATE.md','versions/emotion-v2.md','operations/EEG_AND_RECOVERY.md')]
+    paths += [ROOT/'docs'/p for p in ('operations/OFFLINE_UPDATE.md','versions/v2.md','operations/EEG_AND_RECOVERY.md')]
     for src in sorted(set(paths)):
         if '__pycache__' in src.parts:continue
         assert src in allowed,src

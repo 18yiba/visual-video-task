@@ -21,7 +21,7 @@ def test_all_materials_exactly_once_and_every_session_balanced():
     ordinary = [r for r in rows if r['trial_type']=='ordinary']
     emotion = [r for r in rows if r['trial_type']=='emotion']
     assert len(rows)==len({r['video_id'] for r in rows})==len({r['video_path'] for r in rows})==11087
-    assert {r['original_id'] for r in ordinary}=={r['video_id'] for r in read('session_manifest_34.csv')}
+    assert {r['original_id'] for r in ordinary}=={r['video_id'] for r in read('session_manifest.csv')}
     assert len(emotion)==len({r['sha256'] for r in emotion})==3138
     assert Counter(r['three_class_label'] for r in emotion)==dict.fromkeys(CLASSES,1046)
     assert Counter(r['original_label'] for r in emotion)==dict(Excitation=523,Relaxation=523,Neutral=1046,Fear=349,Sad=349,Tension=348)
@@ -91,7 +91,6 @@ def test_export_failure_still_stops_and_exports_eeg():
     assert runner.manager.stop_and_export.call_args.kwargs['metadata']['export_warnings']
 
 def test_legacy_manifests_byte_identical():
-    expected={'session_manifest_34.csv':'cf72477e07bd15b929da45d58ed04cd4e5069695fd4e2fd5cc55fee9153d6488',
-              'session_manifest.csv':'56dc9fa3bcfeb90c5e42fdccc114c633dc9284dba6e17295e4f95de7671679b9'}
+    expected={'session_manifest.csv':'56dc9fa3bcfeb90c5e42fdccc114c633dc9284dba6e17295e4f95de7671679b9'}
     for name,digest in expected.items():
         assert hashlib.sha256((ROOT/'video_eeg/config'/name).read_bytes()).hexdigest()==digest

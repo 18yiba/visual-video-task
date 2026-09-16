@@ -151,14 +151,14 @@ class SessionPlanningTests(unittest.TestCase):
 
     def test_demo_config_is_short_and_separate(self) -> None:
         from video_eeg.experiment.video_runner import load_config, VideoExperimentConfig
-        formal_config = load_config(Path("video_eeg/config/video_config.yaml"))
+        formal_config = load_config(Path("video_eeg/config/video_legacy_17_config.yaml"))
         demo_config = load_config(Path("video_eeg/config/video_demo_config.yaml"))
         formal = VideoExperimentConfig.from_config(formal_config)
         demo = VideoExperimentConfig.from_config(demo_config)
         self.assertEqual(formal_config["sfreq"], 1000.0)
         self.assertEqual(formal_config["eeg_sampling_rate_hz"], 1000.0)
         self.assertEqual(demo_config["eeg_sampling_rate_hz"], 1000.0)
-        self.assertEqual(formal.num_sessions, 34)
+        self.assertEqual(formal.num_sessions, 17)
         self.assertEqual(formal.attention_tasks_per_session, 18)
         self.assertEqual(formal.rest_min_net_minutes, 30.0)
         self.assertEqual(demo.num_sessions, 1)

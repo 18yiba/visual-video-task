@@ -103,13 +103,8 @@ class ReadyQuestionTests(unittest.TestCase):
         library = ready.ReadyLibrary(Mock(), bank)
         self.assertEqual([a.rel_path for a in library.list_candidate_assets()], ['a.mp4'])
 
-    def test_snapshot_and_session_coverage(self):
-        root = ready.base.CONFIG_DIR / 'ready_questions_20260908'
-        bank = ready.load_questions(root / 'question_bank.json')
-        manifest = ready.base.SessionManifest.load(root / 'session_manifest.csv')
-        self.assertEqual(len(bank), 2779)
-        self.assertEqual({e.video_path for e in manifest.entries}, set(bank))
-        for name in ['video_ready_config.yaml', 'video_ready_demo_config.yaml']:
+    def test_supported_formal_and_demo_configs(self):
+        for name in ['video_legacy_17_config.yaml', 'video_demo_config.yaml']:
             config = ready.base.load_config(ready.base.CONFIG_DIR / name)
             protocol = ready.base.VideoExperimentConfig.from_config(config)
             self.assertTrue(protocol.attention_enabled)
@@ -131,7 +126,7 @@ class ReadyQuestionTests(unittest.TestCase):
     def test_full_manifest_has_18_distinct_questions_and_repeatable_resume(self):
         from video_eeg.utils.session_protocol import build_video_question_schedule, SessionState
         import random
-        bank = ready.load_questions(ready.base.CONFIG_DIR / 'ready_questions_20260908/question_bank.json')
+        bank = ready.load_questions(ready.base.CONFIG_DIR / 'complete_questions_20260908/question_bank.json')
         manifest = ready.base.SessionManifest.load(ready.base.CONFIG_DIR / 'session_manifest.csv')
         for session in range(1, 18):
             assets = manifest.session_assets(session)

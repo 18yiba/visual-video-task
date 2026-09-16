@@ -14,16 +14,17 @@ def main():
     config = ROOT / 'video_eeg/config'
     bank = load_questions(config / 'complete_questions_20260908/question_bank.json')
     materials = json.loads((config/'materials_manifest.json').read_text(encoding='utf-8'))
-    legacy = {e.video_path:e for e in SessionManifest.load(config/'session_manifest.csv', session_count=17).entries}
-    current = {e.video_path:e for e in SessionManifest.load(config/'session_manifest_34.csv', session_count=34).entries}
+    current = {e.video_path:e for e in SessionManifest.load(config/'session_manifest.csv', session_count=17).entries}
+    with (config/'session_manifest_emotion_v1.csv').open(encoding='utf-8-sig',newline='') as handle:
+        v2 = {r['original_id']:r['session_id'] for r in csv.DictReader(handle) if r['trial_type']=='ordinary'}
     rows = []
     for item in materials['files']:
         name = Path(item['path']).name
         q = bank.get(name, {})
         entry = current.get(name)
         row = dict(video_file=name, video_sha256=item['sha256'], video_bytes=item['bytes'],
-            formal_eligible=entry is not None, session_34=entry.session_id if entry else '',
-            legacy_session_17=legacy[name].session_id if name in legacy else '',
+            formal_eligible=entry is not None, v1_session=entry.session_id if entry else '',
+            v2_session=v2.get(entry.video_id,'') if entry else '',
             duration_sec=entry.video_duration_sec if entry else '',
             duration_bucket=entry.duration_bucket if entry else '', has_question=bool(q),
             question_status=q.get('status','missing'), review_status=q.get('review_status',''),
