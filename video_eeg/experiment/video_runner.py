@@ -950,10 +950,9 @@ def startup_dialog(
             "fullscreen": fullscreen_raw not in {"n", "no", "0"},
         }
     dlg = gui.Dlg(title="PsychoPy 视频 EEG 实验")
-    add_dialog_logo(dlg)
     resume_hint = "；默认 Session 为最近一个未完成 Session" if not args.demo else ""
     description = "连续观看视频；部分视频后依次评价主观感受和唤醒程度" if config.get('protocol', {}).get('kind') in {'emotion-v1','emotion-v2'} else "连续视频观看范式：固定 Session 清单，视频完整播放，无主观评分"
-    dlg.addText(f"{description}{resume_hint}。")
+    add_dialog_logo(dlg,description+'。',resume_hint)
     dlg.addField("被试编号", defaults["subject_id"])
     dlg.addField("Session 编号", defaults["session_id"])
     dlg.addField("全屏显示", defaults["fullscreen"])
