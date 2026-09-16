@@ -7,9 +7,20 @@ import time
 from pathlib import Path
 from video_eeg.experiment.emotion_runner import EmotionVideoRunner, base
 from video_eeg.experiment.ready_question_runner import load_questions, response_letter
+from video_eeg.utils.emotion_protocol import parse_rating
 
-FATIGUE_WORDING = '请判断您此刻的精神状态。'
-FATIGUE_OPTIONS = {'f': '未感到明显的精神疲劳', 'j': '已感到明显的精神疲劳'}
+FATIGUE_WORDING = '当前您的疲劳程度是？'
+FATIGUE_OPTIONS = {
+    '1': '几乎不疲劳',
+    '2': '轻微疲劳',
+    '3': '较轻疲劳',
+    '4': '中等疲劳',
+    '5': '较重疲劳，但不需要额外努力就能继续观看',
+    '6': '很疲劳，需要付出一定努力才能继续观看',
+    '7': '非常疲劳，需要付出很大努力才能继续观看',
+}
+BINARY_FATIGUE_WORDING = '请判断您此刻的精神状态。'
+BINARY_FATIGUE_OPTIONS = {'f': '未感到明显的精神疲劳', 'j': '已感到明显的精神疲劳'}
 LIKING_WORDING = '总体而言，您是否喜欢刚才这段视频？'
 LIKING_OPTIONS = {'f': '不喜欢', 'j': '喜欢'}
 RATING_PAGES_7 = (
@@ -18,6 +29,26 @@ RATING_PAGES_7 = (
     ('arousal', '请评价刚才这段视频引起的情绪唤醒程度。',
      '1 非常平静／几乎没有被激活\n4 中等\n7 非常激动／强烈被激活'),
 )
+
+
+def fatigue_contract_hash(manifest_hash,interval,scale):
+    """Keep the original binary contract byte-for-byte for in-progress Sessions."""
+    contract=dict(version='emotion-v2',scale=7,interval=float(interval),liking=LIKING_OPTIONS,
+        fatigue=BINARY_FATIGUE_OPTIONS if scale==2 else FATIGUE_OPTIONS,
+        fatigue_wording=BINARY_FATIGUE_WORDING if scale==2 else FATIGUE_WORDING)
+    if scale==7:
+        contract.update(fatigue_scale_min=1,fatigue_scale_max=7,
+                        fatigue_measure='research_adapted_fatigue_7point_v1')
+    return manifest_hash+':'+hashlib.sha256(json.dumps(contract,sort_keys=True).encode()).hexdigest()
+
+
+def session_fatigue_scale(config,protocol,interval):
+    root=base._records_dir(config)/str(config.get('subject_id','S001'))
+    if config.get('demo_mode'):root=root/f'run_{protocol.random_seed}'
+    saved=base.load_state(root/f"session_{int(config.get('session_id',1)):02d}"/'session_state.json')
+    if saved is not None and saved.manifest_hash==fatigue_contract_hash(config['session_manifest_hash'],interval,2):
+        return 2
+    return 7  # Unknown or changed contracts still fail the normal resume checks.
 
 def alarm_schedule(rows, order, questions, count, interval_sec, seed):
     """Bind one nearby ordinary EOF to each net-time target; persist once."""
@@ -44,6 +75,7 @@ class EmotionV2Runner(EmotionVideoRunner):
     rating_max=7
     rating_pages=RATING_PAGES_7
     ordinary_behavior_required=True
+    fatigue_scale_max=7
 
     def __init__(self, **kwargs):
         cfg=kwargs['config']; proto=cfg['protocol']
@@ -65,9 +97,11 @@ class EmotionV2Runner(EmotionVideoRunner):
         self.questions={r['video_path']:bank[Path(r['video_path']).name]
                         for r in kwargs['library'].rows.values()
                         if r['trial_type']=='ordinary' and Path(r['video_path']).name in bank}
-        contract=dict(version=self.protocol_version,scale=7,interval=self.interval_sec,
-                      liking=LIKING_OPTIONS,fatigue=FATIGUE_OPTIONS,fatigue_wording=FATIGUE_WORDING)
-        cfg['session_manifest_hash']+=':'+hashlib.sha256(json.dumps(contract,sort_keys=True).encode()).hexdigest()
+        self.fatigue_scale_max=session_fatigue_scale(cfg,kwargs['protocol'],self.interval_sec)
+        cfg['session_manifest_hash']=fatigue_contract_hash(cfg['session_manifest_hash'],self.interval_sec,self.fatigue_scale_max)
+        cfg['fatigue_measure']=self._fatigue_metadata()
+        if self.fatigue_scale_max==2:
+            print('本Session已有二分类疲劳进度，将保持原量尺续跑；下一个新Session使用1–7点评分。',flush=True)
         super().__init__(**kwargs)
         snapshot=self.progress_dir/'question_bank_snapshot.json'
         if snapshot.exists():
@@ -80,11 +114,21 @@ class EmotionV2Runner(EmotionVideoRunner):
         self.state.attention_schedule=alarm_schedule(self.library.rows,self.state.queue_video_ids,self.questions,
             self.protocol.attention_tasks_per_session,self.interval_sec,self.state.random_seed+7919)
 
+    def _fatigue_metadata(self):
+        binary=self.fatigue_scale_max==2
+        return dict(fatigue_wording=BINARY_FATIGUE_WORDING if binary else FATIGUE_WORDING,
+            fatigue_scale_min=0 if binary else 1,fatigue_scale_max=1 if binary else 7,
+            fatigue_measure='research_adapted_binary_state_v1' if binary else 'research_adapted_fatigue_7point_v1',
+            fatigue_key_map='F=0 no noticeable mental fatigue; J=1 noticeable mental fatigue' if binary else '; '.join(f'{k}={v}' for k,v in FATIGUE_OPTIONS.items()),
+            fatigue_scale_type='binary' if binary else 'seven_point')
+
     def _show_instructions(self):
+        fatigue_instruction=('抽查下一页仍使用本Session原疲劳题：F 未感到明显精神疲劳，J 已感到明显精神疲劳。\n\n'
+            if self.fatigue_scale_max==2 else '抽查下一页请评价当前疲劳程度：按数字1–7，1 几乎不疲劳，7 非常疲劳。\n\n')
         self._show_text('本实验连续记录脑电，请自然观看视频并聆听声音，尽量保持坐姿稳定。\n\n'
           '普通视频后请判断是否喜欢：F 不喜欢，J 喜欢。\n'
           '约每10分钟净视频有一道内容抽查，请按1–4或A–D作答。\n'
-          '抽查下一页请判断当前精神状态：F 未感到明显精神疲劳，J 已感到明显精神疲劳。\n\n'
+          +fatigue_instruction+
           '情绪视频后依次评价情绪感受和唤醒程度：按数字1–7，主观评价没有正确答案。\n'
           '所有作答不限时。短休息空格继续；长休息F继续、J保存退出。\n'
           'S暂时跳过视频后会重播，Esc保存退出。未完成的视频及其问题下次完整重做。\n\n按空格继续。')
@@ -94,12 +138,13 @@ class EmotionV2Runner(EmotionVideoRunner):
             raise RuntimeError('Some bound video checks remain incomplete')
 
     def _choice_page(self, row, prefix, wording, options, keys, event_prefix):
+        measure=self._fatigue_metadata() if prefix=='fatigue' else {}
         self._clear_keyboard()
         self.message.pos=(0,0);self.message.height=.033
         self.message.text=wording+'\n\n'+'\n\n'.join(options)+'\n\n答题不限时；Esc 保存退出。'
         self.message.draw()
         if hasattr(self.keyboard,'clock'):self.win.callOnFlip(self.keyboard.clock.reset)
-        self.win.callOnFlip(self.manager.emit,event_prefix+'_ONSET')
+        self.win.callOnFlip(self.manager.emit,event_prefix+'_ONSET',**measure)
         self.win.flip()
         stamp=self._event_times[event_prefix+'_ONSET']
         row.update({prefix+'_onset_'+k:v for k,v in stamp.items()})
@@ -116,8 +161,11 @@ class EmotionV2Runner(EmotionVideoRunner):
                 if name not in keys:continue
                 detected=time.perf_counter();rt=getattr(key,'rt',None)
                 rt=max(0.,float(rt)) if rt is not None else max(0.,detected-stamp['monotonic_sec'])
+                score=({'fatigued':int(name=='j')} if self.fatigue_scale_max==2 else
+                       {'fatigue_rating':parse_rating(name,7)}) if prefix=='fatigue' else {}
                 self.manager.emit(event_prefix+'_RESPONSE',response_key=name,response_rt_sec=rt,
-                                  response_monotonic_sec=stamp['monotonic_sec']+rt)
+                                  response_monotonic_sec=stamp['monotonic_sec']+rt,**measure,**score)
+                row.update(score)
                 row.update({prefix+'_key':name,prefix+'_rt_sec':rt,
                             prefix+'_response_monotonic_sec':stamp['monotonic_sec']+rt,
                             prefix+'_response_detected_monotonic_sec':detected,
@@ -157,12 +205,16 @@ class EmotionV2Runner(EmotionVideoRunner):
                     [f'{i+1} / {k}    {q["options"][k]}' for i,k in enumerate('ABCD')],
                     list('1234abcd'),'ALARM')
                 behavior.update(response=response_letter(key),correct=response_letter(key)==q['answer'])
-                behavior.update(fatigue_wording=FATIGUE_WORDING,
-                    fatigue_key_map='F=0 no noticeable mental fatigue; J=1 noticeable mental fatigue',
-                    fatigue_measure='research_adapted_binary_state_v1')
-                key=self._choice_page(behavior,'fatigue',FATIGUE_WORDING,
-                    ['F  '+FATIGUE_OPTIONS['f'],'J  '+FATIGUE_OPTIONS['j']],['f','j'],'FATIGUE')
-                behavior['fatigued']=int(key=='j')
+                behavior.update(self._fatigue_metadata())
+                if self.fatigue_scale_max==2:
+                    key=self._choice_page(behavior,'fatigue',BINARY_FATIGUE_WORDING,
+                        ['F  '+BINARY_FATIGUE_OPTIONS['f'],'J  '+BINARY_FATIGUE_OPTIONS['j']],['f','j'],'FATIGUE')
+                    behavior['fatigued']=int(key=='j')
+                else:
+                    key=self._choice_page(behavior,'fatigue',FATIGUE_WORDING,
+                        [f'{k}  {v}' for k,v in FATIGUE_OPTIONS.items()],
+                        list('1234567')+[f'num_{i}' for i in range(1,8)],'FATIGUE')
+                    behavior['fatigue_rating']=parse_rating(key,7)
             self.manager.emit('trial_end',completed=True,ratings_completed=True,status='completed')
             behavior['completed']=True;attempt['completed']=True
             if item is not None:self.state.completed_attention_ids.append(item['attention_id'])

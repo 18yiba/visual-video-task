@@ -27,7 +27,7 @@ def main():
             if keys==['escape','f','j']: # Also handles binary pages; distinguish event times.
                 events=self.runner._event_times
                 stage='fatigue' if 'FATIGUE_ONSET' in events else 'liking' if 'LIKING_ONSET' in events else 'rest'
-            elif '7' in keys:stage='arousal' if 'AROUSAL_RATING_ONSET' in self.runner._event_times else 'valence'
+            elif '7' in keys:stage='fatigue' if 'FATIGUE_ONSET' in self.runner._event_times else 'arousal' if 'AROUSAL_RATING_ONSET' in self.runner._event_times else 'valence'
             elif 'a' in keys:stage='alarm'
             elif keys==['escape','s'] and self.interrupt=='skip' and not self.fired:
                 self.fired=True;return ['s']
@@ -37,7 +37,7 @@ def main():
             if stage not in self.shots:
                 self.shots.add(stage)
                 win.getMovieFrame(buffer='front');win.saveMovieFrames(str(self.runner.progress_dir/(stage+'.png')))
-            return ['1' if stage=='alarm' else '7' if stage=='valence' else '4' if stage=='arousal' else 'f']
+            return ['1' if stage=='alarm' else '7' if stage in ('valence','fatigue') else '4' if stage=='arousal' else 'f']
     try:
         for case in ('complete','liking','alarm','fatigue','valence','arousal','skip'):
             attempts=(False,True) if case not in ('complete','skip') else (False,)
@@ -61,7 +61,8 @@ def main():
                     rated=[a['emotion_rating'] for a in state.video_attempts if a.get('emotion_rating',{}).get('completed')]
                     assert len(rated)==3 and all(x['valence_rating']==7 and x['arousal_rating']==4 and x['rating_scale_max']==7 for x in rated)
                     ordinary=[a['ordinary_behavior'] for a in state.video_attempts if a.get('ordinary_behavior',{}).get('completed')]
-                    assert len(ordinary)==1 and ordinary[0]['liked']==0 and ordinary[0]['fatigued']==0 and ordinary[0]['correct']
+                    assert len(ordinary)==1 and ordinary[0]['liked']==0 and ordinary[0]['fatigue_rating']==7 and ordinary[0]['correct']
+                    assert ordinary[0]['fatigue_scale_max']==7 and 'fatigued' not in ordinary[0]
                     names=[e['name'] for e in events]
                     if 'ALARM_RESPONSE' in names:assert names[names.index('ALARM_RESPONSE')+1]=='FATIGUE_ONSET'
                     for log in ('fatigue_log.csv','video_question_log.csv','video_liking_log.csv','emotion_rating_log.csv'):
