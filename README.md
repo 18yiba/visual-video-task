@@ -2,7 +2,8 @@
 
 # visual-video-task：视频EEG+情绪评分融合总范式
 
-本仓库提供Windows实验室电脑使用的PsychoPy视频EEG程序。**只保留一个实验启动入口：`run_experiment.bat`**，在窗口中选择版本和Demo/正式。
+本仓库提供Windows实验室电脑使用的PsychoPy视频EEG程序。
+**只保留一个实验启动入口：`run_experiment.bat`**，在窗口中选择版本和Demo/正式。
 
 这次是文件组织、入口和新数据路径整理，**不改变17组或45组的固定视频成员、播放/答题流程、量尺、题库或已有进度**。旧电脑上的数据、视频、Python环境和已发离线包不删除。下列说明以当前GitHub源码为准；历史小包仍按包内说明使用。
 
