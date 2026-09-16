@@ -39,7 +39,7 @@ def inspect(path):
 
 
 def main():
-    config = load_config(PROJECT / 'video_eeg/config/video_config.yaml')
+    config = load_config(PROJECT / 'video_eeg/config/video_legacy_17_config.yaml')
     config['_project_dir'] = str(PROJECT)
     root = load_video_library(config).root
     files = sorted(p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS)

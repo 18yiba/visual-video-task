@@ -27,7 +27,7 @@ def configure():
     if override.exists():
         old_path=(OLD/override.read_text(encoding='utf-8-sig').strip()).resolve()
     else:
-        name='video_ready_config.yaml' if (OLD/'run_complete_formal.bat').exists() else 'video_config.yaml'
+        name='video_legacy_17_config.yaml' if (OLD/'video_eeg/config/video_legacy_17_config.yaml').is_file() else ('video_ready_config.yaml' if (OLD/'run_complete_formal.bat').exists() else 'video_config.yaml')
         old_path=OLD/'video_eeg/config'/name
     if not old_path.is_file():
         raise RuntimeError('应把整个更新文件夹放进旧程序目录；找不到 '+str(old_path))

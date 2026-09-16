@@ -46,7 +46,7 @@ def audit(config_path, *, require_materials=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=ROOT / 'video_eeg/config/video_config.yaml')
+    parser.add_argument('--config', type=Path, default=ROOT / 'video_eeg/config/video_legacy_17_config.yaml')
     parser.add_argument('--require-materials', action='store_true')
     parser.add_argument('--require-full-coverage', action='store_true')
     parser.add_argument('--output', type=Path)

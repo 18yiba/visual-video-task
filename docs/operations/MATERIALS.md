@@ -78,7 +78,7 @@ GitHub 对单个 Release 附件有 2 GiB 上限，因此本库按约 512 MiB 分
 `protocol.video_library_dir` 填写实际视频目录；Demo 配置也需作对应修改。
 `--destination` 只决定下载位置，参数应为 `videos` 的父目录，不会自动修改实验配置。
 
-正式清单为 `video_eeg/config/session_manifest_34.csv`，包含 7949 段，固定分配为 34 个 Session。
+正式清单为 `video_eeg/config/session_manifest.csv`，包含7949段，固定分配为v1的17个Session；v2使用自己的45个Session固定清单。
 47 段超过 60 秒的视频随母库保留，但不进入正式流程。
 题库为 `video_eeg/config/complete_questions_20260908/question_bank.json`，按文件名精确绑定视频。
 每个 Session 从有题的视频中抽 18 个目标，在对应视频自然结束后立即提问；不是每段都提问。
@@ -97,26 +97,6 @@ GitHub 对单个 Release 附件有 2 GiB 上限，因此本库按约 512 MiB 分
 仓库中的 `stimuli/videos/`、`data/video_question_complete_runs/`、`data/sourcedata/`
 各含一个空 `.gitkeep`，仅用于让 ZIP 和 Git 保留目录结构。
 不会附带开发电脑的被试记录。下载视频不写 `data`；运行后记录只在本机生成。
-当前正式输出写入 `data/video_question_complete_runs/protocol_34sessions`，`data/sourcedata` 为旧数据兼容目录。
+统一入口的新数据写入 `data/sourcedata/v1` 或 `data/sourcedata/v2`；已有数据原位续跑。
 
 完整安装、键盘操作、续跑及备份见 [详细操作说明](../../README.md)。
-
-## 当前 34 组与旧 17 组
-
-7949 段正式视频总净时长约 50.30 小时。新分组每组 88.35–88.94 分钟，平均 88.76 分钟，
-每组 233–235 段，五档视频各至少 46 段；全库正式视频范围约 5.107–59.976 秒。
-每个原 Session 按五档时长均衡拆为两半，原 n 对应新 2n−1 和 2n。各组内部随机播放；
-播放顺序和 18 个抽查目标在开始时保存，续跑不重新抽签。没有 90 分钟强制停止。
-注视点、视频间隔、答题及休息不计入净观看，实际占用时间会更长。
-
-当前权威分组为 `video_eeg/config/session_manifest_34.csv`。
-旧 `session_manifest.csv` 保留原 17 组，不能用新文件覆盖旧文件。
-旧完整版 17 组请用 `run_video_legacy_17.bat`，其数据仍在 `data/video_question_complete_runs/<subject>`。
-新默认入口用 `data/video_question_complete_runs/protocol_34sessions/<subject>`，避免同编号读到旧状态。
-不自动迁移已开始的旧 Session，不把旧完成进度强行当作新分组的完成进度。
-
-`video_eeg/config/video_question_labels.csv` 是 7996 段视频的完整标签对照表；
-包含 SHA-256、题干、选项、答案、复核状态、`session_34` 和 `legacy_session_17`。
-Release 的 `material_metadata.zip` 也包含此表。题目经 `video_file` 文件名关联，未嵌入 MP4 画面或字幕。
-原题库可能保留历史 `session_id`，当前分组以 34 组清单和标签表的 `session_34` 列为准。
-详见 [34 组与标签审计](../versions/legacy34.md)。

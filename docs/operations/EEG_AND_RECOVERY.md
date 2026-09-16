@@ -2,17 +2,14 @@
 
 ## 统一入口的数据规则
 
-新被试默认写入data/sourcedata/<协议>/<被试>/session_XX；协议为legacy17、legacy34、emotion-v1、emotion-v2或legacy2779。Demo单独位于data/sourcedata/demo/<协议>，并保留每次练习的run子目录。明确--seed的测试运行也可产生run子目录，不得拿测试路径冒充普通正式进度。
+新被试默认写入data/sourcedata/<协议>/<被试>/session_XX；协议为v1或v2。Demo单独位于data/sourcedata/demo/<协议>，并保留每次练习的run子目录。明确--seed的测试运行也可产生run子目录，不得拿测试路径冒充普通正式进度。
 
 选择版本后，启动器只在该协议的新目录、YAML指定目录和已知旧目录查找当前被试的session_state.json。已有进度继续用原根目录，包括后续新Session；不搬文件、不重新创建被试、不覆盖旧题库快照。同一被试在两个候选目录都有状态时停止并列出路径，由主试核对，不自动猜选。旧入口/离线包未启用统一启动器时仍按其原配置保存。
 
 | 协议 | 已知旧保存根目录 | 新被试默认根目录 |
 |---|---|---|
-| 17组完整版题库 | data/video_question_complete_runs | data/sourcedata/legacy17 |
-| 34组 | data/video_question_complete_runs/protocol_34sessions | data/sourcedata/legacy34 |
-| 45组九级 | data/video_emotion_eeg_runs/protocol_emotion_v1 | data/sourcedata/emotion-v1 |
-| 45组七级 | data/video_emotion_eeg_runs/protocol_emotion_v2 | data/sourcedata/emotion-v2 |
-| 旧2779题 | data/video_question_runs | data/sourcedata/legacy2779 |
+| v1（17个Session） | data/video_question_complete_runs、data/sourcedata/legacy17 | data/sourcedata/v1 |
+| v2（45个Session） | data/video_emotion_eeg_runs/protocol_emotion_v2、data/sourcedata/emotion-v2 | data/sourcedata/v2 |
 
 这些旧目录没有删除。项目中历史data/sourcedata已有其他格式记录也不清理；新数据使用明确协议子目录避免碰撞。若只复制EEG、不复制状态和题库快照，不能恢复已完成进度。统一规则不是数据格式转换，也不是BIDS转换。
 
@@ -47,7 +44,7 @@
 
 ## 现在如何保护
 
-适用于程序本地接收并记录EEG的17组、34组及Emotion V1/V2入口。后台每0.1秒检查已写入的样本数，默认连续5秒不增长就锁定故障；启动后一直没有样本的等待上限为10秒。视频、内容题、主观评分和休息页均会检查采集错误，停止当前运行并显示警告，尝试保存已采数据。不会自动重连、填充缺口或将缺口伪装成连续EEG。
+适用于程序本地接收并记录EEG的v1与v2入口。后台每0.1秒检查已写入的样本数，默认连续5秒不增长就锁定故障；启动后一直没有样本的等待上限为10秒。视频、内容题、主观评分和休息页均会检查采集错误，停止当前运行并显示警告，尝试保存已采数据。不会自动重连、填充缺口或将缺口伪装成连续EEG。
 
 故障页显示“连续多少秒未收到新的EEG样本”或SDK返回的异常文本，并请被试联系主试。只能说明程序观察到的数据链路异常，不能直接判断放大器为何有电关机。关闭SDK失败也记录下来，仍尝试导出已写盘样本；迟到的后台读取不再写入已经冻结的记录。
 
@@ -70,7 +67,7 @@
 
 ## 用硬盘给已开采的电脑打补丁
 
-硬盘目录：`E:\video\EEG断流保护补丁_20260915`。这是源码安全补丁，不要求切换17/34/45组或1–9/1–7评分协议。
+硬盘目录：`E:\video\EEG断流保护补丁_20260915`。这是源码安全补丁，不要求切换v1/v2协议。
 
 1. 正常结束实验并保存数据。备份旧数据；不要在采集中更新。
 2. 双击`安装断流保护.bat`，选择**实际使用的程序目录**：旧17组直接启动就选主项目；通过`_video_eeg_34_update`或`_video_eeg_emotion_v2_update`启动就选对应更新包目录。该目录应直接包含`video_eeg/experiment/video_runner.py`。

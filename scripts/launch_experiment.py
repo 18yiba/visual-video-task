@@ -6,11 +6,8 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 
 PROTOCOLS={
-    'emotion-v2':('最新融合版：45组，七级评分','video_emotion_config.yaml','video_emotion_demo_config.yaml'),
-    'legacy17':('旧版视频EEG：17组','video_legacy_17_config.yaml','video_demo_config.yaml'),
-    'legacy34':('兼容：34组视频EEG','video_config.yaml','video_demo_config.yaml'),
-    'emotion-v1':('兼容：45组九级评分','video_emotion_v1_config.yaml','video_emotion_demo_v1_config.yaml'),
-    'legacy2779':('兼容：旧2779题库','video_legacy_2779_config.yaml','video_demo_config.yaml'),
+    'v2':('visual-video-task v2：45个Session，视频EEG＋情绪评分','video_emotion_config.yaml','video_emotion_demo_config.yaml'),
+    'v1':('visual-video-task v1：17个Session，视频EEG','video_legacy_17_config.yaml','video_demo_config.yaml'),
 }
 
 def choose():
@@ -29,14 +26,7 @@ def choose():
         layout.addWidget(logo)
     title=W.QLabel('选择实验版本与运行方式');title.setFont(Gui.QFont('Microsoft YaHei',16));title.setAlignment(center)
     layout.addWidget(title)
-    combo=W.QComboBox();combo.addItems([PROTOCOLS[k][0] for k in ('emotion-v2','legacy17')]);layout.addWidget(combo)
-    advanced=W.QCheckBox('显示其他历史版本（已有被试续跑）');layout.addWidget(advanced,alignment=center)
-    def toggle():
-        selected=combo.currentText()
-        values=[v[0] for v in PROTOCOLS.values()] if advanced.isChecked() else [PROTOCOLS[k][0] for k in ('emotion-v2','legacy17')]
-        combo.clear();combo.addItems(values)
-        if selected in values:combo.setCurrentText(selected)
-    advanced.toggled.connect(toggle)
+    combo=W.QComboBox();combo.addItems([v[0] for v in PROTOCOLS.values()]);layout.addWidget(combo)
     row=W.QHBoxLayout();row.addStretch()
     demo=W.QRadioButton('Demo（模拟EEG）');formal=W.QRadioButton('正式（真实EEG）');demo.setChecked(True)
     row.addWidget(demo);row.addSpacing(24);row.addWidget(formal);row.addStretch();layout.addLayout(row)
@@ -50,13 +40,14 @@ def choose():
     execute();return answer or None
 
 def launch(protocol, mode, extra=None):
+    if protocol not in PROTOCOLS:raise ValueError('Only visual-video-task v1 and v2 are supported')
     from video_eeg.experiment import video_runner as base
     formal,demo=PROTOCOLS[protocol][1:]
     original=base.load_config;old_default=base.DEFAULT_CONFIG_FILENAME;old_demo=base.DEMO_CONFIG_FILENAME
     def configured(path):
         config=original(path);config['_unified_protocol']=protocol;config['demo_mode']=mode=='demo'
         # Ordinary Demo must work without the official materials, on every installation.
-        if mode=='demo' and protocol.startswith('legacy'):
+        if mode=='demo' and protocol=='v1':
             from prepare_demo_materials import main as prepare_demo
             prepare_demo()
             config['protocol']['video_library_dir']=str(ROOT/'stimuli/demo')

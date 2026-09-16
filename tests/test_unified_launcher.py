@@ -7,7 +7,7 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('launcher',ROOT/'scripts/launch_experiment.py')
 launcher=importlib.util.module_from_spec(spec);spec.loader.exec_module(launcher)
 
-@pytest.mark.parametrize('key,old',[('legacy17','video_question_complete_runs'),('emotion-v2','video_emotion_eeg_runs/protocol_emotion_v2')])
+@pytest.mark.parametrize('key,old',[('v1','video_question_complete_runs'),('v2','video_emotion_eeg_runs/protocol_emotion_v2')])
 def test_new_subject_unified_old_subject_stays_put(tmp_path,key,old):
     config=dict(_unified_protocol=key,subject_id='S1',storage={'records_dir':'data/'+old})
     assert recording_root(config,tmp_path)==tmp_path/'data/sourcedata'/key
@@ -21,21 +21,35 @@ def test_new_subject_unified_old_subject_stays_put(tmp_path,key,old):
     with pytest.raises(RuntimeError,match='多个保存位置'):recording_root(config,tmp_path)
 
 def test_demo_separate_and_custom_legacy_root(tmp_path):
-    cfg=dict(_unified_protocol='legacy17',subject_id='S',demo_mode=True)
-    assert recording_root(cfg,tmp_path)==tmp_path/'data/sourcedata/demo/legacy17'
+    cfg=dict(_unified_protocol='v1',subject_id='S',demo_mode=True)
+    assert recording_root(cfg,tmp_path)==tmp_path/'data/sourcedata/demo/v1'
     cfg.update(demo_mode=False,storage={'records_dir':str(tmp_path/'external')})
     p=tmp_path/'external/S/session_01/session_state.json';p.parent.mkdir(parents=True);p.touch()
     assert recording_root(cfg,tmp_path)==tmp_path/'external'
     with pytest.raises(ValueError):recording_root(cfg,tmp_path,'../escape')
 
 def test_new_output_disk_does_not_orphan_default_sourcedata_subject(tmp_path):
-    cfg=dict(_unified_protocol='emotion-v2',subject_id='S',storage={'source_data_root':str(tmp_path/'new-disk')})
+    cfg=dict(_unified_protocol='v2',subject_id='S',storage={'source_data_root':str(tmp_path/'new-disk')})
     old=tmp_path/'data/sourcedata/emotion-v2/S/session_01/session_state.json'
     old.parent.mkdir(parents=True);old.touch()
     assert recording_root(cfg,tmp_path)==old.parents[2]
-    assert recording_root(cfg,tmp_path,'NEW')==tmp_path/'new-disk/emotion-v2'
+    assert recording_root(cfg,tmp_path,'NEW')==tmp_path/'new-disk/v2'
 
-@pytest.mark.parametrize('protocol',['legacy17','emotion-v2','legacy34','emotion-v1','legacy2779'])
+@pytest.mark.parametrize('key,previous',[('v1','legacy17'),('v2','emotion-v2')])
+def test_renamed_versions_resume_existing_subjects_on_custom_disk(tmp_path,key,previous):
+    root=tmp_path/'custom-disk'
+    state=root/previous/'P/session_03/session_state.json'
+    state.parent.mkdir(parents=True);state.write_text('saved-progress')
+    cfg=dict(_unified_protocol=key,subject_id='P',storage={'source_data_root':str(root)})
+    assert recording_root(cfg,tmp_path)==root/previous
+    assert state.read_text()=='saved-progress'
+
+def test_only_two_public_versions():
+    assert set(launcher.PROTOCOLS)=={'v1','v2'}
+    for retired in ['legacy34','emotion-v1','legacy2779']:
+        with pytest.raises(ValueError):launcher.launch(retired,'demo')
+
+@pytest.mark.parametrize('protocol',['v1','v2'])
 @pytest.mark.parametrize('mode',['demo','formal'])
 def test_launcher_selects_expected_config_without_editing_yaml(monkeypatch,protocol,mode):
     from video_eeg.experiment import video_runner as base
@@ -47,8 +61,8 @@ def test_launcher_selects_expected_config_without_editing_yaml(monkeypatch,proto
         assert ('--demo' in args)==(mode=='demo')
         if mode=='formal':
             assert '--real-eeg' in args
-            if protocol=='legacy17':assert cfg['protocol']['num_sessions']==17
-            if protocol=='emotion-v2':assert cfg['protocol']['kind']=='emotion-v2' and cfg['protocol']['rating_scale_max']==7
+            if protocol=='v1':assert cfg['protocol']['num_sessions']==17
+            if protocol=='v2':assert cfg['protocol']['kind']=='emotion-v2' and cfg['protocol']['rating_scale_max']==7
         return 0
     monkeypatch.setattr(base,'main',run)
     import sys

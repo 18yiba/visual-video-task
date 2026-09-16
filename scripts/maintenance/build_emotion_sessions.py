@@ -107,7 +107,7 @@ def build(ordinary, emotion, seed=SEED):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--ordinary-manifest', type=Path, default=ROOT/'video_eeg/config/session_manifest_34.csv')
+    p.add_argument('--ordinary-manifest', type=Path, default=ROOT/'video_eeg/config/session_manifest.csv')
     p.add_argument('--ordinary-root', type=Path, required=True)
     p.add_argument('--emotion-root', type=Path, required=True)
     p.add_argument('--output', type=Path, default=ROOT/'video_eeg/config')

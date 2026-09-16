@@ -2,12 +2,10 @@
 from pathlib import Path
 
 LEGACY_ROOTS={
-    'legacy17':['data/video_question_complete_runs'],
-    'legacy34':['data/video_question_complete_runs/protocol_34sessions'],
-    'legacy2779':['data/video_question_runs'],
-    'emotion-v1':['data/video_emotion_eeg_runs/protocol_emotion_v1'],
-    'emotion-v2':['data/video_emotion_eeg_runs/protocol_emotion_v2'],
+    'v1':['data/video_question_complete_runs','data/sourcedata/legacy17'],
+    'v2':['data/video_emotion_eeg_runs/protocol_emotion_v2','data/sourcedata/emotion-v2'],
 }
+PREVIOUS_NAMES={'v1':'legacy17','v2':'emotion-v2'}
 
 def recording_root(config, project_dir, subject_id=None):
     project=Path(project_dir).resolve()
@@ -23,7 +21,8 @@ def recording_root(config, project_dir, subject_id=None):
     if not subject or subject in {'.','..'} or any(c in subject for c in '/\\:*?"<>|'):
         raise ValueError('被试编号不能包含路径分隔符或Windows文件名非法字符')
     unified=source_root/key
-    candidates=list(dict.fromkeys([unified.resolve(),(project/'data/sourcedata'/key).resolve(),configured]+[(project/p).resolve() for p in LEGACY_ROOTS[key]]))
+    candidates=list(dict.fromkeys([unified.resolve(),(project/'data/sourcedata'/key).resolve(),
+        (source_root/PREVIOUS_NAMES[key]).resolve(),configured]+[(project/p).resolve() for p in LEGACY_ROOTS[key]]))
     # Find progress only at the subject root for this protocol; never scan other subjects.
     existing=[p for p in candidates if any((p/subject).glob('session_*/session_state.json'))
               or any((p/subject).glob('run_*/session_*/session_state.json'))]
