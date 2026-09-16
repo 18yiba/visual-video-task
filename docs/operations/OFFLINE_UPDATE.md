@@ -64,3 +64,7 @@ V2新数据写到旧主目录 `data/video_emotion_eeg_runs/protocol_emotion_v2`�
 应依次能看到普通视频的喜好页、练习内容题、紧接的疲劳页，以及情绪视频的七级效价和七级唤醒页。
 检查F/J映射、数字7可作答而8/9不接受、Esc可保存退出并续跑。Demo为模拟EEG，不能证明真实设备已连接。
 正式前再确认真实脑电样本增长、事件写出、音画正常、阻抗和放大器电量。数据文件解释见[完整V2实验说明](../versions/v2.md)。
+
+## 2026-09-16 疲劳七点评分更新
+
+上文已交付硬盘包不会随GitHub自动变化。当前源码的新Session疲劳页使用数字1–7，题干为“当前您的疲劳程度是？”，1几乎不疲劳、7非常疲劳。需更新程序源码才会生效，不重装环境、不重新复制视频、不覆盖data或Session状态。已开始并保存二分类协议的Session保持原F/J题续跑，下一个新Session使用七点评分。旧记录保留fatigued=0/1，不换算成1–7。新记录保存fatigue_rating=1–7、fatigue_scale_min/max、fatigue_measure、fatigue_wording及完整fatigue_key_map；分析时须按量尺分开。未知或不匹配的状态仍拒绝续跑，不通过改哈希强行迁移。

@@ -275,6 +275,7 @@ class EmotionVideoRunner(base.VideoRunner):
             actual_net_video_duration_sec=self.state.completed_net_video_duration_sec,
             net_clock_definition='actual ordinary + emotion playback including partial attempts; excludes ratings/rest',
             rating_scale=f'integer 1-{self.rating_max}', rating_order=['valence','arousal'],
+            **(self._fatigue_metadata() if hasattr(self,'_fatigue_metadata') else {}),
             export_warnings=getattr(self, '_warnings', []), real_hardware_validation='pending'))
 
 def main(argv=None):
