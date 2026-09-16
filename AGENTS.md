@@ -7,9 +7,9 @@
 - Source release uses scripts/maintenance/build_release.py and scripts/repository_layout.json. Never publish recordings, environments, cache, credentials or video binaries in Git. Public material releases are separate.
 - Only empty stimuli/videos/.gitkeep and data/sourcedata/.gitkeep are source placeholders.
 - Installer must work on a fresh Windows source download. Preserve runtime/python312 and installed environments on this development machine.
-- v1 retains 18 video-bound checks; v2 retains 9 checks about every ten net minutes, immediately followed by 1-7 fatigue, ordinary-video F/J liking, and seven-point valence/arousal. Partial trials replay and resubmit as before.
-- Fatigue is a literature-inspired study-specific seven-point item, not a validated scale. Preserve source/review status on questions.
+- v1 retains 18 video-bound checks; v2 retains 9 checks about every ten net minutes, immediately followed by 1-5 fatigue, ordinary-video F/J liking, and seven-point valence/arousal. Partial trials replay and resubmit as before.
+- Fatigue is a literature-inspired study-specific five-point item, not a validated scale. Preserve source/review status on questions.
 - Test affected paths, source-only distribution, and real-window dummy EEG after launcher changes. Clearly distinguish hardware tests from simulation.
 - Retired public versions are excluded by the release allowlist; do not recursively delete local historical code, materials or recordings. Verify Windows deletion targets and avoid junction traversal.
 
-- Fatigue wording: 当前您的疲劳程度是？; endpoints 1 几乎不疲劳 and 7 非常疲劳. Seven option texts and scale revision are saved. Existing binary Sessions retain their original contract until completion; new Sessions use seven points. Never convert old answers.
+- Fatigue wording: 当前您的疲劳程度是？; endpoints 1 几乎不疲劳 and 5 非常疲劳，完全无法继续观看. Five option texts and scale revision are saved. Existing binary or seven-point fatigue Sessions retain their original contract until completion; new Sessions use five points. Never convert old answers.
