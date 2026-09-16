@@ -1,6 +1,6 @@
 <p align="center"><img src="assets/brand/company_logo.png" alt="公司标志" width="96"></p>
 
-# visual-video-task：v1 与 v2
+# visual-video-task：视频EEG+情绪评分融合总范式
 
 本仓库提供Windows实验室电脑使用的PsychoPy视频EEG程序。**只保留一个实验启动入口：`run_experiment.bat`**，在窗口中选择版本和Demo/正式。
 
