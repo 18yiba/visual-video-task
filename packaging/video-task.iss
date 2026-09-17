@@ -28,7 +28,8 @@ OutputBaseFilename=VisualVideoTask-Setup-Windows-x64
 CloseApplications=no
 AppMutex=VisualVideoTask.Desktop
 RestartApplications=no
-UsePreviousAppDir=yes
+UsePreviousAppDir=no
+DisableDirPage=yes
 [Languages]
 Name: chinesesimplified; MessagesFile: ChineseSimplified.isl
 [Tasks]
@@ -37,8 +38,11 @@ Name: desktopicon; Description: 创建桌面快捷方式; GroupDescription: 快�
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
 Name: "{autoprograms}\视频EEG总范式"; Filename: "{app}\VisualVideoTask.exe"
-Name: "{autoprograms}\视频EEG设置（绑定旧v1）"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --settings
+Name: "{autoprograms}\视频EEG设置（迁移到本机）"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --settings
 Name: "{autodesktop}\视频EEG总范式"; Filename: "{app}\VisualVideoTask.exe"; Tasks: desktopicon
+Name: "{autoprograms}\视频EEG文件盘点"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --audit
+Name: "{autoprograms}\视频EEG归档缓存"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --archive-caches
+Name: "{autoprograms}\视频EEG检查硬盘占用"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --drive-report
 [Run]
 Filename: "{app}\VisualVideoTask.exe"; Description: 启动视频EEG总范式; Flags: nowait postinstall skipifsilent
 [Code]
@@ -46,5 +50,5 @@ function InitializeSetup(): Boolean;
 begin
   Result := True;
   if not WizardSilent then
-    Result := MsgBox('安装程序将使用独立目录，不覆盖原v1实验。若正在采集，请先正常保存结束，再切换到新入口。已有被试首次启动请选择绑定原v1目录。', mbInformation, MB_OKCANCEL) = IDOK;
+    Result := MsgBox('安装程序将使用独立目录，不覆盖原v1实验。若正在采集，请先正常保存结束，再切换到新入口。已有被试首次启动请选择迁移已有v1到本机；配置和记录会复制校验，原件保留。', mbInformation, MB_OKCANCEL) = IDOK;
 end;

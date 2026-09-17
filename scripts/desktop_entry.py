@@ -15,39 +15,53 @@ def load_settings():
     return json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}
 
 def choose_binding(settings):
-    from video_eeg.utils.desktop import legacy_config,assert_legacy_idle,save_json
-    W=qt();box=W.QMessageBox();box.setWindowTitle('首次设置：保留原实验进度')
-    box.setText('这台电脑是否已有正在使用的v1视频实验？\n\n已有实验请绑定原程序目录。新程序读取原配置和进度，旧程序及数据保持原位。请先正常保存结束本次采集。')
-    existing=box.addButton('绑定已有v1',W.QMessageBox.ButtonRole.AcceptRole)
+    from video_eeg.utils.desktop_local import desktop_root,migrate,discover_materials
+    W=qt();box=W.QMessageBox();box.setWindowTitle('设置实验室本机路径')
+    lab=desktop_root()
+    box.setText('请先正常结束并保存采集。\n本次把配置与已有记录复制、校验到本机，原件不删除。\n\n视频：'+str(lab/'video_materials')+'\n数据：'+str(lab/'data/sourcedata')+'\n\n完成后运行不再依赖移动硬盘。')
+    existing=box.addButton('迁移内容题版v1到本机',W.QMessageBox.ButtonRole.AcceptRole)
     fresh=box.addButton('新电脑，无历史数据',W.QMessageBox.ButtonRole.ActionRole)
     box.addButton(W.QMessageBox.StandardButton.Cancel);box.exec()
     if box.clickedButton()==existing:
-        directory=W.QFileDialog.getExistingDirectory(None,'选择直接包含video_eeg的原v1程序目录')
+        directory=W.QFileDialog.getExistingDirectory(None,'选择实际采集所用旧v1目录（含video_eeg，可从硬盘迁移）',settings.get('legacy_project',settings.get('legacy_source',str(lab))))
         if not directory:return False
-        project=Path(directory)
-        if not (project/'video_eeg').is_dir() and (project/'visual-video-task-master/video_eeg').is_dir():project=project/'visual-video-task-master'
-        assert_legacy_idle(project);_,cfg=legacy_config(project)
-        settings['legacy_project']=str(project.resolve())
-        from video_eeg.utils.video_library import load_video_library
-        settings['ordinary_root']=str(load_video_library({**cfg,'_project_dir':str(project)}).root)
-    elif box.clickedButton()==fresh:
-        settings.pop('legacy_project',None)
-        settings.pop('ordinary_root',None)
-        settings.pop('emotion_root',None)
+        source=Path(directory)
+        if not (source/'video_eeg').is_dir() and (source/'visual-video-task-master/video_eeg').is_dir():source=source/'visual-video-task-master'
+    elif box.clickedButton()==fresh:source=None
     else:return False
-    settings['configured']=True;save_json(USER/'settings.json',settings)
+    selection={}
+    try:discover_materials(lab,ROOT)
+    except ValueError:
+        directory=W.QFileDialog.getExistingDirectory(None,'选择本机视频材料目录，可选video_materials或其上级目录',str(lab))
+        if directory:selection['materials_selection']=directory
+        else:
+            answer=W.QMessageBox.question(None,'尚未选择正式材料','是否先迁移配置和记录，只做Demo？正式实验仍须选择并核验本机视频库。')
+            if answer!=W.QMessageBox.StandardButton.Yes:return False
+            selection['allow_missing_materials']=True
+    progress=W.QProgressDialog('正在复制并校验历史记录；原文件不删除。',None,0,100)
+    progress.setWindowTitle('迁移到实验室本机');progress.setMinimumDuration(0)
+    def update(i,total,name):
+        progress.setValue(int(100*i/max(total,1)));progress.setLabelText('复制并校验：'+name);W.QApplication.processEvents()
+    try:new=migrate(selection,USER,lab,ROOT,source_project=source,progress=update)
+    finally:progress.close()
+    settings.clear();settings.update(new)
+    from video_eeg.utils.desktop_local import dependency_report
+    try:dependency_report(settings,USER,ROOT)
+    except (OSError,ValueError) as exc:print('迁移完成，盘点报告暂未生成：'+str(exc),flush=True)
+    W.QMessageBox.information(None,'本机设置完成','新记录保存根目录：'+new['data_root']+'\n旧记录已按字节校验复制或保留在本机，原件未删除。\n开始菜单“视频EEG文件盘点”可导出逐文件清单。')
     return True
 
 def verify_materials(settings,protocol):
     from video_eeg.utils.desktop import save_json
+    from video_eeg.utils.desktop_local import discover_materials,require_local
     W=qt();cache_path=USER/'material_validation.json'
     cache=json.loads(cache_path.read_text(encoding='utf-8')) if cache_path.exists() else {}
-    ordinary=Path(settings.get('ordinary_root',''))
-    if not settings.get('ordinary_root') or not ordinary.is_dir():
-        directory=W.QFileDialog.getExistingDirectory(None,'选择本机普通视频目录（7996段MP4，可先从移动硬盘复制）')
+    try:
+        ordinary=Path(discover_materials(settings['lab_root'],ROOT,settings.get('ordinary_root'))['ordinary_root'])
+    except ValueError:
+        directory=W.QFileDialog.getExistingDirectory(None,'重新选择本机普通材料目录，可选video_materials上级',settings['lab_root'])
         if not directory:return False
-        ordinary=Path(directory)
-        if (ordinary/'videos').is_dir():ordinary=ordinary/'videos'
+        ordinary=Path(discover_materials(settings['lab_root'],ROOT,directory)['ordinary_root'])
     manifest=json.loads((ROOT/'video_eeg/config/materials_manifest.json').read_text(encoding='utf-8'))
     rows=[(ordinary/Path(r['path']).name,r['sha256'],r['bytes']) for r in manifest['files']]
     if protocol=='v2':
@@ -59,6 +73,7 @@ def verify_materials(settings,protocol):
             if emotion.name.lower()=='selected':emotion=emotion.parent
         with (ROOT/'video_eeg/config/emotion_source_index_v1.csv').open(encoding='utf-8-sig',newline='') as f:
             rows.extend((emotion/'selected'/r['relative_selected_path'],r['sha256'],None) for r in csv.DictReader(f))
+        require_local(emotion)
         settings['emotion_root']=str(emotion.resolve())
     progress=W.QProgressDialog('首次核验视频需要读取全部材料；后续仅重验变化文件。','取消',0,len(rows))
     progress.setWindowTitle('离线材料核验');progress.setMinimumDuration(0)
@@ -66,6 +81,7 @@ def verify_materials(settings,protocol):
         for i,(path,expected,size) in enumerate(rows):
             progress.setValue(i);W.QApplication.processEvents()
             if progress.wasCanceled():return False
+            require_local(path)
             if not path.is_file():raise ValueError('缺少视频：'+str(path)+'\n请从移动硬盘补齐材料。')
             stat=path.stat();key=str(path.resolve());signature=[stat.st_size,stat.st_mtime_ns,expected]
             if size is not None and stat.st_size!=size:raise ValueError('视频大小不符：'+str(path))
@@ -81,6 +97,7 @@ def verify_materials(settings,protocol):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--self-test',action='store_true');p.add_argument('--smoke',choices=['v1','v2','disconnect']);p.add_argument('--settings',action='store_true')
+    p.add_argument('--audit',action='store_true');p.add_argument('--archive-caches',action='store_true');p.add_argument('--drive-report',nargs='?',const='ASK')
     args=p.parse_args()
     USER.mkdir(parents=True,exist_ok=True)
     for name in ('logs','tmp','psychopy'):(USER/name).mkdir(exist_ok=True)
@@ -102,24 +119,42 @@ def main():
         else:
             sys.argv=['smoke_unified_entry.py','--protocol',args.smoke];script=ROOT/'scripts/validation/smoke_unified_entry.py'
         runpy.run_path(str(script),run_name='__main__');return 0
+    from video_eeg.utils.desktop_local import SCHEMA,validate_runtime,local_recording_root,dependency_report,archive_caches,drive_report,require_local
+    require_local(ROOT);require_local(USER)
+    if args.drive_report:
+        letter=args.drive_report
+        if letter=='ASK':
+            letter,ok=qt().QInputDialog.getText(None,'检查移动硬盘占用','输入盘符，例如E:')
+            if not ok:return 0
+        result=drive_report(letter,USER)
+        qt().QMessageBox.information(None,'占用报告',str(result)+'\n报告不覆盖全部内核句柄；不会自动结束进程。');return 0
     from video_eeg.experiment import video_runner as base
     from video_eeg.utils.desktop import adapt_config,assert_legacy_idle
     from video_eeg.utils.recording_paths import recording_root
     import launch_experiment as launcher
     settings=load_settings()
-    if (args.settings or not settings.get('configured')) and not choose_binding(settings):return 0
-    if settings.get('legacy_project'):assert_legacy_idle(settings['legacy_project'])
-    selected=launcher.choose()
+    if (args.settings or settings.get('schema')!=SCHEMA) and not choose_binding(settings):return 0
+    validate_runtime(settings,USER,ROOT)
+    if args.audit or args.archive_caches:
+        if args.archive_caches:
+            answer=qt().QMessageBox.question(None,'归档缓存','只把核验通过的缓存复制校验后移入本机_archive。数据、视频、环境、旧源码和配置保留。是否继续？')
+            if answer!=qt().QMessageBox.StandardButton.Yes:return 0
+            count=archive_caches(settings,USER,ROOT);message=f'已归档 {count} 个缓存文件。'
+        else:message='逐文件依赖和旧目录保留清单已生成。'
+        report=dependency_report(settings,USER,ROOT)
+        qt().QMessageBox.information(None,'文件盘点',message+'\n'+str(report));os.startfile(report);return 0
+    selected=launcher.choose(default_protocol='v1' if settings.get('legacy_snapshot') else 'v2',paths_hint='普通视频：'+settings['ordinary_root']+'\n新数据根目录：'+settings['data_root'])
     if not selected:return 0
     protocol,mode=selected
-    if mode=='formal' and not verify_materials(settings,protocol):return 0
+    if mode=='formal':
+        validate_runtime(settings,USER,ROOT,formal=True)
+        if not verify_materials(settings,protocol):return 0
     original=base.load_config
     base.load_config=lambda path:adapt_config(original(path),path,settings,USER,ROOT)
-    discovery=Path(settings['legacy_project']) if settings.get('legacy_project') else USER
-    base.recording_root=lambda cfg,project,subject_id=None:recording_root(cfg,discovery,subject_id)
-    if settings.get('legacy_project'):
+    base.recording_root=lambda cfg,project,subject_id=None:local_recording_root(cfg,settings,subject_id)
+    if settings.get('legacy_snapshot'):
         from video_eeg.utils.desktop import legacy_config
-        _,old=legacy_config(settings['legacy_project'])
+        _,old=legacy_config(settings['legacy_snapshot'])
         if not old['protocol'].get('question_bank_path'):
             original_text=base.build_participant_instruction_text
             base.build_participant_instruction_text=lambda **kw:original_text(**kw).replace('部分视频结束后会随机抽查刚才的视频内容，请按题目页面提示作答。','期间保留原协议注意力判断题，请按页面提示作答。')

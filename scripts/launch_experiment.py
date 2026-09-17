@@ -10,7 +10,7 @@ PROTOCOLS={
     'v1':('visual-video-task v1：17个Session，视频EEG','video_legacy_17_config.yaml','video_demo_config.yaml'),
 }
 
-def choose():
+def choose(default_protocol=None,paths_hint=None):
     # Use the subject dialog's Qt backend so Windows DPI scaling and frames match.
     from psychopy.gui import qtgui
     from video_eeg.utils.branding import LOGO,LOGO_SIZE,configure_startup_dialog
@@ -27,15 +27,22 @@ def choose():
     title=W.QLabel('选择实验版本与运行方式');title.setFont(Gui.QFont('Microsoft YaHei',16));title.setAlignment(center)
     layout.addWidget(title)
     combo=W.QComboBox();combo.addItems([v[0] for v in PROTOCOLS.values()]);layout.addWidget(combo)
+    if default_protocol in PROTOCOLS:combo.setCurrentText(PROTOCOLS[default_protocol][0])
     row=W.QHBoxLayout();row.addStretch()
     demo=W.QRadioButton('Demo（模拟EEG）');formal=W.QRadioButton('正式（真实EEG）');demo.setChecked(True)
     row.addWidget(demo);row.addSpacing(24);row.addWidget(formal);row.addStretch();layout.addLayout(row)
     hint=W.QLabel('下一页填写被试编号和Session。已有被试请选择原协议。');hint.setAlignment(center);layout.addWidget(hint)
+    if paths_hint:
+        locations=W.QTextEdit();locations.setReadOnly(True);locations.setPlainText(paths_hint)
+        wrap=Gui.QTextOption.WrapMode.WrapAnywhere if hasattr(Gui.QTextOption,'WrapMode') else Gui.QTextOption.WrapAnywhere
+        locations.setWordWrapMode(wrap);locations.setMinimumHeight(100);locations.setMaximumHeight(140)
+        locations.setToolTip(paths_hint);layout.addWidget(locations)
     answer=[]
     def start():
         answer.extend([next(k for k,v in PROTOCOLS.items() if v[0]==combo.currentText()),'demo' if demo.isChecked() else 'formal']);root.accept()
     button=W.QPushButton('进入实验');button.clicked.connect(start);layout.addWidget(button,alignment=center)
     configure_startup_dialog(root)
+    if paths_hint:root.setMinimumHeight(480)
     execute=getattr(root,'exec',None) or root.exec_
     execute();return answer or None
 

@@ -9,24 +9,26 @@ def save_json(path, value):
     temporary.write_text(json.dumps(value,ensure_ascii=False,indent=2),encoding='utf-8')
     os.replace(temporary,path)
 
-def legacy_config(project):
+def legacy_config(project,*,content_only=False):
     project=Path(project).resolve()
     for name in ('video_config.yaml','video_legacy_17_config.yaml','video_ready_config.yaml'):
         path=project/'video_eeg/config'/name
         if not path.is_file():continue
         cfg=yaml.safe_load(path.read_text(encoding='utf-8-sig'))
         if int(cfg.get('protocol',{}).get('num_sessions',0))!=17:continue
+        if content_only and not cfg.get('protocol',{}).get('question_bank_path'):continue
         if cfg.get('hardware_dummy_mode'):raise ValueError('旧正式配置启用了模拟EEG，请先核对原配置。')
         for key in ('session_manifest_path','question_bank_path'):
             if key=='question_bank_path' and not cfg['protocol'].get(key):continue
             if not cfg['protocol'].get(key) or not (project/cfg['protocol'][key]).is_file():
                 raise ValueError('原实验缺少文件：'+key)
         return path,cfg
+    if content_only:raise ValueError('这个目录未找到当前17组视频内容题配置，可能是已停用的算术版本。请重新选择实际使用的内容题版目录；旧数据未转换或覆盖。')
     raise ValueError('请选择包含video_eeg的原17组v1程序目录；不能把其他协议当作v1继续。')
 
 def assert_legacy_idle(project):
     import psutil
-    root=str(Path(project).resolve()).lower()
+    root=os.path.normcase(os.path.abspath(project))
     for proc in psutil.process_iter(['pid','name','cmdline']):
         try:
             if proc.pid==os.getpid():continue
@@ -35,14 +37,15 @@ def assert_legacy_idle(project):
             if not experiment:continue
             # BAT entry points often run a relative module after cd /d, leaving
             # the project path out of the command line entirely.
-            working=str(Path(proc.cwd()).resolve()).lower()
+            working=os.path.normcase(os.path.abspath(proc.cwd()))
             if root in command or working==root or working.startswith(root+os.sep):
                 raise RuntimeError('原v1实验仍在运行。请正常保存结束本次采集后，再使用新入口；程序不会终止旧进程。')
         except (psutil.AccessDenied,psutil.NoSuchProcess):continue
 
 def adapt_config(config, filename, settings, user_dir, project_dir):
     cfg=copy.deepcopy(config);demo='demo' in Path(filename).name;v1='emotion' not in Path(filename).name
-    old=Path(settings['legacy_project']) if settings.get('legacy_project') else None
+    old_path=settings.get('legacy_snapshot') or settings.get('legacy_project')
+    old=Path(old_path) if old_path else None
     if old:
         _,original=legacy_config(old)
         if v1:
@@ -52,6 +55,8 @@ def adapt_config(config, filename, settings, user_dir, project_dir):
                 if not path.is_file():raise ValueError('原v1缺少Demo配置。')
                 inherited=yaml.safe_load(path.read_text(encoding='utf-8-sig'))
             cfg.update(copy.deepcopy(inherited))
+            if demo and settings.get('schema')==2 and original['protocol'].get('question_bank_path'):
+                cfg['protocol']['question_bank_path']=original['protocol']['question_bank_path']
             for key in ('question_bank_path','session_manifest_path','session_manifest','formal_exclusion_report_path'):
                 if cfg['protocol'].get(key):cfg['protocol'][key]=str((old/cfg['protocol'][key]).resolve())
             cfg['_legacy_attention']=not bool(cfg['protocol'].get('question_bank_path'))
@@ -72,4 +77,9 @@ def adapt_config(config, filename, settings, user_dir, project_dir):
         if settings.get('ordinary_root'):cfg['protocol']['video_library_dir']=settings['ordinary_root']
         if not v1 and settings.get('emotion_root'):cfg['protocol']['emotion_library_dir']=settings['emotion_root']
     cfg['demo_mode']=demo;cfg['hardware_dummy_mode']=demo
+    if settings.get('schema')==2:
+        from video_eeg.utils.desktop_local import require_local
+        root=require_local(settings['data_root'])
+        cfg['storage']['source_data_root']=str(root)
+        cfg['storage']['records_dir']=str(root/('v1' if v1 else 'v2'))
     return cfg

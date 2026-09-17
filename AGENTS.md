@@ -13,3 +13,5 @@
 - Retired public versions are excluded by the release allowlist; do not recursively delete local historical code, materials or recordings. Verify Windows deletion targets and avoid junction traversal.
 
 - Fatigue wording: 当前您的疲劳程度是？; endpoints 1 几乎不疲劳 and 5 非常疲劳，完全无法继续观看. Five option texts and scale revision are saved. Existing binary or seven-point fatigue Sessions retain their original contract until completion; new Sessions use five points. Never convert old answers.
+
+- Windows EXE 1.0.1 uses verified local config snapshots and data copies under Desktop/video/data/sourcedata; original records remain untouched. Desktop migration may resume these copied states locally, preserving protocol hashes. Never infer that unused legacy code, environments, metadata, or unknown files are disposable.
