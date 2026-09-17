@@ -49,6 +49,25 @@ def test_only_two_public_versions():
     for retired in ['legacy34','emotion-v1','legacy2779']:
         with pytest.raises(ValueError):launcher.launch(retired,'demo')
 
+
+def test_offline_legacy_arithmetic_demo_keeps_original_attention(monkeypatch):
+    from video_eeg.experiment import video_runner as base
+    original = base.load_config
+    def configured(path):
+        cfg = original(path)
+        cfg['_legacy_attention'] = True
+        return cfg
+    monkeypatch.setattr(base, 'load_config', configured)
+    monkeypatch.syspath_prepend(str(ROOT/'scripts'))
+    def run(args):
+        cfg = base.load_config(base.CONFIG_DIR/base.DEMO_CONFIG_FILENAME)
+        assert 'question_bank_path' not in cfg['protocol']
+        assert cfg['_unified_protocol'] == 'v1'
+        assert cfg['protocol']['attention_tasks_per_session'] == 3
+        return 0
+    monkeypatch.setattr(base, 'main', run)
+    assert launcher.launch('v1', 'demo') == 0
+
 @pytest.mark.parametrize('protocol',['v1','v2'])
 @pytest.mark.parametrize('mode',['demo','formal'])
 def test_launcher_selects_expected_config_without_editing_yaml(monkeypatch,protocol,mode):

@@ -51,7 +51,10 @@ def launch(protocol, mode, extra=None):
             from prepare_demo_materials import main as prepare_demo
             prepare_demo()
             config['protocol']['video_library_dir']=str(ROOT/'stimuli/demo')
-            config['protocol']['question_bank_path']='stimuli/demo/question_bank.json'
+            if config.get('_legacy_attention'):
+                config['protocol'].pop('question_bank_path',None)
+            else:
+                config['protocol']['question_bank_path']='stimuli/demo/question_bank.json'
         return config
     base.load_config=configured;base.DEFAULT_CONFIG_FILENAME=formal;base.DEMO_CONFIG_FILENAME=demo
     try:return base.main((['--demo'] if mode=='demo' else ['--real-eeg'])+list(extra or []))

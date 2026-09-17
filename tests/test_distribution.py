@@ -48,6 +48,8 @@ class DistributionTests(unittest.TestCase):
                 continue
             self.assertNotIn(p.parts[0], {'data', 'stimuli', '.venv', '.runtime', 'logs'})
             self.assertNotIn(p.suffix, {'.npy', '.mp4', '.exe', '.log', '.env'})
+            self.assertNotIn('build',p.parts)
+            self.assertFalse(any(part.endswith(('.egg-info','.dist-info')) for part in p.parts))
 
 
 if __name__ == '__main__':

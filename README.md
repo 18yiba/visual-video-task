@@ -4,6 +4,8 @@
 
 本仓库提供Windows实验室电脑使用的PsychoPy视频EEG程序。
 
+**实验室直接使用Windows离线安装版：**在[Releases](https://github.com/18yiba/visual-video-task/releases)下载 `VisualVideoTask-Setup-Windows-x64.exe`，无需安装Python。已有v1可绑定原目录续跑；正式视频从移动硬盘复制，采集不需要联网。参见[EXE安装与旧v1续跑说明](docs/operations/WINDOWS_EXE.md)。以下源码安装步骤供开发和维护使用。
+
 **只保留一个实验启动入口：`run_experiment.bat`**，在窗口中选择版本和Demo/正式。
 
 这次是文件组织、入口和新数据路径整理，**不改变17组或45组Session的固定视频分配、播放/答题流程、量尺、题库或已有进度**。旧电脑上的数据、视频、Python环境和已发离线包不删除。下列说明以当前GitHub源码为准；历史小包仍按包内说明使用。
@@ -35,6 +37,8 @@
 双击根目录`install_lab_env_uv.bat`。这是转发入口，实际调用`scripts/install_lab_env_uv.bat`和同目录PS1。
 
 安装器使用uv准备Python3.12和项目`.venv`，安装PsychoPy、BrainCo/LSL等依赖并检查环境；不要求Node.js，也不需要在系统PATH里手动配置Python。首次安装需要联网访问下载源。现有健康环境可以复用，不要每次采集都重新安装。
+
+支持NTFS与exFAT。uv在exFAT上可能无法创建Python小版本链接；安装器仅在确认完整Python已安装并通过独立检查后，使用其实际版本目录继续，不依赖junction。其他下载、权限或依赖错误仍会停止并保留日志。已经创建的`.venv`不能随意跨盘复制后直接使用。
 
 - 成功后应存在`.venv/Scripts/python.exe`。
 - 安装日志在`logs/install_*.log`；失败时保留日志，不要删除旧环境和旧数据后盲目重试。
@@ -129,6 +133,8 @@ visual-video-task/
 ### 普通视频：17组和融合版共同使用
 
 双击`download_materials.bat`，从[普通材料Release](https://github.com/18yiba/visual-video-task/releases/tag/materials-v1-20260910)下载并校验。母库84个视频ZIP分包，7996段、约44.2GB；固定正式清单使用其中7949段。不要只下载其中一个ZIP就开始正式实验。
+
+`materials_manifest.json`原样保留固定Release及其历史元数据哈希；`materials_source_metadata.json`单独校验当前发布源码，并绑定前者的完整文件哈希。当前下载器无需已退役的34组配置，但仍核验每个视频及ZIP的原始哈希。
 
 下载器默认把视频放在本项目`stimuli/videos`。也可复用项目旁`video_materials/formal_v1/videos`；保留原视频文件名，不改编号、不剪辑、不转码。
 

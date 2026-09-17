@@ -13,6 +13,18 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def validate_source_metadata():
+    """Validate current source files, separately from the immutable release metadata."""
+    folder = ROOT / 'video_eeg/config'
+    current = json.loads((folder / 'materials_source_metadata.json').read_text(encoding='utf-8'))
+    if sha256(folder / 'materials_manifest.json') != current['release_manifest_sha256']:
+        raise ValueError('Pinned materials release manifest checksum mismatch')
+    for name, expected in current['metadata'].items():
+        path = ROOT / 'video_eeg/config' / name
+        if not path.is_file() or sha256(path) != expected:
+            raise ValueError('Source configuration does not match pinned materials: ' + name)
+
+
 def sha256(path):
     with path.open('rb') as f:
         return hashlib.file_digest(f, 'sha256').hexdigest()
@@ -85,9 +97,7 @@ def main():
     parser.add_argument('--destination', type=Path, default=ROOT / 'stimuli', help='Parent of videos directory')
     args = parser.parse_args()
     manifest = json.loads((ROOT / 'video_eeg/config/materials_manifest.json').read_text(encoding='utf-8'))
-    for name, expected in manifest['metadata'].items():
-        if sha256(ROOT / 'video_eeg/config' / name) != expected:
-            raise ValueError('Source configuration does not match pinned materials: ' + name)
+    validate_source_metadata()
     destination = args.destination.resolve()
     rows_by_asset = {}
     missing = []
@@ -121,7 +131,7 @@ def main():
                 archive.unlink()
     print(f'Verified {manifest["video_count"]} videos in {destination / "videos"}.', flush=True)
     print('Question bank: 7993 questions; 5728.mp4, 6722.mp4, 6883.mp4 are not sampled.')
-    print('Formal: 7949 videos, 34 Sessions (~88.76 net minutes), 18 checks each. Demo: 10 videos, 3 checks.')
+    print('Ordinary corpus: 7949 formal videos. v1: 17 Sessions, 18 checks each; v2: 45 Sessions with emotion materials, 9 checks each.')
     return 0
 
 

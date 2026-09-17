@@ -26,6 +26,7 @@ def main():
             events=getattr(self.runner,'_event_times',{})
             if self.target and self.target in events:return []
             if '7' in keys:return ['7']
+            if '5' in keys:return ['5']
             if 'a' in keys:return ['1']
             if keys==['escape','f','j']:return ['f']
             return []
@@ -74,7 +75,9 @@ def main():
             results.append(dict(phase=target,result='PASS',path=str(path)))
             print(json.dumps(results[-1]),flush=True)
     finally:win.close()
-    (base.PROJECT_ROOT/'logs/eeg_disconnect_smoke.json').write_text(json.dumps(results,indent=2),encoding='utf-8')
+    report=base.PROJECT_ROOT/'logs/eeg_disconnect_smoke.json'
+    report.parent.mkdir(parents=True,exist_ok=True)
+    report.write_text(json.dumps(results,indent=2),encoding='utf-8')
     print('EEG DISCONNECT SMOKE PASS',flush=True)
     base.core.quit()
 

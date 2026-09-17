@@ -7,8 +7,8 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-FOLDERS = ('video_eeg', 'scripts', 'tests', 'docs', 'vendor')
-SUFFIXES = {'.py', '.ps1', '.bat', '.md', '.txt', '.toml', '.yaml', '.yml', '.json', '.csv', '.docx'}
+FOLDERS = ('video_eeg', 'scripts', 'tests', 'docs', 'vendor', 'packaging', '.github')
+SUFFIXES = {'.py', '.ps1', '.bat', '.md', '.txt', '.toml', '.yaml', '.yml', '.json', '.csv', '.docx', '.cs', '.iss', '.isl'}
 FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'setup.py', 'lab_uv_env.toml', 'uv.toml',
          'requirements-psychopy.txt', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md',
          'assets/brand/company_logo.png')
@@ -33,7 +33,10 @@ def source_files():
     result = []
     for folder in FOLDERS:
         for p in (ROOT / folder).rglob('*'):
-            if not p.is_file() or '__pycache__' in p.parts or p.is_symlink():
+            if not p.is_file() or p.is_symlink():
+                continue
+            parts=p.relative_to(ROOT).parts
+            if any(part in {'__pycache__','build','dist','.pytest_cache'} or part.endswith(('.egg-info','.dist-info')) for part in parts):
                 continue
             if p.relative_to(ROOT).as_posix() in excluded:
                 continue

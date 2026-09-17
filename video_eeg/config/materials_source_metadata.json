@@ -1,0 +1,11 @@
+{
+  "release_manifest_sha256": "2812f7287d7b5b1e90211eb5198bc29bbbfee9d32d343cbd47794cff7589a389",
+  "metadata": {
+    "complete_questions_20260908/question_bank.json": "6ed36faaccdb4b4d3982c1304ae1252967dd50e2543353c2707fc4231ed2466a",
+    "session_manifest.csv": "56dc9fa3bcfeb90c5e42fdccc114c633dc9284dba6e17295e4f95de7671679b9",
+    "video_question_labels.csv": "16b17cff2939c87b15d4d6a42466eceba540ae7995986327a30d6dbe114d8c3e",
+    "formal_excluded_over_60s.csv": "40376c2792a35c884887778e87d56ca914760950b46447d90001f8a2e1c99b57",
+    "complete_questions_20260908/coverage_audit.json": "d6d26b9b2aa54f25fc8c6a9068dddc4d3dcbb5786ba68daeeb69b64d3aa87fad"
+  },
+  "formal_manifest": "session_manifest.csv"
+}

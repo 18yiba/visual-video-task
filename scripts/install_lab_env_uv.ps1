@@ -1,5 +1,6 @@
 param([switch]$ForceRepair)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'python_runtime.ps1')
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Set-Location -LiteralPath $projectRoot
 $env:PYTHONUTF8 = '1'
@@ -53,10 +54,7 @@ try {
         $basePython = [IO.Path]::GetFullPath((Join-Path $projectRoot '..\runtime\python312\python.exe'))
         if (-not (Test-Path -LiteralPath $basePython)) {
             Write-Host 'Downloading project-local Python 3.12 (no system Python required)...'
-            Run-Checked $uvExe @('python', 'install', '--no-bin', '--no-registry', '3.12')
-            $found = & $uvExe python find --managed-python --system --no-project 3.12
-            if ($LASTEXITCODE -ne 0) { throw 'Cannot locate managed Python 3.12' }
-            $basePython = "$found".Trim()
+            $basePython = Install-ProjectPython $uvExe $env:UV_PYTHON_INSTALL_DIR
         }
         Run-Checked $basePython @('-c', 'import sys,ssl; assert sys.version_info[:2] == (3,12)')
         # Retain a copied or broken venv for rollback; recordings are never moved.
@@ -97,7 +95,7 @@ try {
 } catch {
     Write-Host "Installation failed: $($_.Exception.Message)" -ForegroundColor Red
     Write-Host "Log: $log"
-    Write-Host 'Check your network and rerun this installer. Existing recordings are preserved.'
+    Write-Host 'Review the specific network, filesystem or dependency error above and rerun. Existing recordings are preserved.'
     Stop-Transcript | Out-Null
     exit 1
 }

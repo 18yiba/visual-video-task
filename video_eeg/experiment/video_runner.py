@@ -2094,7 +2094,9 @@ class VideoRunner:
         return movie
 
     def _write_trial_log(self) -> None:
-        manager = self._require_manager()
+        manager = self.manager
+        if manager is None:
+            return
         output_dir = getattr(self, "progress_dir", None) or manager.session_dir
         if output_dir is None:
             return
@@ -2114,7 +2116,9 @@ class VideoRunner:
         temp_path.replace(path)
 
     def _write_attention_log(self) -> None:
-        manager = self._require_manager()
+        manager = self.manager
+        if manager is None:
+            return
         output_dir = getattr(self, "progress_dir", None) or manager.session_dir
         state = getattr(self, "state", None)
         rows = list(state.attention_attempts) if state is not None else [asdict(record) for record in self.attention_records]
@@ -2174,12 +2178,17 @@ class VideoRunner:
     def _stop_and_export(self) -> Path | None:
         if self.manager is None:
             return None
-        self._write_trial_log()
-        self._write_attention_log()
-        self._write_rest_log()
-        self._checkpoint(self.termination_reason)
+        export_errors = []
+        for write in (self._write_trial_log, self._write_attention_log, self._write_rest_log,
+                      lambda: self._checkpoint(self.termination_reason)):
+            try:
+                write()
+            except Exception as exc:
+                export_errors.append(repr(exc))
+                self._run_traceback = (getattr(self, '_run_traceback', '') or '') + traceback.format_exc()
         return self.manager.stop_and_export(
             metadata={
+                "behavior_export_errors": export_errors,
                 "completed": self.completed,
                 "termination_reason": self.termination_reason,
                 "completed_video_trials": len(self.state.completed_video_ids) if self.state is not None else len(self.trial_records),
