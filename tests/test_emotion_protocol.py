@@ -81,7 +81,9 @@ def test_partial_rating_state_survives_and_video_is_not_committed(tmp_path,phase
 def test_export_failure_still_stops_and_exports_eeg():
     runner = object.__new__(EmotionVideoRunner)
     runner.manager=Mock()
-    runner.state=SimpleNamespace(session_completed=False,completed_video_ids=[],completed_net_video_duration_sec=8)
+    runner.state=SimpleNamespace(session_completed=False,completed_video_ids=[],completed_net_video_duration_sec=8,
+        material_exclusion_revision="",excluded_video_ids=[],material_exclusion_history=[],
+        active_video_ids=[],active_completed_video_ids=[])
     runner.completed=False; runner.termination_reason='esc_emergency'; runner.progress_dir=Path('test')
     runner.protocol=SimpleNamespace(attention_enabled=False,attention_tasks_per_session=0)
     runner._write_trial_log=Mock(side_effect=PermissionError('locked'))

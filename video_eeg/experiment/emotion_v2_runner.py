@@ -119,8 +119,15 @@ class EmotionV2Runner(EmotionVideoRunner):
 
     def _initialize_new_state(self):
         super()._initialize_new_state()
+        excluded = set(self.config.get("excluded_video_ids", []))
+        self.state.queue_video_ids = [v for v in self.state.queue_video_ids if v not in excluded]
         self.state.attention_schedule=alarm_schedule(self.library.rows,self.state.queue_video_ids,self.questions,
             self.protocol.attention_tasks_per_session,self.interval_sec,self.state.random_seed+7919)
+
+    def _apply_material_exclusions(self):
+        from video_eeg.utils.material_exclusions import apply_to_state
+        apply_to_state(self.state, self.config.get("excluded_video_ids", []),
+                       self.library.rows, self.questions, self.state_path)
 
     def _fatigue_options(self):
         return SEVEN_POINT_FATIGUE_OPTIONS if self.fatigue_scale_max==7 else FATIGUE_OPTIONS

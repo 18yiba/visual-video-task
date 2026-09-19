@@ -906,7 +906,9 @@ def main(argv: list[str] | None = None) -> int:
             return 1
     config["playlist_seed"] = playlist_seed
     config["playlist_version"] = "fixed-session-manifest" if not args.demo else "demo-random-playlist"
-    missing = [asset.rel_path for asset in playlist if not library.is_available(asset)]
+    excluded_ids = set(config.get("excluded_video_ids", []))
+    active_playlist = [asset for asset in playlist if asset.asset_id not in excluded_ids]
+    missing = [asset.rel_path for asset in active_playlist if not library.is_available(asset)]
     if missing:
         raise RuntimeError(
             f"Session {config['session_id']:02d}: missing videos={len(missing)}; "
@@ -916,7 +918,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.demo:
         from video_eeg.utils.video_eof import check_known_bad_materials
-        check_known_bad_materials(library.resolve(asset) for asset in playlist)
+        check_known_bad_materials(library.resolve(asset) for asset in active_playlist)
 
     window_kwargs: dict[str, Any] = {
         "fullscr": startup["fullscreen"],
@@ -1081,8 +1083,9 @@ class VideoRunner:
             self.state.question_bank_sha256 = getattr(self, 'question_bank_sha256', '')
             if hasattr(self, '_initialize_new_state'):
                 self._initialize_new_state()
-            save_state_atomic(self.state_path, self.state)
         if self.state is not None:
+            if hasattr(self, "_apply_material_exclusions"):
+                self._apply_material_exclusions()
             self.state.manifest_hash = expected_manifest_hash
             save_state_atomic(self.state_path, self.state)
         self.attention_schedule = self.state.attention_schedule
@@ -2177,12 +2180,16 @@ class VideoRunner:
         state = getattr(self, "state", None)
         if state is None or self.progress_dir is None:
             return
-        assigned_sec = sum(float(asset.duration_sec or 0.0) for asset in self.playlist)
+        assigned_sec = sum(float(self._asset_by_id[v].duration_sec or 0.0) for v in state.active_video_ids)
         summary = {
             "subject_id": state.subject_id,
             "session_id": state.session_id,
-            "assigned_video_count": len(state.video_ids),
-            "completed_video_count": len(state.completed_video_ids),
+            "assigned_video_count": len(state.active_video_ids),
+            "completed_video_count": len(state.active_completed_video_ids),
+            "historical_completed_video_count": len(state.completed_video_ids),
+            "excluded_video_ids": state.excluded_video_ids,
+            "material_exclusion_revision": state.material_exclusion_revision,
+            "material_exclusion_history": state.material_exclusion_history,
             "assigned_total_duration_sec": assigned_sec,
             "completed_total_duration_sec": state.completed_net_video_duration_sec,
             "progress_percent": duration_progress(state.completed_net_video_duration_sec, assigned_sec),

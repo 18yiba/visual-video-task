@@ -4,7 +4,7 @@
 
 本仓库提供Windows实验室电脑使用的PsychoPy视频EEG程序。
 
-**实验室安装版：[下载 Windows EXE 1.0.2](https://github.com/18yiba/visual-video-task/releases/download/desktop-v1.0.2/VisualVideoTask-Setup-Windows-x64.exe)** · [发布说明与 SHA256](https://github.com/18yiba/visual-video-task/releases/tag/desktop-v1.0.2)
+**实验室安装版：[下载 Windows EXE 1.0.3](https://github.com/18yiba/visual-video-task/releases/download/desktop-v1.0.3/VisualVideoTask-Setup-Windows-x64.exe)** · [发布说明与 SHA256](https://github.com/18yiba/visual-video-task/releases/tag/desktop-v1.0.3)
 
 适用于 Windows 10/11 x64，自带 Python 和依赖。下载安装包可联网，日常采集离线；视频通过移动硬盘复制到实验室本机。正式采集仍需设备及对应驱动；离线不意味着关闭 EEG 设备必需的局域网。
 
@@ -26,6 +26,12 @@
 
 ## 实验室安装版：安装、迁移和拔盘
 
+### 已安装1.0.1/1.0.2：最小更新到1.0.3
+
+**保存退出 → 确认被试数据已有备份 → 将新版EXE复制到本机并安装 → 原入口、v2、原编号、原Session续跑。**不用卸载、重装Python、重新迁移或重拷视频库。先由主试用独立测试编号检查真实设备、评分与保存位置；采集中不要安装。
+
+1.0.3从v2正式播放中删除Session20的6076.mp4、Session24的2693.mp4、Session33的6241.mp4，其余视频原Session不变。当前需要播放11,084条（普通7,946、情绪3,138）；母库原文件仍可保留，无需主试手动删MP4。已有状态首次应用排除前自动备份；已完成记录和答案保留。完整步骤、内容题兼容、旧数据分析注意事项见[三条视频移除与最小升级](docs/operations/V2_MATERIAL_REMOVALS.md)。
+
 ### 现有实验室电脑从 1.0.0 更新
 
 1. **先正常结束并保存正在进行的采集。**备份整个被试目录，包括 EEG、session_state、题库快照和行为日志；不要在采集中安装或整理文件。
@@ -41,8 +47,8 @@
 
 | 内容 | 实验室本机位置 |
 |---|---|
-| 普通视频母库 | C:/Users/EDY/Desktop/video/video_materials/formal_v1/videos |
-| 情绪视频 | C:/Users/EDY/Desktop/video/video_materials/formal_v1/emotion_video/selected |
+| 本实验室材料根 | C:/Users/EDY/Desktop/video/video/_materials（沿用启动设置中已绑定的普通/情绪叶目录） |
+| 另一种历史布局示例 | Desktop/video/video_materials/formal_v1；现有电脑无需迁移到此处 |
 | 全部新记录根目录 | C:/Users/EDY/Desktop/video/data/sourcedata |
 | 新被试 | 上述根目录下的 v1 或 v2 |
 | 迁移进来的旧被试 | 上述根目录下的 imported/迁移编号/root_XX，保持原被试结构并在该副本续跑 |
@@ -119,7 +125,7 @@
 | visual-video-task v1：17个Session，视频EEG | 原17组实验继续采集；仍可部署到新电脑 | 17 | 每组18道，原完整版题库 | 无情绪、喜好和疲劳页 |
 | visual-video-task v2：45个Session，视频EEG＋情绪评分 | 当前融合协议 | 45 | 每组9道，约10分钟净视频一道 | 普通视频喜好；抽查后疲劳；情绪效价/唤醒1–7 |
 
-v1净视频平均约177.5分钟，v2约90.13–90.23分钟；都是净视频时间，答题、休息和重播另计，没有到90分钟自动截断。固定成员不能为了整理文件而重新生成。
+v1净视频平均约177.5分钟，v2约89.60–90.23分钟；都是净视频时间，答题、休息和重播另计，没有到90分钟自动截断。固定成员不能为了整理文件而重新生成。
 
 两个版本的完整说明：[visual-video-task v1](docs/versions/v1.md) · [visual-video-task v2](docs/versions/v2.md)。
 
@@ -177,7 +183,7 @@ visual-video-task/
 
 ### 普通视频：17组和融合版共同使用
 
-双击`download_materials.bat`，从[普通材料Release](https://github.com/18yiba/visual-video-task/releases/tag/materials-v1-20260910)下载并校验。母库84个视频ZIP分包，7996段、约44.2GB；固定正式清单使用其中7949段。不要只下载其中一个ZIP就开始正式实验。
+双击`download_materials.bat`，从[普通材料Release](https://github.com/18yiba/visual-video-task/releases/tag/materials-v1-20260910)下载并校验。母库84个视频ZIP分包，7996段、约44.2GB；v1历史固定清单使用其中7949段；当前v2排除3条不完整片，使用7946段。不要只下载其中一个ZIP就开始正式实验。
 
 `materials_manifest.json`原样保留固定Release及其历史元数据哈希；`materials_source_metadata.json`单独校验当前发布源码，并绑定前者的完整文件哈希。当前下载器无需已退役的34组配置，但仍核验每个视频及ZIP的原始哈希。
 
@@ -225,7 +231,7 @@ D:/Experiments/
 .\.venv\Scripts\python.exe scripts/audit_emotion_materials.py
 ```
 
-应验证全部11087段固定材料可访问，ffprobe可读，情绪文件SHA256匹配。审核结果在`logs/emotion_material_audit.json`。仅“有3138个文件”不是通过标准。复制后要从本机可持续访问的位置读取；若路径仍指向移动硬盘，实验过程中不能拔盘。
+当前v2应验证全部11084段有效材料可访问（历史固定清单减去已授权排除的3段），ffprobe可读，情绪文件SHA256匹配。审核结果在`logs/emotion_material_audit.json`。仅“有3138个文件”不是通过标准。复制后要从本机可持续访问的位置读取；若路径仍指向移动硬盘，实验过程中不能拔盘。
 
 ## 统一数据路径及旧被试续跑
 
@@ -539,7 +545,7 @@ demo_mode: false
 
 ## 实验室硬盘更新
 
-本次推荐使用上方 Windows EXE 1.0.2；安装和首次迁移结束后，日常采集无需连接交付硬盘。已有 v1 继续选择 v1，不因安装总范式而改成 v2；只有研究安排明确需要 v2 时才用新协议和相应被试记录。
+本次推荐使用上方 Windows EXE 1.0.3；安装和首次迁移结束后，日常采集无需连接交付硬盘。已有 v1 继续选择 v1，不因安装总范式而改成 v2；只有研究安排明确需要 v2 时才用新协议和相应被试记录。
 
 已发出的旧离线包及断流补丁仍按包内入口和配置工作，没有被新版自动改写。继续使用这些历史入口时，应保留原环境、固定清单、题库和完整记录；不要为了统一文件名删除旧 BAT。原补丁及回退机制见[数据与 EEG 恢复](docs/operations/EEG_AND_RECOVERY.md)，历史源码包的部署见[硬盘部署说明](docs/operations/OFFLINE_UPDATE.md)。这些不是安装 EXE 的额外步骤。
 
@@ -547,9 +553,9 @@ demo_mode: false
 
 | 你看到的情况 | 现在按什么顺序做 | 什么时候可以继续 |
 |---|---|---|
-| **视频看完后报“视频未能完整解码”**，尤其Session3的neutral_neutral_0833_00000235.mp4 | ①按空格退出，等“数据已保存”后关闭。②备份整个被试目录。③把**1.0.2安装包复制到电脑本机**后更新，不用卸载/重迁移。④原编号、v2、原Session续跑。具体已修文件见[片尾清单](docs/operations/VIDEO_EOF_AUDIT.md) | 主试先独立测试能正常到评分页，再恢复被试采集；不要反复用被试排查 |
-| **提示“材料已知不完整”** | ①暂停提示涉及的Session。②保留视频、原进度和日志。③找同一视频的完整原始文件交维护人员核验；参见[不完整原片清单](docs/operations/VIDEO_EOF_AUDIT.md) | **仅更新程序不能补回缺失内容**；完整原片及材料版本核验后再恢复。重下同一旧材料包无效 |
-| 更新1.0.2后，**其他文件仍报解码错误** | ①保存退出，记下视频文件名、Session和程序版本。②保留本次时间戳目录中的crash_report.txt及Session目录的trial_log.csv。③按下文核对SHA256并提交日志 | 查清具体文件与解码结果后继续；不要删除片段、转码截短或改完成标记 |
+| **视频看完后报“视频未能完整解码”**，尤其Session3的neutral_neutral_0833_00000235.mp4 | ①按空格退出，等“数据已保存”后关闭。②备份整个被试目录。③把**1.0.3安装包复制到电脑本机**后更新，不用卸载/重迁移。④原编号、v2、原Session续跑。具体已修文件见[片尾清单](docs/operations/VIDEO_EOF_AUDIT.md) | 主试先独立测试能正常到评分页，再恢复被试采集；不要反复用被试排查 |
+| **Session20/24/33提示材料已知不完整**，文件分别为6076/2693/6241.mp4 | ①保存退出并确认备份。②关闭程序后安装1.0.3。③原编号、v2、原Session续跑。新版自动排除三条；不用手删MP4或进度，不用重下旧材料包 | 主试独立验证后恢复；若1.0.3仍提示这三条，核对EXE版本并保留日志 |
+| 更新1.0.3后，**其他文件仍报解码错误** | ①保存退出，记下视频文件名、Session和程序版本。②保留本次时间戳目录中的crash_report.txt及Session目录的trial_log.csv。③按下文核对SHA256并提交日志 | 查清具体文件与解码结果后继续；不要删除片段、转码截短或改完成标记 |
 | **找不到普通/情绪视频** | ①看启动页显示的实际材料路径。②确认文件在电脑本机，移动硬盘拔掉后仍存在。③从“视频EEG设置”核对材料目录；不要只检查文件夹名称。默认材料结构见[安装说明](docs/operations/WINDOWS_EXE.md) | 路径正确、全部所需文件存在并通过校验后 |
 | **SHA256不一致** | ①确认核对的是同一个文件和同一发布版本。②视频比材料清单，安装包比Release的SHA256SUMS.txt。③保留异常副本，再取得正确文件核验 | 完整Hash相同后；哈希相同仍不等于播放或EEG验收通过 |
 | **内容题、manifest或协议哈希不一致** | ①确认仍选择原v1/v2及原被试编号。②保留session_state.json和题库快照。③提交完整提示核对版本 | 恢复原协议/正确版本后；不要删除state来绕过 |
@@ -566,7 +572,7 @@ demo_mode: false
 
 本实验室现用材料根（用户2026-09-19确认）：`C:/Users/EDY/Desktop/video/video/_materials`。升级保留现有材料绑定，不要求搬到`video_materials`示例路径。路径与文件内容校验是两回事。
 
-本次全库结果：对正式v2的11,087条视频逐条顺序解码至EOF，发现26条已独立核验的1–2帧片尾差异（情绪13、普通13），以及3条明确不完整的普通视频。其余11,058条声明帧数与本次解码计数相同。 **需要完整原片的v2 Session：20（6076.mp4）、24（2693.mp4）、33（6241.mp4）。** 详见[全库解码核查及处理清单](docs/operations/VIDEO_EOF_AUDIT.md)。
+本次全库结果：对正式v2的11,087条视频逐条顺序解码至EOF，发现26条已独立核验的1–2帧片尾差异（情绪13、普通13），以及3条明确不完整的普通视频。其余11,058条声明帧数与本次解码计数相同。 **1.0.3已按授权从v2排除20（6076.mp4）、24（2693.mp4）、33（6241.mp4），无需等待完整原片才能进行这三组。** 详见[全库解码核查及处理清单](docs/operations/VIDEO_EOF_AUDIT.md)。
 
 ### SHA256是什么意思？本次片尾错误怎么处理？
 

@@ -15,3 +15,5 @@
 - Fatigue wording: 当前您的疲劳程度是？; endpoints 1 几乎不疲劳 and 5 非常疲劳，完全无法继续观看. Five option texts and scale revision are saved. Existing binary or seven-point fatigue Sessions retain their original contract until completion; new Sessions use five points. Never convert old answers.
 
 - Windows EXE 1.0.1 uses verified local config snapshots and data copies under Desktop/video/data/sourcedata; original records remain untouched. Desktop migration may resume these copied states locally, preserving protocol hashes. Never infer that unused legacy code, environments, metadata, or unknown files are disposable.
+
+- 2026-09-19 explicit authorization: v2 excludes original:vid_6076 (20), original:vid_2693 (24), original:vid_6241 (33). Preserve immutable base manifest/hash and v1/shared media; effective manifest has 11,084 rows. Backup state before exclusion, preserve attempts/completions/answers and audit necessary unanswered-question rebindings. Completed Sessions remain historical. This is the specific exception to membership preservation above.

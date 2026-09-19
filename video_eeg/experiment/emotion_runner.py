@@ -248,13 +248,13 @@ class EmotionVideoRunner(base.VideoRunner):
         self._write_csv('rest_log.csv', self.state.rest_events)
 
     def _session_progress(self):
-        assigned = sum(float(a.duration_sec or 0) for a in self.playlist)
-        completed = sum(float(self._asset_by_id[k].duration_sec or 0) for k in self.state.completed_video_ids)
+        assigned = sum(float(self._asset_by_id[k].duration_sec or 0) for k in self.state.active_video_ids)
+        completed = sum(float(self._asset_by_id[k].duration_sec or 0) for k in self.state.active_completed_video_ids)
         return 100*completed/assigned if assigned else 0.
 
     def _session_exit_text(self):
         return (f'本 Session 已完成 {self._session_progress():.1f}%。\n\n'
-                f'已完成视频：{len(self.state.completed_video_ids)}/{len(self.state.video_ids)}\n'
+                f'已完成视频：{len(self.state.active_completed_video_ids)}/{len(self.state.active_video_ids)}\n'
                 f'累计实际观看：{self.state.completed_net_video_duration_sec/60:.1f} 分钟（含重播部分）\n\n'
                 '数据已保存。未完成的视频将在续跑时重播。')
 
@@ -270,6 +270,11 @@ class EmotionVideoRunner(base.VideoRunner):
         return self.manager.stop_and_export(metadata=dict(protocol_version=self.protocol_version,
             completed=self.completed, termination_reason=self.termination_reason,
             session_completed=self.state.session_completed, completed_video_trials=len(self.state.completed_video_ids),
+            material_exclusion_revision=self.state.material_exclusion_revision,
+            excluded_video_ids=self.state.excluded_video_ids,
+            material_exclusion_history=self.state.material_exclusion_history,
+            active_assigned_video_trials=len(self.state.active_video_ids),
+            active_completed_video_trials=len(self.state.active_completed_video_ids),
             rating_stage_present=True, attention_enabled=self.protocol.attention_enabled, attention_tasks_per_session=self.protocol.attention_tasks_per_session,
             emotion_rating_log=str(self.progress_dir/'emotion_rating_log.csv'),
             actual_net_video_duration_sec=self.state.completed_net_video_duration_sec,

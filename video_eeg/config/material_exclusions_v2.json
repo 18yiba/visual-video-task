@@ -1,0 +1,57 @@
+{
+  "revision": "v2-remove-three-incomplete-20260919",
+  "base_manifest_sha256": "cf59e1d8550d6945d61a68b55a8c9a52479ee0dfa3f3d3295d653ba0af476a23",
+  "active_manifest_sha256": "a9deaf36e445c15f1b1b66edd168b9266846c0a6bd4f6cf4da3c0bf6bfb3a33a",
+  "base_count": 11087,
+  "active_count": 11084,
+  "excluded": [
+    {
+      "protocol_version": "emotion-v1",
+      "random_seed": "20260912",
+      "session_id": "20",
+      "video_id": "original:vid_6076",
+      "video_path": "original/6076.mp4",
+      "video_duration_sec": "30.4",
+      "trial_type": "ordinary",
+      "original_label": "",
+      "three_class_label": "",
+      "sha256": "",
+      "duration_bucket": "long",
+      "original_id": "vid_6076",
+      "replacement_reason": "",
+      "has_audio": ""
+    },
+    {
+      "protocol_version": "emotion-v1",
+      "random_seed": "20260912",
+      "session_id": "24",
+      "video_id": "original:vid_2693",
+      "video_path": "original/2693.mp4",
+      "video_duration_sec": "15.033333",
+      "trial_type": "ordinary",
+      "original_label": "",
+      "three_class_label": "",
+      "sha256": "",
+      "duration_bucket": "short",
+      "original_id": "vid_2693",
+      "replacement_reason": "",
+      "has_audio": ""
+    },
+    {
+      "protocol_version": "emotion-v1",
+      "random_seed": "20260912",
+      "session_id": "33",
+      "video_id": "original:vid_6241",
+      "video_path": "original/6241.mp4",
+      "video_duration_sec": "32.320998",
+      "trial_type": "ordinary",
+      "original_label": "",
+      "three_class_label": "",
+      "sha256": "",
+      "duration_bucket": "long",
+      "original_id": "vid_6241",
+      "replacement_reason": "",
+      "has_audio": ""
+    }
+  ]
+}

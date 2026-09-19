@@ -63,7 +63,10 @@ def verify_materials(settings,protocol):
         if not directory:return False
         ordinary=Path(discover_materials(settings['lab_root'],ROOT,directory)['ordinary_root'])
     manifest=json.loads((ROOT/'video_eeg/config/materials_manifest.json').read_text(encoding='utf-8'))
-    rows=[(ordinary/Path(r['path']).name,r['sha256'],r['bytes']) for r in manifest['files']]
+    from video_eeg.utils.material_exclusions import excluded_filenames
+    excluded = excluded_filenames(protocol)
+    rows=[(ordinary/Path(r['path']).name,r['sha256'],r['bytes']) for r in manifest['files']
+          if Path(r['path']).name not in excluded]
     if protocol=='v2':
         emotion=Path(settings.get('emotion_root',''))
         if not settings.get('emotion_root') or not (emotion/'selected').is_dir():

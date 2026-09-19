@@ -114,6 +114,10 @@ def prepare(config, demo=False):
             raise RuntimeError('No assigned videos for this emotion Session')
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         config['session_manifest_path'] = str(path)
+        from video_eeg.utils.material_exclusions import exclusion_ids, REVISION
+        config['excluded_video_ids'] = exclusion_ids(config, rows, digest)
+        if config['excluded_video_ids']:
+            config['material_exclusion_revision'] = REVISION
     config['session_manifest_hash'] = digest
     library = EmotionLibrary(rows, roots)
     playlist = [VideoAsset(r['video_id'], r['video_path'], float(r['video_duration_sec']), r['trial_type'], 'valid') for r in rows]

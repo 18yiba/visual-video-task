@@ -23,6 +23,10 @@ def main():
     library,_=prepare(config,False)
     with (base.PROJECT_ROOT/config['protocol']['session_manifest']).open(encoding='utf-8-sig',newline='') as f:
         rows=list(csv.DictReader(f))
+    from video_eeg.utils.material_exclusions import exclusion_ids, REVISION
+    digest=hashlib.sha256((base.PROJECT_ROOT/config["protocol"]["session_manifest"]).read_bytes()).hexdigest()
+    excluded=exclusion_ids(config,rows,digest)
+    rows=[r for r in rows if r["video_id"] not in excluded]
     probe=args.ffprobe
     if not probe:
         candidates=[Path(sys.prefix)/'share/ffpyplayer/ffmpeg/bin/ffprobe.exe']
@@ -50,6 +54,7 @@ def main():
     with ThreadPoolExecutor(max_workers=8) as pool:
         failures=[r for r in pool.map(verify,rows) if r]
     report=dict(mode='files-only' if args.files_only else 'ffprobe-and-emotion-sha256',
+                excluded_video_ids=excluded,material_exclusion_revision=REVISION,
                 total=len(rows),passed=len(rows)-len(failures),failures=failures,
                 ordinary_root=str(library.roots['original']),emotion_selected_root=str(library.roots['emotion']))
     folder=base.PROJECT_ROOT/'logs'

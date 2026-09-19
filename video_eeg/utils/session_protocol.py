@@ -27,6 +27,7 @@ PARTITION_ALGORITHM_VERSION = "duration-bucket-round-robin-v1"
 SPLIT_PARTITION_ALGORITHM_VERSION = "legacy-session-halves-duration-bucket-v1"
 FORMAL_MAX_VIDEO_DURATION_SEC = 60.0
 SESSION_STATE_VERSION = 1
+EXCLUSION_STATE_VERSION = 2
 SESSION_COUNT = 17
 DEFAULT_DURATION_BUCKET_NAMES = ("very_short", "short", "medium", "long", "very_long")
 
@@ -555,6 +556,9 @@ class SessionState:
     question_bank_sha256: str = ""
     question_bank_sha256: str = ""
     completed_video_ids: list[str] = field(default_factory=list)
+    excluded_video_ids: list[str] = field(default_factory=list)
+    material_exclusion_revision: str = ""
+    material_exclusion_history: list[dict[str, Any]] = field(default_factory=list)
     current_video_id: str | None = None
     random_seed: int = 17
     queue_seed: int = 17
@@ -574,9 +578,17 @@ class SessionState:
     updated_at: float = 0.0
 
     @property
+    def active_video_ids(self) -> list[str]:
+        return [v for v in self.video_ids if v not in self.excluded_video_ids]
+
+    @property
+    def active_completed_video_ids(self) -> list[str]:
+        return [v for v in self.completed_video_ids if v not in self.excluded_video_ids]
+
+    @property
     def remaining_video_ids(self) -> list[str]:
         completed = set(self.completed_video_ids)
-        return [video_id for video_id in self.video_ids if video_id not in completed]
+        return [video_id for video_id in self.active_video_ids if video_id not in completed]
 
     @property
     def completed_attention_count(self) -> int:
@@ -612,7 +624,8 @@ class SessionState:
         self.current_video_id = video_id
 
     def to_mapping(self) -> dict[str, Any]:
-        payload = {"state_version": SESSION_STATE_VERSION}
+        # Old runners must reject revised queues instead of restoring removed clips.
+        payload = {"state_version": EXCLUSION_STATE_VERSION if self.excluded_video_ids else SESSION_STATE_VERSION}
         payload.update({name: getattr(self, name) for name in self.__dataclass_fields__})
         payload["remaining_video_ids"] = self.remaining_video_ids
         payload["completed_attention_count"] = self.completed_attention_count
@@ -669,8 +682,11 @@ class SessionState:
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any]) -> "SessionState":
-        if int(payload.get("state_version", 0)) not in {0, SESSION_STATE_VERSION}:
+        if int(payload.get("state_version", 0)) not in {0, SESSION_STATE_VERSION, EXCLUSION_STATE_VERSION}:
             raise ValueError(f"Unsupported session state version: {payload.get('state_version')}")
+        if int(payload.get("state_version", 0)) == EXCLUSION_STATE_VERSION:
+            if not payload.get("excluded_video_ids") or not payload.get("material_exclusion_revision"):
+                raise ValueError("Revised Session state is missing its material exclusion record")
         fields = {name for name in cls.__dataclass_fields__}
         values = {name: payload[name] for name in fields if name in payload}
         state = cls(**values)
@@ -681,7 +697,9 @@ class SessionState:
         known = set(state.video_ids)
         if not set(state.completed_video_ids).issubset(known) or not set(state.queue_video_ids).issubset(known):
             raise ValueError("Session state contains a video not present in its manifest")
-        missing = [item for item in state.video_ids if item not in state.completed_video_ids and item not in state.queue_video_ids]
+        if not set(state.excluded_video_ids).issubset(known):
+            raise ValueError("Excluded video does not belong to the fixed manifest")
+        missing = [item for item in state.active_video_ids if item not in state.completed_video_ids and item not in state.queue_video_ids]
         state.queue_video_ids.extend(missing)
         return state
 

@@ -1,3 +1,7 @@
+# 当前推荐Windows 1.0.3
+
+已有1.0.1/1.0.2直接覆盖安装，沿用本机设置与数据。请先读[最小升级、续跑处理及旧数据说明](V2_MATERIAL_REMOVALS.md)。**下方1.0.2拦截三条坏片是历史行为；1.0.3的v2已正式排除它们。**
+
 # Windows 1.0.2：本机路径、原数据迁移与移动硬盘断开
 
 下载Release中的VisualVideoTask-Setup-Windows-x64.exe，复制到实验室本机后双击安装。支持Windows 10/11 x64，自带Python和依赖。默认安装到当前用户的 %LOCALAPPDATA%/Programs/VisualVideoTask，不再继承旧安装器可能设置的移动硬盘安装位置。采集不需要互联网；设备所需局域网连接仍须保留。
