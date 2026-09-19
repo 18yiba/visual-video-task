@@ -1,4 +1,4 @@
-﻿"""Standalone PsychoPy video-EEG experiment.
+"""Standalone PsychoPy video-EEG experiment.
 
 This entry point is intentionally independent from the Image_B experiment and
 does not import or launch any Streamlit UI.
@@ -241,6 +241,7 @@ class TrialRecord:
     eeg_relative_onset_sec: float = 0.0
     eeg_relative_offset_sec: float = 0.0
     eeg_part: int = 1
+    decoder_eof_compatibility: str = ""
 
 
 @dataclass(slots=True)
@@ -290,6 +291,12 @@ class OpenCVVideoPlayer:
             self._fps = 30.0
         self._frame_interval = 1.0 / self._fps
         self._frame_count = int(self._cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        from video_eeg.utils.video_eof import verified_terminal_frame_count
+        self._verified_terminal_count = verified_terminal_frame_count(
+            filename, self._frame_count, self._fps
+        )
+        self._terminal_eof_confirmed = False
+        self._eof_compatibility_note = ""
         self._current_index = -1
         self._start_time = 0.0
         self._next_frame_time = 0.0
@@ -418,6 +425,8 @@ class OpenCVVideoPlayer:
 
     def play(self) -> None:
         self._finished = False
+        self._terminal_eof_confirmed = False
+        self._eof_compatibility_note = ""
         self._ended_prematurely = False
         self._start_time = 0.0
         self._next_frame_time = float("inf")
@@ -468,22 +477,34 @@ class OpenCVVideoPlayer:
             self._finished = True
             self._stop_audio()
             return
-        if target_index > self._current_index:
+        if target_index > self._current_index and not self._terminal_eof_confirmed:
             frames_to_advance = target_index - self._current_index
             frames_to_advance = min(frames_to_advance, 3)
             frame = None
+            last_decoded_frame = None
             ok = False
             for _ in range(frames_to_advance):
                 ok, frame = self._cap.read()
                 if not ok or frame is None:
                     break
                 self._current_index += 1
+                last_decoded_frame = frame
             if not ok or frame is None:
-                self._finished = True
-                self._ended_prematurely = True
-                self._stop_audio()
-                return
-            self._set_frame(frame)
+                if (self._verified_terminal_count is not None
+                        and self._current_index + 1 == self._verified_terminal_count):
+                    from video_eeg.utils.video_eof import AUDITED_EOF_NOTE
+                    self._terminal_eof_confirmed = True
+                    self._eof_compatibility_note = AUDITED_EOF_NOTE
+                    # Keep the last decoded frame and audio until the unchanged
+                    # container-based deadline above (700 / 18.165 seconds).
+                    # Never grant this exception to changed bytes or earlier EOF.
+                else:
+                    self._finished = True
+                    self._ended_prematurely = True
+                    self._stop_audio()
+                    return
+            if last_decoded_frame is not None:
+                self._set_frame(last_decoded_frame)
         self._stim.size = self.size
         self._stim.draw()
 
@@ -892,6 +913,10 @@ def main(argv: list[str] | None = None) -> int:
             f"examples={missing[:10]}; manifest={config.get('session_manifest_path', 'Demo sample')}; "
             f"video root={library.root}. Restore the correct library; no videos were skipped."
         )
+
+    if not args.demo:
+        from video_eeg.utils.video_eof import check_known_bad_materials
+        check_known_bad_materials(library.resolve(asset) for asset in playlist)
 
     window_kwargs: dict[str, Any] = {
         "fullscr": startup["fullscreen"],
@@ -1699,6 +1724,7 @@ class VideoRunner:
                 eeg_relative_onset_sec=eeg_relative_onset_sec,
                 eeg_relative_offset_sec=eeg_relative_offset_sec,
                 eeg_part=int(getattr(manager, "eeg_part", 1)),
+                decoder_eof_compatibility=getattr(movie, "_eof_compatibility_note", ""),
             )
         self.trial_records.append(record)
         self._record_video_attempt(record, completed_naturally=completed_naturally, skipped=skipped)

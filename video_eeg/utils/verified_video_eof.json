@@ -1,0 +1,269 @@
+{
+  "audit_date": "2026-09-19",
+  "policy": "Only exact SHA256 + metadata + EOF at independently verified decoded count; hold final frame to unchanged nominal deadline.",
+  "profiles": {
+    "neutral_neutral_0833_00000235.mp4": {
+      "video_path": "emotion/neutral/neutral/neutral_neutral_0833_00000235.mp4",
+      "session_id": "3",
+      "sha256": "a62d3f51ff682332ad28a0b1844cc7a1393dba3bca8a4f9069eb4474238bbb31",
+      "declared_frames": 700,
+      "decoded_frames": 699,
+      "fps": 18.165,
+      "ffmpeg_frames": 699
+    },
+    "neutral_neutral_1338_00001764.mp4": {
+      "video_path": "emotion/neutral/neutral/neutral_neutral_1338_00001764.mp4",
+      "session_id": "5",
+      "sha256": "71d7eba724e685d4e3eedde464c2c1e7d17b5e47222e8cab970a6906500f60e3",
+      "declared_frames": 2208,
+      "decoded_frames": 2207,
+      "fps": 60.0,
+      "ffmpeg_frames": 2207
+    },
+    "neutral_neutral_1227_00001498.mp4": {
+      "video_path": "emotion/neutral/neutral/neutral_neutral_1227_00001498.mp4",
+      "session_id": "7",
+      "sha256": "810d223c2d31b0770c3302c4d4e6b19fcfd4fb21f5b620843b09487461c89201",
+      "declared_frames": 888,
+      "decoded_frames": 887,
+      "fps": 60.0,
+      "ffmpeg_frames": 887
+    },
+    "positive_relaxation_2103_00029228.mp4": {
+      "video_path": "emotion/positive/relaxation/positive_relaxation_2103_00029228.mp4",
+      "session_id": "7",
+      "sha256": "494ac1052c07c495dc261b046287ca80f0295858da6e51be584c7e5d4ba65b1d",
+      "declared_frames": 418,
+      "decoded_frames": 417,
+      "fps": 50.0,
+      "ffmpeg_frames": 417
+    },
+    "neutral_neutral_1006_00000957.mp4": {
+      "video_path": "emotion/neutral/neutral/neutral_neutral_1006_00000957.mp4",
+      "session_id": "22",
+      "sha256": "6b2e2d1d46d6f61a2f127108cd8263de670a0cde539a41e8d275132dc991f95c",
+      "declared_frames": 187,
+      "decoded_frames": 186,
+      "fps": 23.872340425531913,
+      "ffmpeg_frames": 186
+    },
+    "neutral_neutral_1039_00001038.mp4": {
+      "video_path": "emotion/neutral/neutral/neutral_neutral_1039_00001038.mp4",
+      "session_id": "27",
+      "sha256": "73d949e6ff2193fb87fedd52bf49452f3c370ee8ed9252e5ab051a5e60bea95a",
+      "declared_frames": 256,
+      "decoded_frames": 255,
+      "fps": 29.595375722543352,
+      "ffmpeg_frames": 255
+    },
+    "neutral_neutral_1332_00001738.mp4": {
+      "video_path": "emotion/neutral/neutral/neutral_neutral_1332_00001738.mp4",
+      "session_id": "31",
+      "sha256": "5133b7e3966f69d206860af428b7393e9bd2bfd5415ef77d2a8cd783ea65712e",
+      "declared_frames": 426,
+      "decoded_frames": 425,
+      "fps": 29.79020979020979,
+      "ffmpeg_frames": 425
+    },
+    "positive_excitation_0064_00000608.mp4": {
+      "video_path": "emotion/positive/excitation/positive_excitation_0064_00000608.mp4",
+      "session_id": "32",
+      "sha256": "f7f0771bc8699ce83a6e45480babdae8dcd1482cc25041896bc4f560712d1a12",
+      "declared_frames": 924,
+      "decoded_frames": 923,
+      "fps": 60.0,
+      "ffmpeg_frames": 923
+    },
+    "positive_excitation_0038_00000414.mp4": {
+      "video_path": "emotion/positive/excitation/positive_excitation_0038_00000414.mp4",
+      "session_id": "32",
+      "sha256": "5a05a37a532c4567784019f5012d9ce46bdbbad54eed654ca79993f021c53d84",
+      "declared_frames": 1031,
+      "decoded_frames": 1030,
+      "fps": 27.85231877532643,
+      "ffmpeg_frames": 1030
+    },
+    "neutral_neutral_0876_00000410.mp4": {
+      "video_path": "emotion/neutral/neutral/neutral_neutral_0876_00000410.mp4",
+      "session_id": "34",
+      "sha256": "28617becb80cc825a6d1f3ffefeb86e0c4d8ce5c1030c6cae57cf140be14e99c",
+      "declared_frames": 240,
+      "decoded_frames": 239,
+      "fps": 29.81366459627329,
+      "ffmpeg_frames": 239
+    },
+    "neutral_neutral_1314_00001697.mp4": {
+      "video_path": "emotion/neutral/neutral/neutral_neutral_1314_00001697.mp4",
+      "session_id": "38",
+      "sha256": "60fc130813b8e8f87585fe15050f018fb1beb0cebe758d31096a150f8d33657e",
+      "declared_frames": 792,
+      "decoded_frames": 791,
+      "fps": 60.0,
+      "ffmpeg_frames": 791
+    },
+    "positive_excitation_0212_00005914.mp4": {
+      "video_path": "emotion/positive/excitation/positive_excitation_0212_00005914.mp4",
+      "session_id": "38",
+      "sha256": "a3ad26cf98247ef743c29bead6926babfc17e997963c23ce50f59d53a07ce410",
+      "declared_frames": 1348,
+      "decoded_frames": 1347,
+      "fps": 25.102420856610802,
+      "ffmpeg_frames": 1347
+    },
+    "positive_excitation_0073_00000649.mp4": {
+      "video_path": "emotion/positive/excitation/positive_excitation_0073_00000649.mp4",
+      "session_id": "43",
+      "sha256": "a31882fc2f49be266212dccf3d898b46deabf90b961eb0bc041887d2298a431d",
+      "declared_frames": 580,
+      "decoded_frames": 579,
+      "fps": 50.0,
+      "ffmpeg_frames": 579
+    },
+    "1628.mp4": {
+      "video_path": "original/1628.mp4",
+      "session_id": "6",
+      "sha256": "f27248db2aab9bd768f66d3397048cea5fda76108b5a72f475113f7c4512ce9f",
+      "declared_frames": 284,
+      "decoded_frames": 283,
+      "fps": 22.1875,
+      "ffmpeg_frames": 283
+    },
+    "4539.mp4": {
+      "video_path": "original/4539.mp4",
+      "session_id": "6",
+      "sha256": "6be03cf2edde4846773f5640bc0b69d558d62bffa3be5a72fe9be0c5b20a48be",
+      "declared_frames": 940,
+      "decoded_frames": 939,
+      "fps": 50.0,
+      "ffmpeg_frames": 939
+    },
+    "5564.mp4": {
+      "video_path": "original/5564.mp4",
+      "session_id": "10",
+      "sha256": "293f06e6d77815dd55518c0827990f003004321ab45e02e2904bf7892645f612",
+      "declared_frames": 702,
+      "decoded_frames": 701,
+      "fps": 27.36842105263158,
+      "ffmpeg_frames": 701
+    },
+    "3305.mp4": {
+      "video_path": "original/3305.mp4",
+      "session_id": "11",
+      "sha256": "075b76f57caf0939039a9e7ff69fa98ebf2cfb93a7335b27f8a385f5f6fcbf00",
+      "declared_frames": 370,
+      "decoded_frames": 369,
+      "fps": 24.503311258278146,
+      "ffmpeg_frames": 369
+    },
+    "4686.mp4": {
+      "video_path": "original/4686.mp4",
+      "session_id": "12",
+      "sha256": "b16654154b498f985d222edd4b05a5e6889a11260f9566b6f81636dc83b82143",
+      "declared_frames": 557,
+      "decoded_frames": 556,
+      "fps": 28.564102564102566,
+      "ffmpeg_frames": 556
+    },
+    "4873.mp4": {
+      "video_path": "original/4873.mp4",
+      "session_id": "16",
+      "sha256": "68ed75466335d65f6eec90f24ebd427ef6e5aac850a60ec5bb57066ba27d56e4",
+      "declared_frames": 1227,
+      "decoded_frames": 1226,
+      "fps": 60.0,
+      "ffmpeg_frames": 1226
+    },
+    "1230.mp4": {
+      "video_path": "original/1230.mp4",
+      "session_id": "17",
+      "sha256": "44d4492a8cb72ebe64347191e1f55b6f7e738d0ac138607a1bfa85cbfa0b4408",
+      "declared_frames": 227,
+      "decoded_frames": 226,
+      "fps": 19.293706552706553,
+      "ffmpeg_frames": 226
+    },
+    "6793.mp4": {
+      "video_path": "original/6793.mp4",
+      "session_id": "17",
+      "sha256": "78fbd444080961d7115821930b4130251c06af428ae4e26b4c3ff1d64cdd269d",
+      "declared_frames": 803,
+      "decoded_frames": 802,
+      "fps": 20.625,
+      "ffmpeg_frames": 802
+    },
+    "5192.mp4": {
+      "video_path": "original/5192.mp4",
+      "session_id": "25",
+      "sha256": "af05235028d5c1f1b89bd2135fc123aeb5955d134e597ae01f41c34400261d49",
+      "declared_frames": 1368,
+      "decoded_frames": 1367,
+      "fps": 60.0,
+      "ffmpeg_frames": 1367
+    },
+    "1078.mp4": {
+      "video_path": "original/1078.mp4",
+      "session_id": "29",
+      "sha256": "0f4d33cddc9ecf5cd5fe9f42386d00ec965f25cbd29e12214737c70c437f0cde",
+      "declared_frames": 690,
+      "decoded_frames": 689,
+      "fps": 60.0,
+      "ffmpeg_frames": 689
+    },
+    "3407.mp4": {
+      "video_path": "original/3407.mp4",
+      "session_id": "29",
+      "sha256": "a2564684bacc99f63dd871d670ce05e9df35a8ff547d09f4e464932e79564f77",
+      "declared_frames": 191,
+      "decoded_frames": 190,
+      "fps": 12.905405405405405,
+      "ffmpeg_frames": 190
+    },
+    "1184.mp4": {
+      "video_path": "original/1184.mp4",
+      "session_id": "37",
+      "sha256": "0df12ed710d9a26f276b85544a705cb35d98e0c04cf8e3fc5c536aea00c81ab9",
+      "declared_frames": 351,
+      "decoded_frames": 350,
+      "fps": 30.085714285714285,
+      "ffmpeg_frames": 350
+    },
+    "3945.mp4": {
+      "video_path": "original/3945.mp4",
+      "session_id": "45",
+      "sha256": "3f1a1a48d148ecbae32d60fccc16fb052462257ca6824a9d5035981cee905d38",
+      "declared_frames": 388,
+      "decoded_frames": 386,
+      "fps": 24.30062630480167,
+      "ffmpeg_frames": 386
+    }
+  },
+  "blocked": {
+    "6076.mp4": {
+      "video_path": "original/6076.mp4",
+      "session_id": "20",
+      "sha256": "0d494ce3e81e22df74f5f295dd6daf77584ccd8a6731fdbc3204316bcaefd4fe",
+      "declared_frames": 912,
+      "decoded_frames": 183,
+      "fps": 30.0,
+      "ffmpeg_frames": 185
+    },
+    "2693.mp4": {
+      "video_path": "original/2693.mp4",
+      "session_id": "24",
+      "sha256": "180f39cf7d0217f814406b0e732b73c6b6c3d851605e68fab4f6b747d6c6314e",
+      "declared_frames": 451,
+      "decoded_frames": 345,
+      "fps": 30.0,
+      "ffmpeg_frames": 347
+    },
+    "6241.mp4": {
+      "video_path": "original/6241.mp4",
+      "session_id": "33",
+      "sha256": "9141746d65f65e4a089871a3f7fdba1fc8a895e8cf0fa5335e249f710db18bdf",
+      "declared_frames": 969,
+      "decoded_frames": 193,
+      "fps": 30.0,
+      "ffmpeg_frames": 195
+    }
+  }
+}

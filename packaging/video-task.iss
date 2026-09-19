@@ -50,5 +50,5 @@ function InitializeSetup(): Boolean;
 begin
   Result := True;
   if not WizardSilent then
-    Result := MsgBox('安装程序将使用独立目录，不覆盖原v1实验。若正在采集，请先正常保存结束，再切换到新入口。已有被试首次启动请选择迁移已有v1到本机；配置和记录会复制校验，原件保留。', mbInformation, MB_OKCANCEL) = IDOK;
+    Result := MsgBox('请先正常保存并关闭正在运行的采集，再安装。已有安装版会保留本机设置和数据，请更新后用原被试编号及Session续跑，无需重复迁移。首次从旧v1部署才需要进行迁移设置；原数据保留。', mbInformation, MB_OKCANCEL) = IDOK;
 end;

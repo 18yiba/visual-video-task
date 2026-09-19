@@ -18,7 +18,7 @@ def test_new_main_dispatches_to_v2_with_question_bank(monkeypatch,demo):
         def run(self):
             seen['ran']=True
     asset=VideoAsset('test','practice/test.mp4',5.)
-    library=SimpleNamespace(is_available=lambda a:True)
+    library=SimpleNamespace(is_available=lambda a:True,resolve=lambda a:Path(a.rel_path))
     monkeypatch.setattr(emotion_v2_runner,'EmotionV2Runner',Runner)
     monkeypatch.setattr(emotion_protocol,'prepare',lambda cfg,demo:(library,[asset]))
     monkeypatch.setattr(base,'_load_psychopy',lambda:None)
@@ -53,3 +53,24 @@ def test_prepare_uses_portable_ordinary_fallback_and_local_emotion_override(tmp_
     library,playlist=emotion_protocol.prepare(config,False)
     assert library.resolve(playlist[0])==tmp_path/'stimuli/videos/example.mp4'
     assert library.roots['emotion']==tmp_path/'materials/emotion_video/selected'
+
+
+def test_known_bad_formal_material_stops_before_window_or_runner(monkeypatch,tmp_path):
+    import hashlib
+    from video_eeg.utils import video_eof
+    path=tmp_path/'known_bad.mp4';path.write_bytes(b'known incomplete original')
+    marker=tmp_path/'session_state.json';marker.write_bytes(b'unchanged existing state')
+    before=marker.read_bytes()
+    monkeypatch.setattr(video_eof,'BLOCKED',{'known_bad.mp4':{'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}})
+    asset=VideoAsset('known_bad','original/known_bad.mp4',30.)
+    library=SimpleNamespace(is_available=lambda a:True,resolve=lambda a:path)
+    runner=Mock();window=Mock()
+    monkeypatch.setattr(emotion_v2_runner,'EmotionV2Runner',runner)
+    monkeypatch.setattr(emotion_protocol,'prepare',lambda cfg,demo:(library,[asset]))
+    monkeypatch.setattr(base,'_load_psychopy',lambda:None)
+    monkeypatch.setattr(base,'visual',SimpleNamespace(Window=window))
+    monkeypatch.setattr(base,'Keyboard',Mock);monkeypatch.setattr(base,'core',Mock())
+    with pytest.raises(RuntimeError,match='材料已知不完整'):
+        emotion_runner.main(['--no-dialog','--session-id','3','--windowed'])
+    runner.assert_not_called();window.assert_not_called()
+    assert marker.read_bytes()==before

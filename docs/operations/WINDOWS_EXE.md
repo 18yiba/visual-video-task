@@ -1,11 +1,23 @@
-# Windows 1.0.1：本机路径、原数据迁移与移动硬盘断开
+# Windows 1.0.2：本机路径、原数据迁移与移动硬盘断开
 
 下载Release中的VisualVideoTask-Setup-Windows-x64.exe，复制到实验室本机后双击安装。支持Windows 10/11 x64，自带Python和依赖。默认安装到当前用户的 %LOCALAPPDATA%/Programs/VisualVideoTask，不再继承旧安装器可能设置的移动硬盘安装位置。采集不需要互联网；设备所需局域网连接仍须保留。
 
-## 本实验室的明确路径
+## 从已安装的1.0.1更新到1.0.2（片尾修复）
 
-- 普通视频：C:/Users/EDY/Desktop/video/video_materials/formal_v1/videos
-- 情绪视频：C:/Users/EDY/Desktop/video/video_materials/formal_v1/emotion_video/selected
+1. 正常按空格退出报错页，等数据保存完成，关闭视频EEG程序。备份整个当前被试目录；保留失败尝试及所有时间戳采集目录。
+2. 从本仓库Release下载1.0.2安装包，或从移动硬盘复制到实验室本机再运行。保持原安装位置，无需卸载、重复迁移或重新复制视频。
+3. 更新只替换程序文件。原本机设置、固定材料、题库快照、已有data及session_state保留；不要删除state或改完成标记。
+4. 主试先用独立测试编号检查声音、评分和真实设备数据流，再用原被试编号、v2、原Session续跑。该未完成视频会重播，然后依次进入效价和唤醒评分；已完成片段不应重播。
+5. 本次重复暴露会影响情绪反应，应在实验记录中注明次数及原因；保留失败attempt供分析，不能假称被试首次观看，也不能事后补造评分。
+
+1.0.2只对[全库核验清单](VIDEO_EOF_AUDIT.md)内SHA256完全匹配的原片处理1–2帧片尾差异，末帧保持到各自原标称截止，不改变视频、分组、题库、评分规则或正式状态哈希。更早解码失败、其他文件或文件内容变化仍按原保护中止。trial_log新增decoder_eof_compatibility说明本次是否应用兼容处理。
+
+**已知不完整材料涉及v2 Session：20（6076.mp4）、24（2693.mp4）、33（6241.mp4）。** 这些Session需要完整原片，安装更新不能补回缺失视频。1.0.2会在正式开始前提示停止；其他Session不因这些文件被全局阻止。
+
+## 本实验室的材料路径与保存位置
+
+本实验室用户于2026-09-19确认现用材料根为 `C:/Users/EDY/Desktop/video/video/_materials`。更新1.0.2沿用现有设置中已绑定且能正常找到视频的普通/情绪叶目录，不要求挪到别处，也不要仅因文档示例不同就重新迁移。`Desktop/video/video_materials/formal_v1`是此前另一种交付布局，不是这台已采集电脑必须改成的路径。视频应继续位于电脑本机，实际位置以启动设置和日志为准。
+
 - 所有新记录的本机根目录：C:/Users/EDY/Desktop/video/data/sourcedata
 - 新被试分别使用根目录下的v1、v2；Demo使用demo/v1、demo/v2。
 - 从其他目录迁来的旧被试使用imported/迁移编号/root_XX下的原被试结构，后续同一被试继续在那里保存；同样位于上述本机根目录内。
