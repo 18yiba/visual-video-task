@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import datetime
 import json
 import os
 import re
@@ -40,6 +41,13 @@ class SessionRecorder:
         self._sfreq = float(sfreq)
         self._n_channels = int(n_channels)
         self._event_only = bool(event_only)
+        self._source_name = getattr(getattr(acquirer, 'metadata', None), 'name', '')
+        self._native_edf = (self._source_name in {'brainco', 'brainco_lsl', 'dummy'}
+                            and self._n_channels == 32 and not self._event_only)
+        if self._source_name in {'brainco', 'brainco_lsl'} and self._n_channels != 32 and not self._event_only:
+            raise ValueError('New BrainCo EDF recordings require all 32 CH01..CH32 channels.')
+        if self._native_edf:
+            import edfio  # Check dependency before starting the device.
         self._chunks: list[np.ndarray] = []
         self._spool_path: Path | None = None
         self._spool_handle: Any | None = None
@@ -54,6 +62,10 @@ class SessionRecorder:
         self._started_at = time.monotonic()
         self._write_lock = threading.RLock()
         self._frozen = False
+        self._recording_uuid = uuid4().hex
+        self._recording_started_at = datetime.now().astimezone().isoformat()
+        self._recording_ended_at: str | None = None
+        self._events_journal: Path | None = None
 
     @property
     def sample_count(self) -> int:
@@ -97,6 +109,8 @@ class SessionRecorder:
             return np.empty((self._n_channels, 0), dtype=np.float32)
         if samples.ndim != 2 or samples.shape[0] < self._n_channels:
             raise RuntimeError(f"Unexpected incremental EEG shape: {samples.shape}")
+        if self._native_edf and samples.shape[0] != 32:
+            raise RuntimeError('Native EDF requires exactly 32 electrode rows; refusing to truncate extra rows.')
         eeg = np.asarray(samples[: self._n_channels], dtype=np.float32)
         with self._write_lock:
             if self._frozen:return np.empty((self._n_channels,0),dtype=np.float32)
@@ -113,7 +127,10 @@ class SessionRecorder:
 
     def freeze(self):
         """Reject late SDK reads before export; retain all samples already written."""
-        with self._write_lock:self._frozen=True
+        with self._write_lock:
+            self._frozen = True
+            if self._recording_ended_at is None:
+                self._recording_ended_at = datetime.now().astimezone().isoformat()
 
     def start_spooling(self, output_dir: Path) -> None:
         """Stream samples to a bounded-memory temporary file for this session."""
@@ -122,6 +139,26 @@ class SessionRecorder:
         self._eeg_filename, self._events_filename, self._metadata_filename = self._part_filenames(
             self._part_index
         )
+        if self._native_edf:
+            import edfio  # Fail before recording if the required writer is unavailable.
+            self._eeg_filename = self._eeg_filename.replace('.npy', '.edf')
+        self._recording_started_at = datetime.now().astimezone().isoformat()
+        identity = output_dir / f"recording_identity_part_{self._part_index:03d}.json"
+        identity_metadata = {}
+        if self._native_edf:
+            from video_eeg.storage.native_edf import profile
+            identity_metadata = dict(eeg_format='EDF', native_edf_profile=profile(),
+                                     sfreq=self._sfreq, n_channels=self._n_channels,
+                                     simulated_eeg=self._source_name == 'dummy')
+        with identity.open("x", encoding="utf-8") as handle:
+            json.dump({"recording_uuid": self._recording_uuid,
+                       "recording_started_at": self._recording_started_at,
+                       "clock_basis": "host_wall_clock_at_spool_start",
+                       "hardware_clock_calibrated": False, **identity_metadata}, handle)
+            handle.flush()
+            os.fsync(handle.fileno())
+        self._events_journal = output_dir / f"events_journal_part_{self._part_index:03d}.jsonl"
+        self._events_journal.touch(exist_ok=False)
         if self._event_only:
             self._eeg_filename = ""
             self._spool_path = None
@@ -136,14 +173,20 @@ class SessionRecorder:
         self._last_spool_flush = time.monotonic()
 
     def add_event(self, name: str, **payload: Any) -> None:
-        self._events.append(
-            SessionEvent(
+        with self._write_lock:
+            event = SessionEvent(
                 name=name,
                 sample_index=None if self._event_only else self._sample_count,
                 relative_time_sec=time.monotonic() - self._started_at,
                 payload=dict(payload),
             )
-        )
+            self._events.append(event)
+            # Append and flush independently of final export so interruption retains events.
+            if self._events_journal is not None:
+                with self._events_journal.open("a", encoding="utf-8") as handle:
+                    handle.write(json.dumps(asdict(event), ensure_ascii=False)+"\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
 
     def export(self, output_dir: Path, *, metadata: dict[str, Any], pull_final: bool = True) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -159,8 +202,39 @@ class SessionRecorder:
             self._spool_handle.close()
             self._spool_handle = None
         eeg_path = output_dir / self._eeg_filename if self._eeg_filename else None
+        quantization = None
         if self._event_only:
             pass
+        elif self._native_edf and self._sample_count == 0:
+            # No fake signal or padded EDF on a startup failure.
+            self._eeg_filename = ''
+            quantization = {}
+            if self._spool_path is not None:
+                self._spool_path.unlink(missing_ok=True)
+        elif self._native_edf:
+            from video_eeg.storage.native_edf import write_edf
+            raw = None
+            if self._spool_path is not None and self._spool_path.exists() and self._sample_count:
+                raw = np.memmap(self._spool_path, dtype=np.float32, mode='r',
+                                shape=(self._sample_count, self._n_channels))
+                data = raw.T
+            else:
+                data = (np.concatenate(self._chunks, axis=1) if self._chunks else
+                        np.empty((self._n_channels, 0), dtype=np.float32))
+            writing_path = output_dir / f'.{self._eeg_filename}.{uuid4().hex}.writing'
+            try:
+                quantization = write_edf(writing_path, data, self._sfreq, self._recording_started_at,
+                                        simulated=self._source_name == 'dummy')
+                if eeg_path.exists():
+                    raise FileExistsError(f'Refusing to overwrite existing EEG file: {eeg_path}')
+                os.rename(writing_path, eeg_path)
+            finally:
+                del data
+                if raw is not None:
+                    raw._mmap.close()
+            # Float32 spool is an interruption recovery file, not a second final recording.
+            if self._spool_path is not None:
+                self._spool_path.unlink(missing_ok=True)
         elif self._spool_path is not None and self._spool_path.exists() and self._sample_count > 0:
             raw = np.memmap(self._spool_path, dtype=np.float32, mode="r", shape=(self._sample_count, self._n_channels))
             writing_path = output_dir / f".{self._eeg_filename}.{uuid4().hex}.writing"
@@ -196,8 +270,20 @@ class SessionRecorder:
         with (output_dir / self._events_filename).open("x", encoding="utf-8") as handle:
             json.dump([asdict(event) for event in self._events], handle, ensure_ascii=False, indent=2)
         segment_metadata = dict(metadata)
+        if self._native_edf:
+            from video_eeg.storage.native_edf import profile
+            segment_metadata.update(eeg_format='EDF', native_edf_profile=profile(),
+                                    edf_quantization_step_uv=quantization,
+                                    simulated_eeg=self._source_name == 'dummy')
+        version_file = Path(__file__).resolve().parents[2]/'packaging/version.txt'
+        software_version = version_file.read_text(encoding='utf-8').strip() if version_file.is_file() else 'unknown'
         segment_metadata.update(
             {
+                "recording_uuid": self._recording_uuid,
+                "acquisition_software_version": software_version,
+                "recording_started_at": self._recording_started_at,
+                "recording_ended_at": self._recording_ended_at or datetime.now().astimezone().isoformat(),
+                "recording_clock_basis": "host_wall_clock_at_spool_start_and_freeze; not hardware sample clock",
                 "eeg_part": self._part_index,
                 "eeg_file": self._eeg_filename or None,
                 "events_file": self._events_filename,
@@ -232,14 +318,19 @@ class SessionRecorder:
         occupied: set[int] = set()
         legacy_names = {
             "continuous_eeg.npy",
+            "continuous_eeg.edf",
             "events.json",
             "metadata.json",
             ".continuous_eeg.f32.tmp",
         }
         pattern = re.compile(
-            r"^(?:\.?continuous_eeg|events|metadata)_part_(\d{3})(?:\.f32\.tmp|\.npy|\.json)$"
+            r"^(?:\.?continuous_eeg|events|metadata)_part_(\d{3})(?:\.f32\.tmp|\.npy|\.edf|\.json)$"
         )
         for path in output_dir.iterdir():
+            identity_match = re.fullmatch(r"(?:recording_identity|events_journal)_part_(\d+)\.(?:json|jsonl)", path.name)
+            if identity_match:
+                occupied.add(int(identity_match[1]))
+                continue
             if path.name in legacy_names:
                 occupied.add(1)
                 continue

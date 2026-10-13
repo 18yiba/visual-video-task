@@ -1,0 +1,11 @@
+{
+  "paradigm_codes": {"v1": "AVEEG-20260923", "v2": "AVEEG-20260923", "v3": "EMOVID-20261008", "v3_emotion_only": "EMOVID-20261008"},
+  "participant_map": {"v1": {}, "v2": {}, "v3": {}},
+  "device": {
+    "model": null,
+    "confirmation": null,
+    "software_filters": null,
+    "physical_ranges_uv": {}
+  },
+  "recording_times": {}
+}

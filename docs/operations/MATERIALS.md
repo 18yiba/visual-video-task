@@ -38,8 +38,8 @@ GitHub 对单个 Release 附件有 2 GiB 上限，因此本库按约 512 MiB 分
 1. 完整解压代码到本地可写目录，例如 `D:\Experiments\visual-video-task`。
 2. 双击根目录 `install_lab_env_uv.bat`，等待 `Environment ready`。
 3. 双击根目录 `download_materials.bat`。无需 GitHub 登录或另装 Python。
-4. 等待显示 `Verified 7996 videos`，再运行 `run_video_demo.bat` 检查显示、答题与记录。
-5. 按操作说明完成设备检查后运行 `run_video_formal.bat`。
+4. 等待显示 `Verified 7996 videos`，再运行 `run_experiment.bat`，选择 Demo 检查显示、答题与记录。
+5. 按操作说明完成设备检查后运行 `run_experiment.bat`，选择 Formal。
 
 下载器默认写入当前项目的 `stimuli/videos/`，逐包下载、校验、解压并删除已使用的临时 ZIP。
 网络中断后重新双击即可：已校验的视频不会重下，未完成的下载支持续传；服务器不支持续传时自动重下当前包。

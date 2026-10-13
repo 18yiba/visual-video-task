@@ -119,6 +119,9 @@ def prepare(config, demo=False):
         if config['excluded_video_ids']:
             config['material_exclusion_revision'] = REVISION
     config['session_manifest_hash'] = digest
+    if protocol.get('separate_emotion_ratings') and protocol.get('emotion_only'):
+        rows = [r for r in rows if r['trial_type'] == 'emotion']
+        config['excluded_video_ids'] = []
     library = EmotionLibrary(rows, roots)
     playlist = [VideoAsset(r['video_id'], r['video_path'], float(r['video_duration_sec']), r['trial_type'], 'valid') for r in rows]
     return library, playlist

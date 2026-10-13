@@ -5,6 +5,8 @@ __pycache__/
 
 # Virtual environments
 .venv/
+.venv-storage-tests/
+/eegqc.local.json
 venv/
 env/
 .runtime/

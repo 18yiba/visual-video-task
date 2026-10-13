@@ -6,6 +6,7 @@ dependencies = []
 
 [project.optional-dependencies]
 runtime = [
+  "edfio==0.4.11",
   "bids-validator-deno==3.0.1",
   "deno==2.9.6",
   "arabic-reshaper==3.0.1",

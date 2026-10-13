@@ -48,7 +48,7 @@ def main():
         assert not runner._run_traceback
         state = json.loads((runner.progress_dir / 'session_state.json').read_text(encoding='utf-8'))
         assert state['queue_video_ids'] == [asset.asset_id]
-        outputs = list((ROOT / 'data/safe_exit_smoke' / subject).rglob('continuous_eeg.npy'))
+        outputs = list((ROOT / 'data/safe_exit_smoke' / subject).rglob('continuous_eeg.edf'))
         assert outputs and outputs[0].stat().st_size > 128
         report = dict(subject=subject, termination_reason=runner.termination_reason,
             export_verified=True, resumable_video=asset.asset_id, physical_eeg=False)

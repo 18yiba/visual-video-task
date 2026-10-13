@@ -91,7 +91,9 @@
     "video_eeg/config/video_emotion_v1_config.yaml",
     "video_eeg/config/video_legacy_2779_config.yaml",
     "video_eeg/config/video_ready_config.yaml",
-    "video_eeg/config/video_ready_demo_config.yaml"
+    "video_eeg/config/video_ready_demo_config.yaml",
+    "scripts/run_emotion_v3.bat",
+    "scripts/validation/smoke_demo_entry.py"
   ],
   "script_moves": {
     "scripts/audit_question_bank.py": "scripts/maintenance/audit_question_bank.py",
@@ -103,7 +105,6 @@
     "scripts/build_release.py": "scripts/maintenance/build_release.py",
     "scripts/export_question_bank_csv.py": "scripts/maintenance/export_question_bank_csv.py",
     "scripts/export_video_question_labels.py": "scripts/maintenance/export_video_question_labels.py",
-    "scripts/smoke_demo_entry.py": "scripts/validation/smoke_demo_entry.py",
     "scripts/smoke_eeg_disconnect.py": "scripts/validation/smoke_eeg_disconnect.py",
     "scripts/smoke_emotion_v2.py": "scripts/validation/smoke_emotion_v2.py",
     "scripts/smoke_safe_exit.py": "scripts/validation/smoke_safe_exit.py"

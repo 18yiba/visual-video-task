@@ -42,7 +42,7 @@ class EmotionVideoRunner(base.VideoRunner):
         def emit(name, **payload):
             source_name = name
             row = self._active_row
-            if name=='trial_end' and row and (row['trial_type']=='emotion' or self.ordinary_behavior_required) and payload.get('completed') and not payload.get('ratings_completed'):
+            if name=='trial_end' and row and (row['trial_type']=='emotion' or self.ordinary_behavior_required) and payload.get('completed') and not payload.get('ratings_completed') and not payload.get('eeg_only'):
                 return  # A complete emotion trial includes both ratings.
             context = dict(protocol_version=self.protocol_version, timestamp_unix_sec=time.time(),
                            monotonic_sec=time.perf_counter(), eeg_part=self.manager.eeg_part)
@@ -275,7 +275,7 @@ class EmotionVideoRunner(base.VideoRunner):
             material_exclusion_history=self.state.material_exclusion_history,
             active_assigned_video_trials=len(self.state.active_video_ids),
             active_completed_video_trials=len(self.state.active_completed_video_ids),
-            rating_stage_present=True, attention_enabled=self.protocol.attention_enabled, attention_tasks_per_session=self.protocol.attention_tasks_per_session,
+            rating_stage_present=getattr(self, 'acquisition_rating_stage_present', True), attention_enabled=self.protocol.attention_enabled, attention_tasks_per_session=self.protocol.attention_tasks_per_session,
             emotion_rating_log=str(self.progress_dir/'emotion_rating_log.csv'),
             actual_net_video_duration_sec=self.state.completed_net_video_duration_sec,
             net_clock_definition='actual ordinary + emotion playback including partial attempts; excludes ratings/rest',

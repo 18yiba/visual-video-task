@@ -790,10 +790,6 @@ class BrainCoAcquirer(AbstractAcquirer):
             return arr.T
         if arr.shape[0] == self.metadata.n_channels:
             return arr
-        if arr.shape[1] > self.metadata.n_channels:
-            return arr[:, : self.metadata.n_channels].T
-        if arr.shape[0] > self.metadata.n_channels:
-            return arr[: self.metadata.n_channels, :]
         raise RuntimeError(f"Unexpected BrainCo channel layout: {arr.shape}")
 
     def _start_loop_thread(self) -> None:

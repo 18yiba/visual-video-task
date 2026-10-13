@@ -2,9 +2,13 @@
 
 # visual-video-task：视频EEG+情绪评分融合总范式
 
+v3独立入口：`run_emotion_v3.bat`，情绪视频先采集EEG、保存退出后独立重播评分（可选原速/1.5/2倍速）；[操作说明](docs/versions/v3.md)。v1/v2主启动页及旧记录保持原样。
+
 本仓库提供Windows实验室电脑使用的PsychoPy视频EEG程序。
 
-**实验室安装版：[下载 Windows EXE 1.0.4](https://github.com/18yiba/visual-video-task/releases/download/desktop-v1.0.4/VisualVideoTask-Setup-Windows-x64.exe)** · [发布说明与 SHA256](https://github.com/18yiba/visual-video-task/releases/tag/desktop-v1.0.4)
+Windows v0.3.1：EXE默认打开最新v3实验控制台，v1/v2通过开始菜单“视频EEG v1-v2 旧协议入口”保留。BrainCo新采集直接保存32导EDF，按硬件CH01→CH32顺序，包含CH29=IO；单位µV、范围±375000 µV（主试确认±375 mV）、默认高通0.16 Hz。参考FCz、BIAS AFz；低通和陷波未知，不额外施加滤波。EDF量化步长约11.44 µV。旧NPY及进度不转换；[EEGQC单记录交接包](docs/operations/EEGQC_HANDOFF.md)直接复制新EDF，需平台8位编号。
+
+实验室安装版：[下载Windows v0.3.1（v3 UI修正版）](https://github.com/18yiba/visual-video-task/releases/download/v0.3.1/VisualVideoTask-Setup-Windows-x64.exe) · [版本说明与SHA256](https://github.com/18yiba/visual-video-task/releases/tag/v0.3.1)。安装包编号0.3.1按本次发布要求命名，不转换历史协议；先保存关闭程序，再覆盖安装，无需卸载。视频材料单独复制。
 
 适用于 Windows 10/11 x64，自带 Python 和依赖。下载安装包可联网，日常采集离线；视频通过移动硬盘复制到实验室本机。正式采集仍需设备及对应驱动；离线不意味着关闭 EEG 设备必需的局域网。
 
@@ -292,7 +296,7 @@ storage:
 | emotion_rating_log.csv | 情绪效价和唤醒，保留协议及量尺上下限 |
 | rest_log.csv | 休息的开始、选择和时长 |
 | YYYYMMDD_HHMMSS/ | 一次EEG采集的启动时间目录，不是结束时间 |
-| continuous_eeg.npy | 通道×样本的连续本地EEG |
+| continuous_eeg.edf / continuous_eeg.npy | 当前源码BrainCo新记录为32导EDF；历史NPY保持原样；分段名称带part编号 |
 | events.json | 事件时间、样本索引、marker发送状态 |
 | metadata.json / eeg_segments.json | 采集设备、采样率、分段、退出原因 |
 | eeg_health_part_001.jsonl | 约每秒的样本增长与无数据时长记录 |

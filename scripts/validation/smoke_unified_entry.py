@@ -27,7 +27,14 @@ def main():
     assert state['session_completed']
     assert len(state['completed_video_ids'])==(10 if args.protocol=='v1' else 4)
     assert len(state['completed_attention_ids'])==(3 if args.protocol=='v1' else 1)
-    assert list((ROOT/'data/sourcedata/demo'/args.protocol/subject).rglob('continuous_eeg*.npy'))
+    recordings = list(root.rglob('continuous_eeg*.edf'))
+    assert recordings and not list(root.rglob('continuous_eeg*.npy'))
+    import edfio
+    from video_eeg.storage.native_edf import CHANNEL_NAMES
+    for recording in recordings:
+        edf = edfio.read_edf(recording)
+        assert [signal.label for signal in edf.signals] == list(CHANNEL_NAMES)
+        assert len(edf.signals[0].data) > 0
     assert list((ROOT/'data/sourcedata/demo'/args.protocol/subject).rglob('eeg_health*.jsonl'))
     print(json.dumps(dict(protocol=args.protocol,result='PASS',videos=len(state['completed_video_ids']),questions=len(state['completed_attention_ids']),state=str(path)),ensure_ascii=False),flush=True)
 

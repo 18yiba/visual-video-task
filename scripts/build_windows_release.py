@@ -13,20 +13,25 @@ def copy_runtime(source,target):
     shutil.copytree(source,target,ignore=ignored)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--iscc',required=True);p.add_argument('--reuse-runtime',action='store_true');args=p.parse_args()
-    target=ROOT/'dist/VisualVideoTask'
+    p=argparse.ArgumentParser();p.add_argument('--iscc',required=True);p.add_argument('--reuse-runtime',action='store_true')
+    p.add_argument('--output-dir',type=Path,default=ROOT/'dist',help='Independent bundle and installer output directory')
+    args=p.parse_args()
+    output=args.output_dir.resolve()
+    if output==ROOT or ROOT.is_relative_to(output):raise ValueError('Output must not replace the working project')
+    output.mkdir(parents=True,exist_ok=True)
+    target=output/'VisualVideoTask'
     if target.exists() and not args.reuse_runtime:raise ValueError('Build destination exists; use a fresh build directory, do not overwrite a running app')
     target.mkdir(parents=True,exist_ok=True)
     if args.reuse_runtime:
         if not (target/'BUNDLE_MANIFEST.json').is_file():raise ValueError('Cannot reuse an unknown runtime')
-        fresh=ROOT/'dist'/('source-refresh-'+str(time.time_ns()))
+        fresh=output/('source-refresh-'+str(time.time_ns()))
         rows=build_source(fresh)
         # Replace staging atomically, preserving the previous source outside the
         # bundle. Overlay copying would retain files removed from the whitelist.
         previous=target/'app'
-        backup=ROOT/'dist'/('source-superseded-'+str(time.time_ns()))
+        backup=output/('source-superseded-'+str(time.time_ns()))
         for path in (previous,backup,fresh):
-            if not path.resolve().is_relative_to((ROOT/'dist').resolve()) or path.is_symlink() or path.is_junction():
+            if not path.resolve().is_relative_to(output) or path.is_symlink() or path.is_junction():
                 raise ValueError('Unsafe source staging path: '+str(path))
         if previous.exists():previous.rename(backup)
         fresh.rename(previous)
@@ -42,7 +47,7 @@ def main():
     # Ship official validator JS + its Deno binary locally; validation needs no network/Node.
     import importlib.metadata
     from deno import find_deno_bin
-    for package, distribution in (('bids_validator_deno','bids-validator-deno'),('deno','deno')):
+    for package, distribution in (('bids_validator_deno','bids-validator-deno'),('deno','deno'),('edfio','edfio')):
         shutil.copytree(packages/package,target/'runtime/Lib/site-packages'/package,dirs_exist_ok=True,
             ignore=lambda folder,names:[n for n in names if n=='__pycache__' or n.endswith('.pyc')])
         dist=importlib.metadata.distribution(distribution)
@@ -66,12 +71,14 @@ def main():
             with path.open('rb') as f:digest=hashlib.file_digest(f,'sha256').hexdigest()
             files.append({'path':path.relative_to(target).as_posix(),'bytes':path.stat().st_size,'sha256':digest})
     (target/'BUNDLE_MANIFEST.json').write_text(json.dumps({'version':version,'files':files},indent=2),encoding='utf-8')
-    subprocess.run([str(target/'VisualVideoTask.exe'),'--self-test'],check=True)
-    with (ROOT/'dist/installer_build.log').open('w',encoding='utf-8') as log:
-        subprocess.run([args.iscc,'/Q','/DAppVersion='+version,'/DSourceDir='+str(target),str(ROOT/'packaging/video-task.iss')],check=True,stdout=log,stderr=subprocess.STDOUT)
-    exe=ROOT/'dist/VisualVideoTask-Setup-Windows-x64.exe'
+    import os
+    check_env=os.environ.copy();check_env['VIDEO_EEG_USER_DIR']=str(output/'verification/user')
+    subprocess.run([str(target/'VisualVideoTask.exe'),'--self-test'],check=True,env=check_env)
+    with (output/'installer_build.log').open('w',encoding='utf-8') as log:
+        subprocess.run([args.iscc,'/Q','/O'+str(output),'/DAppVersion='+version,'/DSourceDir='+str(target),str(ROOT/'packaging/video-task.iss')],check=True,stdout=log,stderr=subprocess.STDOUT)
+    exe=output/'VisualVideoTask-Setup-Windows-x64.exe'
     with exe.open('rb') as f:digest=hashlib.file_digest(f,'sha256').hexdigest()
-    (ROOT/'dist/SHA256SUMS.txt').write_text(digest+'  '+exe.name+'\n',encoding='ascii')
+    (output/'SHA256SUMS.txt').write_text(digest+'  '+exe.name+'\n',encoding='ascii')
     print(json.dumps({'version':version,'installer':str(exe),'bytes':exe.stat().st_size,'sha256':digest}),flush=True)
 
 if __name__=='__main__':main()
