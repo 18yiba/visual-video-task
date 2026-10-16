@@ -1,33 +1,57 @@
 <p align="center"><img src="assets/brand/company_logo.png" alt="公司标志" width="96"></p>
 
-# visual-video-task：视频EEG+情绪评分融合总范式
+# visual-video-task：视频EEG采集与情绪评分
 
-本仓库提供Windows实验室电脑使用的PsychoPy视频EEG程序。
+当前安装包为 **Windows v0.3.1（v3 UI修正版）**，默认打开“v3 实验控制台”。v3先采集并保存EEG，再独立重播情绪视频进行评分；旧v1/v2从开始菜单的独立入口运行。安装包版本号、界面版本和实验协议不是同一个编号，升级不会把历史进度转换成v3。
 
-**实验室安装版：[下载 Windows EXE 1.0.4](https://github.com/18yiba/visual-video-task/releases/download/desktop-v1.0.4/VisualVideoTask-Setup-Windows-x64.exe)** · [发布说明与 SHA256](https://github.com/18yiba/visual-video-task/releases/tag/desktop-v1.0.4)
+适用于Windows 10/11 64位、强脑BrainCo设备与厂家Wi-Fi SDK。安装包自带Python、PsychoPy和bcigo-sdk 1.0.2，无需另外安装Python或采集软件；视频材料不在安装包内。本仓库源码不包含被试数据、视频或开发环境。
 
-适用于 Windows 10/11 x64，自带 Python 和依赖。下载安装包可联网，日常采集离线；视频通过移动硬盘复制到实验室本机。正式采集仍需设备及对应驱动；离线不意味着关闭 EEG 设备必需的局域网。
+[下载Windows安装包](https://github.com/18yiba/visual-video-task/releases/download/v0.3.1/VisualVideoTask-Setup-Windows-x64.exe) · [版本说明、源码ZIP与SHA256](https://github.com/18yiba/visual-video-task/releases/tag/v0.3.1) · [v3完整操作说明](docs/versions/v3.md)
 
-1.0.1 修复材料路径误指上级目录、运行依赖外置盘以及数据写回外置盘的问题。当前 v1/v2 均保留视频内容选择题；已停用的算术判断题不会进入新版桌面流程。题库、固定分组和已保存答案不因迁移而重建或转换。
+已知设备问题：部分真实设备返回`Unexpected BrainCo channel layout: (96, 33)`。这表示SDK已返回数据，但当前程序不接受该33列布局，不等同于Wi-Fi完全未连接。额外字段的位置及含义尚未确认，**v0.3.1尚未修复此问题**；不能直接删除一列或改成33个EEG通道后正式采集。请先完成下方诊断与真实设备验收。
 
-**1.0.4 新增离线 EEG-BIDS 保存：原始记录和进度照常保留，正式采集结束后另生成 BrainVision + events/channels/JSON 副本；开始菜单“视频EEG导出与检查BIDS”可转换旧记录并离线校验。**[主试逐步操作、文件解释与报错处理](docs/operations/BIDS_EXPORT.md)。已有材料和Session分配不变。
+## v3安装与首次运行
+
+1. 下载Release中的`VisualVideoTask-Setup-Windows-x64.exe`，按`SHA256SUMS.txt`核对。先正常保存并关闭实验，再覆盖安装；已有安装版无需卸载。GitHub的“Source code”ZIP是源码，不是安装包。
+2. 从开始菜单“视频EEG总范式”或“视频EEG v3 实验控制台”启动。首次设置本机材料和数据根目录：新电脑选择“新电脑，无历史数据”；已有记录的电脑按迁移流程保留原记录与原路径，不用新编号绕过冲突。
+3. 把普通和情绪视频复制到本机，设置对应实际视频目录。全部视频模式沿用45个Session的有效固定成员，共11,084段；仅情绪模式使用同Session的3,138段情绪视频。普通材料见[材料下载](#视频下载复制和路径配置)，情绪材料由项目维护者提供；不能拿Demo材料代替正式库。
+4. EEG采集阶段填写平台已有的8位被试编号（保留前导零）、原Session和平台已确认的范式代码，选择视频范围。设备开机并按厂家要求连接Wi-Fi，点击“检测EEG连通性”；成功后开始实验。v3无Demo/Dummy用户入口，日常离线采集也必须保留设备所需局域网。
+5. 采集保存退出后，切换到“行为评分”，使用相同编号、Session、视频范围。只允许重播已完整采集且保存EEG的情绪视频；每段可选原速、1.5倍或2倍，随后作1–7效价/唤醒评分。该阶段不连接设备、不采集EEG；Esc保存退出，未完成评分续跑时重播并重答。
+
+安装后应看到带“实验阶段”“视频范围”“检测EEG连通性”和进度表的v3控制台。若仍出现v1/v2选择页，请核对是否点击了旧协议快捷方式，并重新下载本Release的v3 UI修正版安装包。不要在正在采集时更新。
+
+## 版本入口与数据保存
+
+| 入口 | 用途 | 新数据位置 |
+|---|---|---|
+| 安装版默认入口；源码`run_emotion_v3.bat` | v3：45个Session，EEG与情绪行为评分分开 | 数据根下`v3`或`v3_emotion_only` |
+| 开始菜单“视频EEG v1-v2 旧协议入口”；源码`run_experiment.bat` | v1：17个Session；v2：45个Session，保留Demo/正式 | 数据根下`v1`/`v2`；已识别旧被试仍沿原根目录续跑 |
+
+安装版程序默认安装到`%LOCALAPPDATA%/Programs/VisualVideoTask`，本机设置和日志位于`%LOCALAPPDATA%/VisualVideoTask`。数据根以首次绑定为准，本实验室常用`Desktop/video/data/sourcedata`；源码v3默认使用项目的`data/sourcedata/v3`。全部视频和仅情绪模式进度独立，v1/v2/v3之间不能换协议续跑。
+
+新BrainCo记录按CH01→CH32保存32导原生EDF（含CH29=IO），单位µV、范围±375000 µV、高通0.16 Hz、参考FCz、BIAS AFz；低通/陷波未知，不额外施加滤波。原始EDF、事件、行为CSV和`session_state.json`是恢复依据，必须整目录备份；历史NPY与答案不转换。详情见[数据与恢复](docs/operations/EEG_AND_RECOVERY.md)。
+
+原始保存完成后另建EEGQC单记录EDF/BIDS副本，使用稳定UUID和官方离线Deno校验；失败可重试，不替代原始记录。行为评分不修改此前封存的EEG包，人工评分、上传及入库由EEGQC完成。详见[交接操作](docs/operations/EEGQC_HANDOFF.md)与[BIDS边界](docs/operations/BIDS_EXPORT.md)。
+
+## 连通性故障与验证范围
+
+遇到`(96, 33)`时，先保存退出实验，保留完整报错及`%LOCALAPPDATA%/VisualVideoTask/logs`中的本次日志，联系维护者获取BrainCo布局诊断工具。此前提供的内网诊断ZIP仅在维护电脑下载服务在线且网络可达时可用，不是GitHub Release的一部分。完整解压后运行`诊断.bat`，将生成的`BrainCo-layout-report.json`发给维护者；工具短暂读取一个SDK缓冲区，不创建被试记录、EDF或进度，也不转换通道。未确认额外列含义前不投入正式采集。
+
+若报错是发现超时、无法连接或无样本，应分别检查设备供电、厂家Wi-Fi网络要求、局域网互访、SDK地址/端口及是否被其他采集程序占用；不要用更换Session或删除进度排查设备连接。
+
+v0.3.1发布前完整回归229项通过、5项跳过；真实Qt/PsychoPy窗口的Dummy EEG验证覆盖v3界面、采集、三档重播评分、退出续跑及EEG文件不变。上述结果不代表已验收真实强脑设备。正式使用前，必须在目标电脑用独立测试编号核验真实连接、样本增长、音视频、保存及恢复；BIDS结构通过不等于信号质量合格。
 
 ## 目录导航
 
-- [实验室安装版：安装、迁移和拔盘](#实验室安装版安装迁移和拔盘)
-- [源码安装与开始运行](#源码安装与开始运行)
-- [版本选择：我应该选哪一个](#版本选择我应该选哪一个)
-- [每个目录和根目录文件有什么用](#每个目录和根目录文件有什么用)
-- [视频下载、复制和路径配置](#视频下载复制和路径配置)
-- [BIDS保存、旧数据导出与检查](docs/operations/BIDS_EXPORT.md)
-- [统一数据路径及旧被试续跑](#统一数据路径及旧被试续跑)
-- [实验流程与全部按键](#实验流程与全部按键)
-- [设备配置及完整YAML](#设备配置及完整yaml)
-- [实验室硬盘更新](#实验室硬盘更新)
-- [结束核对、故障和排查](#结束核对故障和排查)
-- [维护脚本和验证方法](#维护脚本和验证方法)
+- 当前使用：[v3安装](#v3安装与首次运行)、[入口与保存](#版本入口与数据保存)、[连通性故障](#连通性故障与验证范围)。
+- 材料准备：[下载与路径](#视频下载复制和路径配置)、[材料维护说明](docs/operations/MATERIALS.md)。
+- 旧协议：[安装迁移](#实验室安装版安装迁移和拔盘)、[v1/v2选择](#版本选择我应该选哪一个)、[恢复与文件](#统一数据路径及旧被试续跑)、[流程按键](#实验流程与全部按键)。
+- 源码维护：[环境安装](#源码安装与开始运行)、[目录说明](#每个目录和根目录文件有什么用)、[设备YAML](#设备配置及完整yaml)、[测试与打包](#维护脚本和验证方法)。
+- 现场排查：[故障处理](#结束核对故障和排查)、[硬盘更新](#实验室硬盘更新)、[BIDS](docs/operations/BIDS_EXPORT.md)、[EEGQC](docs/operations/EEGQC_HANDOFF.md)。
 
 ## 实验室安装版：安装、迁移和拔盘
+
+以下为v1/v2历史安装与迁移流程。当前v3安装及操作以上方说明为准；旧协议的Demo、版本选择页和Session合同只适用于旧入口，不适用于v3。
 
 ### 已安装1.0.1–1.0.3：最小更新到1.0.4
 
@@ -71,6 +95,8 @@
 完整说明及异常处理见 [EXE 安装与迁移说明](docs/operations/WINDOWS_EXE.md)。软件通过模拟 EEG 和安装后迁移/续跑验证；这不代替实验室真实设备、驱动、声音和时延验收。安装包没有商业代码签名，请从本仓库 Release 获取并按 SHA256 核对来源。
 
 ## 源码安装与开始运行
+
+以下统一启动器步骤适用于源码v1/v2；源码v3在环境安装完成后双击`run_emotion_v3.bat`。两者使用同一环境，但v3用户入口没有Demo/Dummy选项，详细流程见文首。
 
 以下安装、BAT、YAML 路径配置供源码维护者使用；已安装 EXE 的主试直接使用上面的开始菜单入口。后文的实验流程和数据字段适用于对应协议。源码的原目录续跑机制与 EXE 的本机副本迁移方式分别说明，勿交叉操作。
 
@@ -122,6 +148,8 @@
 6. 终端会显示本次数据保存根目录，结束后显示本次采集位置。每天第一次开采前由主试核对一次。
 
 ## 版本选择：我应该选哪一个
+
+下表描述旧协议入口中的两个选项，不能用于切换到v3；v3使用独立控制台，见文首“版本入口与数据保存”。
 
 | 窗口选项 | 用途 | 固定Session数 | 普通内容抽查 | 情绪与其他主观评分 |
 |---|---|---:|---|---|
@@ -292,7 +320,7 @@ storage:
 | emotion_rating_log.csv | 情绪效价和唤醒，保留协议及量尺上下限 |
 | rest_log.csv | 休息的开始、选择和时长 |
 | YYYYMMDD_HHMMSS/ | 一次EEG采集的启动时间目录，不是结束时间 |
-| continuous_eeg.npy | 通道×样本的连续本地EEG |
+| continuous_eeg.edf / continuous_eeg.npy | 当前源码BrainCo新记录为32导EDF；历史NPY保持原样；分段名称带part编号 |
 | events.json | 事件时间、样本索引、marker发送状态 |
 | metadata.json / eeg_segments.json | 采集设备、采样率、分段、退出原因 |
 | eeg_health_part_001.jsonl | 约每秒的样本增长与无数据时长记录 |
@@ -537,7 +565,7 @@ demo_mode: false
 # 17组Demo，窗口模式；无需正式视频或真实设备
 .\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol v1 --mode demo --windowed
 
-# 最新融合正式版，填写编号与Session后仍按所选YAML设备配置运行
+# v2融合正式版，填写编号与Session后仍按所选YAML设备配置运行
 .\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol v2 --mode formal --subject-id P001 --session-id 1
 
 # 只有实际使用Neuracle时才显式覆盖设备；地址/通道仍在对应YAML配置
@@ -548,7 +576,7 @@ demo_mode: false
 
 ## 实验室硬盘更新
 
-本次推荐使用上方 Windows EXE 1.0.4；安装和首次迁移结束后，日常采集无需连接交付硬盘。已有 v1 继续选择 v1，不因安装总范式而改成 v2；只有研究安排明确需要 v2 时才用新协议和相应被试记录。
+当前安装包为文首链接的Windows v0.3.1 v3 UI修正版；安装和首次迁移结束后，日常采集无需连接交付硬盘。已有v1/v2从旧协议入口继续，不能因升级安装包而切换到v3续跑；新协议使用对应的独立记录。
 
 已发出的旧离线包及断流补丁仍按包内入口和配置工作，没有被新版自动改写。继续使用这些历史入口时，应保留原环境、固定清单、题库和完整记录；不要为了统一文件名删除旧 BAT。原补丁及回退机制见[数据与 EEG 恢复](docs/operations/EEG_AND_RECOVERY.md)，历史源码包的部署见[硬盘部署说明](docs/operations/OFFLINE_UPDATE.md)。这些不是安装 EXE 的额外步骤。
 

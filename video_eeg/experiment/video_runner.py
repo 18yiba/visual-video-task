@@ -544,7 +544,9 @@ def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
         if bool(config.get("hardware_dummy_mode", False))
         else str(device_name or config.get("device_type", "brainco")).strip().lower()
     )
-    n_channels = 32 if selected == "brainco" else 64
+    # BrainCo Demo exercises the same 32-electrode native EDF writer.
+    simulated_brainco = selected == 'dummy' and str(config.get('device_type', 'brainco')).lower() == 'brainco'
+    n_channels = 32 if selected == "brainco" or simulated_brainco else 64
     neuracle_eeg_channels: int | None = None
     neuracle_include_trigger = False
     if selected == "neuracle":
@@ -693,6 +695,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--preflight-eeg", action="store_true", help="打开窗口前检查 EEG/Marker 连接。")
     parser.add_argument("--eeg-check-only", action="store_true", help="只检查 EEG/Marker 连接。")
     parser.add_argument("--doctor", action="store_true", help="检查视频实验运行依赖。")
+    parser.add_argument("--emotion-stage", choices=["eeg", "ratings"], default="eeg", help="v3 情绪视频阶段：EEG采集或独立行为评分。")
+    parser.add_argument("--integrated-startup", action="store_true", help="v3控制台已填写启动信息；运行时自动核验EEG。")
+    parser.add_argument("--emotion-only", action="store_true", help="v3仅播放情绪视频，使用独立进度。")
+    parser.add_argument("--paradigm-code", default="", help="v3平台已确认范式代码，采集时保存快照。")
     parser.add_argument("--seed", type=int, default=None, help="显式固定本次随机种子（测试/复现使用）。")
     return parser.parse_args(argv)
 
@@ -803,8 +809,14 @@ def _write_formal_exclusion_report(path: Path, excluded: list[VideoAsset]) -> No
 
 
 def next_incomplete_session(config: dict[str, Any], subject_id: str, *, num_sessions: int) -> int:
+    ratings_only = config.get('protocol', {}).get('separate_emotion_ratings') and config.get('emotion_stage') == 'ratings'
     for session_id in range(1, int(num_sessions) + 1):
         state = load_state(session_state_path(_records_dir({**config, 'subject_id':subject_id}), subject_id, session_id))
+        if ratings_only:
+            from video_eeg.experiment.emotion_v3_runner import eeg_saved
+            if state is not None and any(eeg_saved(a) and not a['emotion_rating'].get('completed') for a in state.video_attempts):
+                return session_id
+            continue
         if state is None or not state.session_completed:
             return session_id
     return int(num_sessions)
@@ -821,6 +833,21 @@ def main(argv: list[str] | None = None) -> int:
     config["_project_dir"] = str(PROJECT_ROOT)
     config["_config_dir"] = str(config_path.resolve().parent)
     apply_cli_overrides(config, args)
+    config['emotion_stage'] = args.emotion_stage
+    if args.paradigm_code:
+        if not config.get('protocol', {}).get('separate_emotion_ratings'):
+            raise RuntimeError('范式代码参数仅适用于 v3')
+        config['paradigm_code'] = args.paradigm_code.strip()
+    if args.emotion_only:
+        from video_eeg.experiment.emotion_v3_runner import configure_emotion_only
+        configure_emotion_only(config)
+    config['_integrated_startup'] = args.integrated_startup
+    if args.integrated_startup and not config.get('protocol', {}).get('separate_emotion_ratings'):
+        raise RuntimeError('整合启动页仅适用于 v3 配置')
+    if args.emotion_stage == 'ratings' and not config.get('protocol', {}).get('separate_emotion_ratings'):
+        raise RuntimeError('独立情绪评分仅适用于 v3 配置')
+    if args.emotion_stage == 'ratings' and (args.preflight_eeg or args.eeg_check_only):
+        raise RuntimeError('行为评分阶段不允许 EEG 检查或采集')
     if args.demo:
         config["hardware_dummy_mode"] = True
     elif bool(config.get("hardware_dummy_mode", False)):
@@ -865,6 +892,9 @@ def main(argv: list[str] | None = None) -> int:
         if config['protocol']['kind']=='emotion-v2':
             from video_eeg.experiment.emotion_v2_runner import EmotionV2Runner
             runner_class = EmotionV2Runner
+            if config['protocol'].get('separate_emotion_ratings'):
+                from video_eeg.experiment.emotion_v3_runner import EmotionV3Runner
+                runner_class = EmotionV3Runner
         playlist_seed = protocol.random_seed + int(config['session_id'])
     else:
         library = load_video_library(config)
@@ -1132,7 +1162,9 @@ class VideoRunner:
                 self.termination_reason = "already_completed"
                 self._show_text("该 Session 已完成，未重新播放视频。\n\n按空格键退出。")
                 return
-            if bool(self.config.get("hardware_dummy_mode", False)):
+            if self.config.get('_integrated_startup'):
+                connection = self._check_eeg_connection()
+            elif bool(self.config.get("hardware_dummy_mode", False)):
                 self._show_text("即将检查模拟脑电流程。\n\n按空格键继续。")
                 connection = self._check_eeg_connection()
                 self._show_text(self._connection_success_text(connection))
@@ -1196,12 +1228,12 @@ class VideoRunner:
             if session_dir is not None:
                 if self._run_traceback:
                     (session_dir / "crash_report.txt").write_text(self._run_traceback, encoding="utf-8")
-                self._show_text("原始记录已保存，正在整理 BIDS 副本。\n请等待完成后再关闭程序。", wait_for_key=False, duration=0, allow_abort=False)
+                self._show_text("原始记录已保存，正在整理 EEGQC 交接包。\n请等待完成后再关闭程序。", wait_for_key=False, duration=0, allow_abort=False)
                 try:
-                    from video_eeg.utils.bids_export import after_recording
+                    from video_eeg.utils.eegqc_export import after_recording
                     bids_message = after_recording(session_dir, self.config)
                 except Exception as exc:
-                    bids_message = "原始记录已保存；BIDS导出未完成，可稍后重试。\n"+str(exc)
+                    bids_message = "原始记录已保存；EEGQC交接未完成，可稍后重试。\n"+str(exc)
                 print(bids_message, flush=True)
                 if getattr(self, '_eeg_failure', None) is not None:
                     print(f'EEG故障数据已保存：{session_dir}')
@@ -1423,6 +1455,10 @@ class VideoRunner:
         session_dir = self.manager.start(
             metadata={
                 "task_mode": "video",
+                **({"protocol_version": "emotion-v3", "paradigm_code": self.config.get('paradigm_code'),
+                    "platform_participant_id": self.config.get('platform_participant_id'),
+                    "emotion_video_scope": 'emotion_only' if self.config['protocol'].get('emotion_only') else 'all'}
+                   if self.config.get('protocol', {}).get('separate_emotion_ratings') else {}),
                 "psychopy_runner": True,
                 "video_trials": len(self.playlist),
                 "num_sessions": self.protocol.num_sessions,

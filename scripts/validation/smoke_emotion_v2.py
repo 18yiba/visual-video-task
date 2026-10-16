@@ -54,7 +54,9 @@ def main():
                 state=r.state
                 path=r.manager.session_dir/r.manager.recorder.events_filename
                 events=json.loads(path.read_text(encoding='utf-8'));events=events.get('events',[]) if isinstance(events,dict) else events
-                assert np.load(r.manager.session_dir/r.manager.eeg_filename,mmap_mode='r').shape[1]>0
+                metadata=json.loads((r.manager.session_dir/r.manager.recorder.metadata_filename).read_text(encoding='utf-8'))
+                from video_eeg.utils.bids_export import load_signal
+                assert load_signal(r.manager.session_dir/r.manager.eeg_filename,metadata).shape[1]>0
                 if case in ('complete','skip') or resume:
                     assert state.session_completed and len(state.completed_video_ids)==4
                     assert state.completed_attention_count==1

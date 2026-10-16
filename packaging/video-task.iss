@@ -1,4 +1,4 @@
-﻿#ifndef AppVersion
+#ifndef AppVersion
   #error AppVersion required
 #endif
 #ifndef SourceDir
@@ -38,12 +38,14 @@ Name: desktopicon; Description: 创建桌面快捷方式; GroupDescription: 快�
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
 Name: "{autoprograms}\视频EEG总范式"; Filename: "{app}\VisualVideoTask.exe"
+Name: "{autoprograms}\视频EEG v3 实验控制台"; Filename: "{app}\VisualVideoTask.exe"
+Name: "{autoprograms}\视频EEG v1-v2 旧协议入口"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --legacy
 Name: "{autoprograms}\视频EEG设置（迁移到本机）"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --settings
 Name: "{autodesktop}\视频EEG总范式"; Filename: "{app}\VisualVideoTask.exe"; Tasks: desktopicon
 Name: "{autoprograms}\视频EEG文件盘点"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --audit
 Name: "{autoprograms}\视频EEG归档缓存"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --archive-caches
 Name: "{autoprograms}\视频EEG检查硬盘占用"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --drive-report
-Name: "{autoprograms}\视频EEG导出与检查BIDS"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --bids-export
+Name: "{autoprograms}\视频EEG导出 EEGQC 交接包"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --eegqc-export
 [Run]
 Filename: "{app}\VisualVideoTask.exe"; Description: 启动视频EEG总范式; Flags: nowait postinstall skipifsilent
 [Code]

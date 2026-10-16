@@ -1,5 +1,7 @@
 ## Windows 1.0.4：BIDS副本
 
+当前源码BrainCo新采集原生保存32导EDF，按CH01→CH32含IO；历史NPY不转换。量程±375000 µV，高通0.16 Hz，低通/陷波未知。尚未发布EXE；UUID身份、事件日志、行为与session_state继续保留，交接副本不得覆盖原件。详见[EEGQC 单记录 EDF 包](EEGQC_HANDOFF.md)。
+
 原始采集和恢复机制维持；正式保存后另生成BIDS，旧记录使用开始菜单导出入口。[完整操作和数据边界](BIDS_EXPORT.md)。下文sourcedata是原始记录层，不能替代BIDS根目录。
 
 # 数据目录、续跑、采集日志与断流保护
@@ -30,7 +32,7 @@
 | emotion_rating_log.csv | V1/V2效价、唤醒、反应时间与量尺版本 |
 | rest_log.csv | 休息出现、选择及停留时间 |
 | YYYYMMDD_HHMMSS/ | 一次EEG采集启动时刻命名的子目录，不是结束时刻 |
-| continuous_eeg.npy | 通道×样本连续EEG，不应按视频分别拼出伪连续记录 |
+| continuous_eeg.edf / continuous_eeg.npy | 新BrainCo采集为32导EDF，历史NPY保持原样；不跨采集段拼接 |
 | events.json | 事件、相对时间、样本索引和marker信息；重复样本索引可能提示断流 |
 | metadata.json / eeg_segments.json | 设备、采样率、分段、退出原因及文件对应 |
 | crash_report.txt | Python调用栈，区分文件保存、播放与采集异常 |

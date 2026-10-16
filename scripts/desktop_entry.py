@@ -98,36 +98,42 @@ def verify_materials(settings,protocol):
     save_json(cache_path,cache);save_json(USER/'settings.json',settings)
     return True
 
-def export_bids_dialog(settings):
-    """Independent offline export; acquisition must have finished and saved."""
+def export_eegqc_dialog(settings):
+    """Independent EEGQC handoff; acquisition must have finished and saved."""
     from concurrent.futures import ThreadPoolExecutor
-    from video_eeg.utils.bids_export import discover, export_recording, validate_dataset, write_json
+    from video_eeg.utils.bids_export import discover, write_json
+    from video_eeg.utils.eegqc_export import export_recording, load_settings as load_export_settings
     from video_eeg.utils.desktop_local import desktop_root, require_local
     from video_eeg.utils.desktop import assert_legacy_idle
     W=qt()
     default=Path(settings.get('data_root',str(desktop_root()/'data/sourcedata')))
-    protocol,ok=W.QInputDialog.getItem(None,'导出 BIDS','请选择原记录所属协议（v1、v2分别导出；请先结束并保存采集）：',['v2','v1'],0,False)
+    protocol,ok=W.QInputDialog.getItem(None,'导出 EEGQC 交接包','请选择原记录所属协议（v1、v2分别导出；请先结束并保存采集）：',['v2','v1'],0,False)
     if not ok:return 0
+    try:
+        export_settings = load_export_settings(USER/'eegqc.local.json')
+    except Exception as exc:
+        W.QMessageBox.warning(None,'交接配置待完善',str(exc))
+        return 1
     source=W.QFileDialog.getExistingDirectory(None,'选择一个已保存的Session、被试或协议目录（不要选Demo）',str(default/protocol))
     if not source:return 0
     assert_legacy_idle(settings.get('legacy_source') or source)
-    target=str(default.parent/'bids'/protocol)
-    target,ok=W.QInputDialog.getText(None,'BIDS副本位置','保留原始数据及进度；同一协议使用同一目录。需要额外约一份EEG的空间。',text=target)
+    target=str(export_settings.get('output_root') or default.parent/'eegqc')
+    target,ok=W.QInputDialog.getText(None,'EEGQC交接包位置','每段连续记录单独导出EDF交接目录；原始记录与进度保留。',text=target)
     if not ok or not target.strip():return 0
     require_local(target)
-    progress=W.QProgressDialog('正在导出并逐行校验BIDS；原数据和进度不变。',None,0,0)
-    progress.setWindowTitle('导出 BIDS');progress.setMinimumDuration(0);progress.show()
+    progress=W.QProgressDialog('正在导出并逐行校验交接包；原数据和进度不变。',None,0,0)
+    progress.setWindowTitle('导出 EEGQC 交接包');progress.setMinimumDuration(0);progress.show()
     def work():
         folders=discover(source)
         if not folders:raise ValueError('没有找到含metadata.json的已保存采集目录。')
         results=[];errors=[]
         for folder in folders:
-            try:results.append(export_recording(folder,target,protocol=protocol))
+            try:results.append(export_recording(folder,target,protocol=protocol,settings=export_settings,validate=True))
             except Exception as exc:errors.append({'recording':folder.name,'error':str(exc)})
         validation=None
         if results:
-            try:validation=validate_dataset(target)
-            except Exception as exc:errors.append({'validation_error':str(exc)})
+            reports=[r['official_validation'] for result in results for r in result['recordings']]
+            validation={'errors':sum(r['errors'] for r in reports),'warnings':sum(r['warnings'] for r in reports)}
         report={'results':results,'errors':errors,'validation':validation}
         # Reports remain local; contain no EEG and are never uploaded.
         report_path=USER/'logs'/('bids_export_'+time.strftime('%Y%m%d_%H%M%S')+'.json')
@@ -140,20 +146,57 @@ def export_bids_dialog(settings):
             while not future.done():W.QApplication.processEvents();time.sleep(.05)
             results,errors,validation,flags,report_path=future.result()
     finally:progress.close()
-    message='原始记录与续跑进度未改变。\nBIDS目录：'+target+'\n操作报告：'+str(report_path)
+    message='原始记录与续跑进度未改变。\n交接包目录：'+target+'\n操作报告：'+str(report_path)+'\n请在EEGQC人工确认范式；尚未上传或入库。'
     if validation:message+=f"\n官方校验：{validation['errors']}个错误、{validation['warnings']}个警告。"
     if flags:message+=f'\n有{flags}项时序质量标记，请查看code/exports；格式通过不代表EEG完整。'
     if errors:W.QMessageBox.warning(None,'部分导出未完成',message+'\n'+str(errors[0]))
-    else:W.QMessageBox.information(None,'BIDS导出完成',message)
+    else:W.QMessageBox.information(None,'EEGQC交接包导出完成',message)
     return 1 if errors else 0
+
+def launch_v3(settings=None, *, smoke=False):
+    import launch_emotion_v3 as front
+    if settings is not None:
+        import yaml
+        from video_eeg.utils.desktop import adapt_config
+        from video_eeg.utils.desktop_local import require_local
+        path=ROOT/'video_eeg/config/video_emotion_v3_config.yaml'
+        original=front.base.load_config(path)
+        # v3 has its own protocol and records; never inherit the old v1 contract.
+        current={k:v for k,v in settings.items() if k not in {'legacy_snapshot','legacy_project'}}
+        cfg=adapt_config(original,path,current,USER,ROOT)
+        cfg['storage']={**original.get('storage',{}),**cfg['storage']}
+        cfg['storage']['records_dir']=str(require_local(settings['data_root'])/'v3')
+        for key in ('session_manifest_path','session_manifest','question_bank_path','formal_exclusion_report_path'):
+            if cfg['protocol'].get(key):cfg['protocol'][key]=str((ROOT/cfg['protocol'][key]).resolve())
+        config_path=USER/'v3-desktop.yaml'
+        config_path.write_text(yaml.safe_dump(cfg,allow_unicode=True),encoding='utf-8')
+        os.environ['VIDEO_EEG_V3_CONFIG']=str(config_path)
+    else:
+        os.environ.pop('VIDEO_EEG_V3_CONFIG',None)
+    window=front.make_window()
+    if smoke:
+        from importlib import import_module
+        from psychopy.gui import qtgui
+        C=import_module(f'{qtgui.haveQt}.QtCore')
+        def inspect():
+            assert window.windowTitle()=='v3 实验控制台'
+            assert window.stage.count()==2 and window.scope.count()==2
+            assert not hasattr(window,'mode')
+            window.grab().save(str(USER/'logs/v3-desktop.png'))
+            print('V3 desktop UI PASS; no hardware started',flush=True)
+            window.accept()
+        C.QTimer.singleShot(1000,inspect)
+    return window.exec()
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--self-test',action='store_true');p.add_argument('--smoke',choices=['v1','v2','disconnect']);p.add_argument('--settings',action='store_true')
-    p.add_argument('--bids-export',action='store_true');p.add_argument('--audit',action='store_true');p.add_argument('--archive-caches',action='store_true');p.add_argument('--drive-report',nargs='?',const='ASK')
+    p.add_argument('--eegqc-export',action='store_true');p.add_argument('--bids-export',dest='eegqc_export',action='store_true');p.add_argument('--audit',action='store_true');p.add_argument('--archive-caches',action='store_true');p.add_argument('--drive-report',nargs='?',const='ASK')
+    p.add_argument('--legacy',action='store_true',help='Open the preserved v1/v2 launcher')
+    p.add_argument('--ui-smoke',action='store_true',help='Verify the v3 window without starting hardware')
     args=p.parse_args()
     USER.mkdir(parents=True,exist_ok=True)
     for name in ('logs','tmp','psychopy'):(USER/name).mkdir(exist_ok=True)
-    os.environ.update(PYTHONUTF8='1',PYTHONNOUSERSITE='1',APPDATA=str(USER/'psychopy'),TEMP=str(USER/'tmp'),TMP=str(USER/'tmp'))
+    os.environ.update(PYTHONUTF8='1',PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1',APPDATA=str(USER/'psychopy'),TEMP=str(USER/'tmp'),TMP=str(USER/'tmp'))
     os.environ.pop('VIDEO_EEG_EMOTION_ROOT',None)
     os.chdir(ROOT)
     from psychopy import prefs
@@ -171,6 +214,8 @@ def main():
         else:
             sys.argv=['smoke_unified_entry.py','--protocol',args.smoke];script=ROOT/'scripts/validation/smoke_unified_entry.py'
         runpy.run_path(str(script),run_name='__main__');return 0
+    if args.ui_smoke:
+        launch_v3(smoke=True);return 0
     from video_eeg.utils.desktop_local import SCHEMA,validate_runtime,local_recording_root,dependency_report,archive_caches,drive_report,require_local
     require_local(ROOT);require_local(USER)
     if args.drive_report:
@@ -185,7 +230,7 @@ def main():
     from video_eeg.utils.recording_paths import recording_root
     import launch_experiment as launcher
     settings=load_settings()
-    if args.bids_export:return export_bids_dialog(settings)
+    if args.eegqc_export:return export_eegqc_dialog(settings)
     if (args.settings or settings.get('schema')!=SCHEMA) and not choose_binding(settings):return 0
     validate_runtime(settings,USER,ROOT)
     if args.audit or args.archive_caches:
@@ -196,6 +241,8 @@ def main():
         else:message='逐文件依赖和旧目录保留清单已生成。'
         report=dependency_report(settings,USER,ROOT)
         qt().QMessageBox.information(None,'文件盘点',message+'\n'+str(report));os.startfile(report);return 0
+    if not args.legacy:
+        return launch_v3(settings)
     selected=launcher.choose(default_protocol='v1' if settings.get('legacy_snapshot') else 'v2',paths_hint='普通视频：'+settings['ordinary_root']+'\n新数据根目录：'+settings['data_root'])
     if not selected:return 0
     protocol,mode=selected

@@ -82,4 +82,5 @@ def adapt_config(config, filename, settings, user_dir, project_dir):
         root=require_local(settings['data_root'])
         cfg['storage']['source_data_root']=str(root)
         cfg['storage']['records_dir']=str(root/('v1' if v1 else 'v2'))
+    cfg['eegqc_config_path'] = str(Path(user_dir)/'eegqc.local.json')
     return cfg

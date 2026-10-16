@@ -13,7 +13,7 @@ FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'setup.py', 'lab_uv_env.tom
          'requirements-psychopy.txt', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md',
          'assets/brand/company_logo.png')
 PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/sourcedata/.gitkeep')
-ROOT_BATS = ('run_experiment.bat', 'install_lab_env_uv.bat', 'download_materials.bat')
+ROOT_BATS = ('run_emotion_v3.bat', 'run_experiment.bat', 'install_lab_env_uv.bat', 'download_materials.bat')
 # Superseded deployment/history documents remain local; the current operator manual replaces them.
 EXCLUDED = {'docs/CHANGELOG_LAB_ENV.md', 'docs/ENVIRONMENT_SETUP.md',
             'docs/SESSION_AUDIT_20260905.md', 'docs/VIDEO_QUESTION_AUDIT_20260908.md',
@@ -23,6 +23,9 @@ EXCLUDED = {'docs/CHANGELOG_LAB_ENV.md', 'docs/ENVIRONMENT_SETUP.md',
             'docs/IMPLEMENTATION.md', 'docs/INSTRUCTION.md',
             'docs/视频EEG_实验说明.docx', 'docs/视频EEG_详细操作说明.docx',
             'scripts/export_manual_docx.py',
+            # Local audit/synchronization notes are not release documentation.
+            'docs/BRAINCO_POWER_AUDIT_20260912.md', 'docs/GITHUB_SYNC_20260915.md',
+            'docs/maintenance/GITHUB_SYNC_20261008.md',
             'video_eeg/utils/preprocessing.py', 'video_eeg/utils/session_store.py',
             'video_eeg/utils/stream_writer.py'}
 
@@ -36,6 +39,8 @@ def source_files():
             if not p.is_file() or p.is_symlink():
                 continue
             parts=p.relative_to(ROOT).parts
+            if p.name.endswith('.local.json'):
+                continue
             if any(part in {'__pycache__','build','dist','.pytest_cache'} or part.endswith(('.egg-info','.dist-info')) for part in parts):
                 continue
             if p.relative_to(ROOT).as_posix() in excluded:

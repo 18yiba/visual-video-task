@@ -105,6 +105,13 @@ def safe_details(row):
 
 
 def profile_for(metadata, source_rows, profile=None):
+    if metadata.get('eeg_format') == 'EDF':
+        from video_eeg.storage.native_edf import REVISION, CHANNEL_NAMES
+        native = metadata.get('native_edf_profile', {})
+        if (metadata.get('device_type') not in {'brainco', 'brainco_lsl'} or source_rows != 32 or
+                native.get('revision') != REVISION or native.get('channel_names') != list(CHANNEL_NAMES)):
+            raise BidsExportError('Native EDF device/channel contract mismatch.')
+        return native
     if profile is None:
         profile = read_json(ROOT/'video_eeg/config/bids_profile.json')
     if metadata.get('device_type', '').lower() != profile['device_type']:
@@ -117,6 +124,15 @@ def profile_for(metadata, source_rows, profile=None):
     if any(not re.fullmatch(r'[A-Za-z0-9]+', str(name)) for name in names):
         raise BidsExportError('通道名称必须为非重复字母/数字标签。')
     return profile
+
+
+def load_signal(path, metadata):
+    if metadata.get('eeg_format') == 'EDF':
+        if path.suffix.lower() != '.edf':
+            raise BidsExportError('EDF metadata requires an EDF source file.')
+        from video_eeg.storage.native_edf import read_edf
+        return read_edf(path, metadata)
+    return np.load(path, mmap_mode='r', allow_pickle=False)
 
 
 def recording_files(directory):
@@ -146,7 +162,7 @@ def stamp_of(directory, metadata):
     return stamp, start
 
 
-def select_tables(directory, metadata, events, part):
+def select_tables(directory, metadata, events, part, *, ignore_tables=()):
     """Select cumulative behavior by recording identity/time, never part alone."""
     directory = Path(directory)
     stamp, start = stamp_of(directory, metadata)
@@ -164,6 +180,8 @@ def select_tables(directory, metadata, events, part):
                 end = min(end, sibling_start)
     selected = {}
     for name in TABLES:
+        if name in ignore_tables:
+            continue
         candidates = [directory.parent/name, directory/name]
         # A recovery CSV may contain newer data than the locked original. Do not guess.
         for candidate in candidates:
@@ -285,6 +303,7 @@ def build_events(events, tables, n_samples, sfreq):
         row = dict(onset=sample/sfreq if valid else None, duration=duration if valid else None,
                    trial_type=name, sample=int(sample) if valid else None,
                    source_elapsed_time=event.get('relative_time_sec'), eeg_available=valid,
+                   source_event_index=i,
                    source_table='events.json', quality_note=note,
                    source_details=safe_details(payload))
         row.update(behavior_fields(payload))
@@ -400,11 +419,11 @@ def export_recording(directory, output, *, protocol, profile=None):
                 return no_links(directory/name)
             eeg_path = source_file('eeg_file', 'continuous_eeg.npy')
             event_path = source_file('events_file', 'events.json')
-            data = np.load(eeg_path, mmap_mode='r', allow_pickle=False)
+            data = load_signal(eeg_path, m)
             try:
                 if data.ndim != 2 or data.shape[1] < 2:
                     raise BidsExportError('EEG为空或数组维度不正确。')
-                if data.dtype.kind != 'f' or data.dtype.itemsize != 4:
+                if m.get('eeg_format') != 'EDF' and (data.dtype.kind != 'f' or data.dtype.itemsize != 4):
                     raise BidsExportError('源EEG不是float32；为避免隐式精度损失，未自动转换。')
                 if m.get('n_channels') is not None and int(m['n_channels']) != data.shape[0]:
                     raise BidsExportError('metadata通道数与EEG数组不符。')
@@ -414,9 +433,10 @@ def export_recording(directory, output, *, protocol, profile=None):
                     raise BidsExportError('缺少真实采样率。')
                 if m.get('sample_count') is not None and int(m['sample_count']) != data.shape[1]:
                     raise BidsExportError('metadata样本数与EEG不符。')
-                counter = np.asarray(data[0, :min(data.shape[1], 500000)], dtype='float64')
-                if np.mean(np.diff(counter) == 1) < .95:
-                    raise BidsExportError('首行计数验证失败，未删除未知通道。')
+                if p.get('sample_counter_row') == 0:
+                    counter = np.asarray(data[0, :min(data.shape[1], 500000)], dtype='float64')
+                    if np.mean(np.diff(counter) == 1) < .95:
+                        raise BidsExportError('首行计数验证失败，未删除未知通道。')
                 events = read_json(event_path)
                 if not isinstance(events, list):
                     raise BidsExportError('events.json不是事件列表。')
@@ -443,7 +463,10 @@ def export_recording(directory, output, *, protocol, profile=None):
                     if shutil.disk_usage(output).free < (data.shape[0]-1)*data.shape[1]*4+64*1024*1024:
                         raise BidsExportError('磁盘空间不足；原始数据已保存，BIDS可稍后重试。')
                     eeg_prefix = prefix+'_eeg'
-                    write_brainvision(stage, eeg_prefix, data, sf, p['channel_names'])
+                    if m.get('eeg_format') == 'EDF':
+                        shutil.copyfile(eeg_path, stage/(eeg_prefix+'.edf'))
+                    else:
+                        write_brainvision(stage, eeg_prefix, data, sf, p['channel_names'])
                     write_tsv(stage/(prefix+'_events.tsv'), rows, COLUMNS)
                     descriptions = {key: {'Description': 'Source variable: '+key} for key in COLUMNS}
                     descriptions.update(onset={'Description': 'Seconds from first stored EEG sample; n/a when unavailable.', 'Units': 's'},
@@ -458,7 +481,7 @@ def export_recording(directory, output, *, protocol, profile=None):
                         'PowerLineFrequency': p['power_line_frequency'], 'EEGReference': p['reference'],
                         'SoftwareFilters': p.get('software_filters', 'n/a'), 'Manufacturer': p['manufacturer'],
                         'EEGChannelCount': len(p['channel_names']), 'RecordingType': 'continuous',
-                        'RecordingDuration': data.shape[1]/sf, 'SourceSampleCounterRow': 0,
+                        'RecordingDuration': data.shape[1]/sf, 'SourceSampleCounterRow': p.get('sample_counter_row'),
                         'SourceProtocol': m.get('protocol_version') or protocol, 'SourceSessionNumber': session,
                         'SourceTerminationReason': m.get('termination_reason', 'n/a'),
                         'SourceSessionCompleted': bool(m.get('session_completed', False)),

@@ -17,6 +17,7 @@ dependencies = [
   "bcigo-sdk>=1.0.2",
   "brainflow",
   "numpy",
+  "edfio==0.4.11",
   "pylsl",
   "psutil>=5.9",
   "pyserial",
@@ -25,7 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-bids = ["bids-validator-deno==3.0.1", "deno==2.9.6"]
+bids = ["bids-validator-deno==3.0.1", "deno==2.9.6", "edfio==0.4.11"]
 
 [project.scripts]
 video-eeg = "video_eeg.experiment.video_runner:main"
