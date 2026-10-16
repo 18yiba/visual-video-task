@@ -31,7 +31,7 @@ class DistributionTests(unittest.TestCase):
             config = dict(_project_dir=str(project), protocol=dict(video_library_dir='../video_materials/formal_v1/videos'))
             self.assertEqual(load_video_library(config).root, materials.resolve())
             config['protocol']['video_library_dir'] = 'operator_custom_path'
-            self.assertEqual(load_video_library(config).root, project / 'operator_custom_path')
+            self.assertEqual(load_video_library(config).root, (project / 'operator_custom_path').resolve())
 
     def test_release_allowlist_excludes_data_media_and_credentials(self):
         path = ROOT / 'scripts/maintenance/build_release.py'
