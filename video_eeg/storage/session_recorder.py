@@ -301,6 +301,8 @@ class SessionRecorder:
                 "local_eeg_recorded": not self._event_only,
             }
         )
+        if hasattr(self, 'validate_export_metadata'):
+            self.validate_export_metadata(output_dir, segment_metadata)
         with (output_dir / self._metadata_filename).open("x", encoding="utf-8") as handle:
             json.dump(segment_metadata, handle, ensure_ascii=False, indent=2)
         self._update_segments_manifest(output_dir, segment_metadata)
@@ -373,8 +375,8 @@ class SessionRecorder:
                 "events_file": self._events_filename,
                 "metadata_file": self._metadata_filename,
                 "sample_count": self._sample_count,
-                "sfreq": self._sfreq,
-                "n_channels": self._n_channels,
+                "sfreq": metadata.get("sfreq") if self._event_only else self._sfreq,
+                "n_channels": metadata.get("n_channels") if self._event_only else self._n_channels,
                 "start_trial": metadata.get("segment_start_trial"),
                 "end_trial": metadata.get("segment_end_trial"),
                 "termination_reason": metadata.get("termination_reason"),

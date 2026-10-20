@@ -35,6 +35,8 @@ class EegSessionManager:
     ) -> None:
         self._acquirer = acquirer
         self._marker_backend = marker_backend
+        if hasattr(acquirer, 'bind_marker'):
+            acquirer.bind_marker(marker_backend)
         self._sfreq = float(sfreq)
         detected_sfreq = float(acquirer.metadata.sfreq)
         if abs(detected_sfreq - self._sfreq) > 0.01:
@@ -46,7 +48,11 @@ class EegSessionManager:
         self._subject_id = subject_id
         self._session_id = int(session_id)
         self._record_local_eeg = bool(record_local_eeg)
-        self._recorder = SessionRecorder(
+        recorder_class = SessionRecorder
+        if record_local_eeg and getattr(acquirer, 'verified_neuracle', False):
+            from video_eeg.storage.neuracle_recorder import NeuracleSessionRecorder
+            recorder_class = NeuracleSessionRecorder
+        self._recorder = recorder_class(
             acquirer,
             sfreq=self._sfreq,
             n_channels=int(acquirer.metadata.n_channels),
@@ -127,9 +133,25 @@ class EegSessionManager:
                 / session_folder
                 / self._session_stamp
             )
-        if self._record_local_eeg:
-            self._acquirer.start_stream()
-        self._recorder.start_spooling(self._session_dir)
+        try:
+            if self._record_local_eeg:
+                self._acquirer.start_stream()
+            self._recorder.start_spooling(self._session_dir)
+        except Exception:
+            try:
+                if self._record_local_eeg: self._acquirer.stop_stream()
+            finally:
+                self._marker_backend.close()
+            raise
+        if hasattr(self._marker_backend, 'start_recording'):
+            try:
+                self._marker_backend.start_recording(self._session_dir, self.eeg_part,
+                    f'{self._subject_id} Session {self._session_id}')
+            except Exception as exc:
+                self._running = True
+                self._background_error = exc
+                self.stop_and_export(metadata=dict(completed=False, startup_error=str(exc)))
+                raise
         self._stop_event.clear()
         self._background_error = None
         if self._record_local_eeg:
@@ -144,7 +166,13 @@ class EegSessionManager:
             )
             self._thread.start()
         self._running = True
-        self.emit("session_start", subject_id=self._subject_id, session_id=self._session_id)
+        try:
+            self.emit("session_start", subject_id=self._subject_id, session_id=self._session_id)
+        except Exception as exc:
+            if hasattr(self._marker_backend, 'delivery_status'):
+                self._background_error = exc
+                self.stop_and_export(metadata=dict(completed=False, startup_error=str(exc)))
+            raise
         return self._session_dir
 
     def run_baseline(self, duration_sec: float, *, heartbeat: Heartbeat = None) -> None:
@@ -201,7 +229,18 @@ class EegSessionManager:
             return self._session_dir
 
         if self._background_error is None:
-            self.emit("session_end", subject_id=self._subject_id, session_id=self._session_id)
+            try:
+                self.emit("session_end", subject_id=self._subject_id, session_id=self._session_id)
+            except Exception as exc:
+                if not hasattr(self._marker_backend, 'delivery_status'):
+                    raise
+                self._shutdown_errors.append('session_end: '+repr(exc))
+        if self._background_error is None and hasattr(self._marker_backend, 'finish_recording'):
+            try:
+                self._marker_backend.finish_recording()
+            except Exception as exc:
+                self._shutdown_errors.append('marker_confirmation: '+repr(exc))
+                self._latch_fault('trigger_feedback_error', str(exc))
         self._stop_event.set()
         if self._health_thread is not None:
             self._health_thread.join(timeout=2.0)
@@ -254,6 +293,10 @@ class EegSessionManager:
         export_metadata.update(self._start_metadata)
         if metadata:
             export_metadata.update(metadata)
+        if hasattr(self._acquirer, 'recording_metadata'):
+            export_metadata.update(self._acquirer.recording_metadata())
+        if hasattr(self._marker_backend, 'recording_metadata'):
+            export_metadata.update(self._marker_backend.recording_metadata())
         if self._background_error is not None:
             export_metadata["termination_reason"] = "eeg_background_error"
             export_metadata["background_error"] = repr(self._background_error)
@@ -263,6 +306,8 @@ class EegSessionManager:
             measures='sample arrival only; does not measure impedance, battery, or signal quality')
         try:
             self._recorder.export(self._session_dir, metadata=export_metadata, pull_final=False)
+            if getattr(self._recorder, 'validation_error', None) and self._background_error is None:
+                self._background_error = EegAcquisitionError(self._recorder.validation_error)
         finally:
             self._marker_backend.close()
         return self._session_dir
@@ -309,8 +354,14 @@ class EegSessionManager:
             **payload,
         }
         try:
-            self._marker_backend.send_event(event_name)
+            if hasattr(self._marker_backend, 'delivery_status'):
+                self._marker_backend.send_event(event_name, timestamp=time.time())
+            else:
+                self._marker_backend.send_event(event_name)
         except BaseException as exc:
+            if hasattr(self._marker_backend, 'delivery_status'):
+                event_payload.update(external_marker_sent=self._marker_backend.last_write_accepted,
+                    external_marker_received=None, marker_delivery='serial_error')
             self._recorder.add_event(
                 event_name,
                 **event_payload,
@@ -318,7 +369,13 @@ class EegSessionManager:
                 marker_send_success=False,
                 marker_send_error=repr(exc),
             )
+            if hasattr(self._marker_backend, 'finish_recording') and isinstance(exc, Exception):
+                self._latch_fault('trigger_send_error', str(exc))
+                raise EegAcquisitionError(str(exc)) from exc
             raise
+        if hasattr(self._marker_backend, 'delivery_status'):
+            event_payload.update(marker_delivery=self._marker_backend.delivery_status,
+                                 external_marker_received=None)
         self._recorder.add_event(
             event_name,
             **event_payload,
@@ -359,6 +416,18 @@ class EegSessionManager:
         last_log_time=time.monotonic();last_log_count=0
         try:
             while not self._stop_event.is_set():
+                if hasattr(self._recorder, 'check_health'):
+                    try:
+                        self._recorder.check_health()
+                    except Exception as exc:
+                        self._latch_fault('recording_write_error', str(exc))
+                        break
+                if hasattr(self._marker_backend, 'finish_recording'):
+                    try:
+                        self._marker_backend.check_health()
+                    except Exception as exc:
+                        self._latch_fault('trigger_feedback_error', str(exc))
+                        break
                 now=time.monotonic()
                 observation=self._watchdog.observe(self._recorder.sample_count,now)
                 if now>=next_log or observation['status']!='ok':
@@ -367,6 +436,7 @@ class EegSessionManager:
                     self._health_file.write(json.dumps(dict(observation, timestamp_unix_sec=time.time(),
                         monotonic_sec=now, relative_time_sec=self._recorder.elapsed_sec,
                         sample_delta=delta, interval_sec=interval,
+                        writer=self._recorder.writer_metadata() if hasattr(self._recorder, 'writer_metadata') else None,
                         effective_samples_per_sec=delta/interval if interval>0 else None))+'\n')
                     self._health_file.flush();next_log=now+1.
                     last_log_time=now;last_log_count=observation['sample_count']
@@ -383,6 +453,16 @@ class EegSessionManager:
     def raise_if_background_failed(self) -> None:
         if self._background_error is not None:
             raise EegAcquisitionError(f"EEG 后台采集失败：{self._background_error}") from self._background_error
+
+        if self._running and hasattr(self._marker_backend, 'check_health'):
+            try:
+                self._marker_backend.check_health()
+            except Exception as exc:
+                if not hasattr(self._marker_backend, 'delivery_status'):
+                    raise
+                self._latch_fault('trigger_feedback_error' if hasattr(self._marker_backend, 'finish_recording') else 'external_recording_environment_error', str(exc),
+                    self._marker_backend.recording_metadata().get('external_environment_guard'))
+                raise EegAcquisitionError(str(exc)) from exc
 
     @staticmethod
     def _sleep(duration_sec: float, *, heartbeat: Heartbeat = None) -> None:

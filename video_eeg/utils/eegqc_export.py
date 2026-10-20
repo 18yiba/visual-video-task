@@ -365,6 +365,12 @@ def export_recording(directory, output, *, protocol, settings, validate=False):
 
 
 def after_recording(directory, config):
+    if config.get('device_type') == 'neuracle' and not config.get('hardware_dummy_mode'):
+        return ('本 Session 的本地 TCP 采集已停止，原始脑电 NPY、TRG 回执和行为日志已保存。'
+                'Collect 的独立录制需在其软件中停止。博睿康尚未配置 EEGQC 导出，不套用 BrainCo 通道与量程。')
+    if config.get('device_type') == 'emotivpro' and not config.get('hardware_dummy_mode'):
+        return ('行为与标记日志已保存；脑电由 EmotivPRO 保存。请停止录制并导出 EDF，'
+                '回到控制台登记外部 EEG 后再评分。不套用 BrainCo 通道/量程导出。')
     if config.get('demo_mode') or config.get('hardware_dummy_mode'):
         return 'Demo模拟记录已保存；不生成正式EEGQC交接包。'
     try:

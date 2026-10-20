@@ -544,6 +544,10 @@ def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
         if bool(config.get("hardware_dummy_mode", False))
         else str(device_name or config.get("device_type", "brainco")).strip().lower()
     )
+    if selected == 'emotivpro':
+        from video_eeg.devices.external_recorder_acquirer import ExternalRecorderAcquirer
+        return ExternalRecorderAcquirer(sfreq=expected_sampling_rate(config), n_channels=1,
+                                       backend_name='emotivpro')
     # BrainCo Demo exercises the same 32-electrode native EDF writer.
     simulated_brainco = selected == 'dummy' and str(config.get('device_type', 'brainco')).lower() == 'brainco'
     n_channels = 32 if selected == "brainco" or simulated_brainco else 64
@@ -603,6 +607,9 @@ def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
             )
         else:
             raise RuntimeError("device.brainco_transport must be bcigo, lsl, or sdk")
+    if selected == 'neuracle' and device_cfg.get('neuracle_strict'):
+        from video_eeg.devices.neuracle_verified import VerifiedNeuracleAcquirer
+        return VerifiedNeuracleAcquirer(**kwargs)
     return AcquirerFactory.create(factory_name, **kwargs)
 
 
@@ -615,6 +622,15 @@ def build_marker_backend(config: dict[str, Any]) -> Any:
     )
 
     device_cfg = dict(config.get("device", {}))
+    if str(config.get('device_type', '')).lower() == 'emotivpro':
+        if config.get('hardware_dummy_mode'):
+            return NoOpMarkerBackend()
+        from video_eeg.utils.serial_markers import EmotivProSerialBackend
+        return EmotivProSerialBackend(device_cfg.get('emotivpro_serial_port', ''),
+            baudrate=int(device_cfg.get('emotivpro_baudrate', 115200)))
+    if config.get('device_type') == 'neuracle' and device_cfg.get('neuracle_strict') and not config.get('hardware_dummy_mode'):
+        from video_eeg.utils.neuracle_markers import VerifiedTriggerBox
+        return VerifiedTriggerBox(device_cfg.get('trigger_serial_port', ''))
     backends: list[Any] = []
     serial_port = str(device_cfg.get("trigger_serial_port", "")).strip()
     if serial_port:
@@ -666,7 +682,17 @@ def uses_bcigo_external_recording(config: dict[str, Any]) -> bool:
     )
 
 
+def uses_emotivpro_recording(config):
+    return str(config.get('device_type', '')).lower() == 'emotivpro' and not config.get('hardware_dummy_mode', False)
+
+
+def uses_external_recording(config):
+    return uses_emotivpro_recording(config) or uses_bcigo_external_recording(config)
+
+
 def _marker_mode(backend: Any) -> str:
+    if type(backend).__name__ == 'EmotivProSerialBackend':
+        return 'emotivpro_serial'
     if type(backend).__name__ == "NoOpMarkerBackend":
         return "noop"
     if type(backend).__name__ == "LSLMarkerBackend":
@@ -690,7 +716,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--no-dialog", action="store_true", help="跳过 PsychoPy 启动对话框。")
     parser.add_argument("--dummy-eeg", action="store_true", help="强制使用模拟 EEG。")
     parser.add_argument("--real-eeg", action="store_true", help="强制使用真实 EEG 配置。")
-    parser.add_argument("--device-type", choices=["brainco", "neuracle"], default="")
+    parser.add_argument("--device-type", choices=["brainco", "neuracle", "emotivpro"], default="")
+    parser.add_argument('--emotivpro-port', default='')
+    parser.add_argument('--emotivpro-baudrate', type=int, default=115200)
     parser.add_argument("--brainco-transport", choices=["bcigo", "lsl", "sdk"], default="")
     parser.add_argument("--preflight-eeg", action="store_true", help="打开窗口前检查 EEG/Marker 连接。")
     parser.add_argument("--eeg-check-only", action="store_true", help="只检查 EEG/Marker 连接。")
@@ -715,6 +743,10 @@ def apply_cli_overrides(config: dict[str, Any], args: argparse.Namespace) -> Non
     device_cfg = dict(config.get("device", {}))
     if args.brainco_transport:
         device_cfg["brainco_transport"] = args.brainco_transport
+    if getattr(args, 'emotivpro_port', ''):
+        device_cfg['emotivpro_serial_port'] = args.emotivpro_port
+    if config.get('device_type') == 'emotivpro':
+        device_cfg['emotivpro_baudrate'] = getattr(args, 'emotivpro_baudrate', 115200)
     config["device"] = device_cfg
 
 
@@ -1162,7 +1194,7 @@ class VideoRunner:
                 self.termination_reason = "already_completed"
                 self._show_text("该 Session 已完成，未重新播放视频。\n\n按空格键退出。")
                 return
-            if self.config.get('_integrated_startup'):
+            if self.config.get('_integrated_startup') and not uses_emotivpro_recording(self.config):
                 connection = self._check_eeg_connection()
             elif bool(self.config.get("hardware_dummy_mode", False)):
                 self._show_text("即将检查模拟脑电流程。\n\n按空格键继续。")
@@ -1208,6 +1240,8 @@ class VideoRunner:
             self.termination_reason = "eeg_background_error"
             self._run_traceback = traceback.format_exc()
             self._eeg_failure = exc
+            if (uses_emotivpro_recording(getattr(self, 'config', {})) or getattr(self, 'config', {}).get('device', {}).get('neuracle_strict')) and hasattr(self.win, '_toCall'):
+                self.win._toCall.clear()
             movie = getattr(self, '_active_movie', None)
             if movie is not None:
                 try: movie.stop()
@@ -1219,16 +1253,31 @@ class VideoRunner:
             except Exception: pass  # EEG export must still be attempted.
             self._show_text(failure_message(exc), wait_for_key=False, duration=0, allow_abort=False)
         except Exception as exc:
+            if uses_emotivpro_recording(getattr(self, 'config', {})) or getattr(self, 'config', {}).get('device', {}).get('neuracle_strict'):
+                # PsychoPy retains a failed flip callback; never resend it on the error page.
+                if hasattr(self.win, '_toCall'):
+                    self.win._toCall.clear()
+                movie = getattr(self, '_active_movie', None)
+                if movie is not None:
+                    try:
+                        movie.stop()
+                    except Exception:
+                        pass
             self.termination_reason = "python_exception"
             self._run_traceback = traceback.format_exc()
             self._checkpoint("python_exception")
             self._show_text(f"实验运行出错：\n{exc}\n\n按空格键退出。", allow_abort=False)
         finally:
             session_dir = self._stop_and_export()
+            if (getattr(self, 'manager', None) is not None and isinstance(getattr(self.manager, 'background_error', None), BaseException)
+                    and getattr(self, '_eeg_failure', None) is None):
+                self._eeg_failure = self.manager.background_error
             if session_dir is not None:
                 if self._run_traceback:
                     (session_dir / "crash_report.txt").write_text(self._run_traceback, encoding="utf-8")
-                self._show_text("原始记录已保存，正在整理 EEGQC 交接包。\n请等待完成后再关闭程序。", wait_for_key=False, duration=0, allow_abort=False)
+                self._show_text("行为与标记日志已保存，请在 EmotivPRO 停止并导出脑电。"
+                    if uses_emotivpro_recording(getattr(self, "config", {})) else
+                    "原始记录已保存，正在整理 EEGQC 交接包。\n请等待完成后再关闭程序。", wait_for_key=False, duration=0, allow_abort=False)
                 try:
                     from video_eeg.utils.eegqc_export import after_recording
                     bids_message = after_recording(session_dir, self.config)
@@ -1257,6 +1306,36 @@ class VideoRunner:
             raise ExperimentAbort() from exc
 
     def _run_device_check_screen(self) -> dict[str, Any]:
+        if uses_emotivpro_recording(self.config):
+            while True:
+                try:
+                    info = probe_eeg_connection(self.config)
+                except Exception as exc:
+                    self._device_check_action_screen(title='外部录制环境检查未通过', body=str(exc),
+                        accent='#ef4444', primary_label='重试', secondary_label='退出',
+                        primary_key='r', secondary_key='escape')
+                    continue
+                action = self._device_check_action_screen(title='环境检查通过，录制仍需主试核对',
+                    body=(f"发送端：{info['serial_port']}；已检查 EmotivPRO 窗口与 USB 接收器接口。\n"
+                        '主试请在 EmotivPRO 核对：脑电持续刷新、正确被试/Session 正在录制、测试标记已收到。\n'
+                        '尚不能自动确认录制状态、帽子无线连接、EEG 样本或标记接收。\n'
+                        '本模式需要主试持续监看 EmotivPRO；不能用于无人监守采集。'),
+                    accent='#facc15', primary_label='主试已核对录制', secondary_label='重新检测',
+                    primary_key='space', secondary_key='r')
+                if action == 'start':
+                    try:
+                        current = probe_eeg_connection(self.config)
+                    except Exception as exc:
+                        self._device_check_action_screen(title='环境已变化，不能开始', body=str(exc),
+                            accent='#ef4444', primary_label='重试', secondary_label='退出',
+                            primary_key='r', secondary_key='escape')
+                        continue
+                    before = info.get('external_environment_guard', {}).get('observation')
+                    after = current.get('external_environment_guard', {}).get('observation')
+                    if before != after:
+                        continue  # A new process/receiver requires another operator confirmation.
+                    current['operator_confirmed_recording'] = True
+                    return current
         while True:
             self._draw_device_status(
                 title="正在检测强脑设备",
@@ -1398,7 +1477,7 @@ class VideoRunner:
             keys = self.keyboard.getKeys(["space", "r", "escape"], waitRelease=False, clear=True)
             names = {str(getattr(key, "name", key)).lower() for key in keys}
             if primary_key in names:
-                return "start" if primary_label == "开始实验" else "retry"
+                return "start" if primary_key == "space" else "retry"
             if secondary_key in names:
                 if secondary_label == "重新检测":
                     return "retry"
@@ -1407,7 +1486,7 @@ class VideoRunner:
                 raise ExperimentAbort()
             if self.mouse is not None and any(self.mouse.getPressed()):
                 if primary_rect.contains(self.mouse):
-                    return "start" if primary_label == "开始实验" else "retry"
+                    return "start" if primary_key == "space" else "retry"
                 if secondary_rect.contains(self.mouse):
                     if secondary_label == "重新检测":
                         return "retry"
@@ -1438,6 +1517,18 @@ class VideoRunner:
             config=self.config,
         )
         marker_backend = build_marker_backend(self.config)
+        if hasattr(acquirer, 'bind_marker'):
+            acquirer.expected_forwarded = connection.get('neuracle_forwarding')
+            expected_trigger = connection.get('neuracle_trigger', {})
+            if expected_trigger and expected_trigger.get('hardware_id') != marker_backend.hardware_id:
+                marker_backend.close()
+                raise EegAcquisitionError('同步盒在检测后发生变化，请重新检查。')
+        if uses_emotivpro_recording(self.config):
+            expected = connection.get('external_environment_guard', {}).get('observation')
+            actual = marker_backend.environment_report().get('observation')
+            if expected is not None and expected != actual:
+                marker_backend.close()
+                raise EegAcquisitionError('检查后 EmotivPRO 或接收器已变化，请重新启动并核对录制。')
         records_dir = self.project_dir / Path(
             str(self.config.get("storage", {}).get("records_dir", "video_records_storage"))
         )
@@ -1448,7 +1539,7 @@ class VideoRunner:
             records_dir=records_dir,
             subject_id=str(self.config.get("subject_id", "S001")),
             session_id=int(self.config.get("session_id", 1)),
-            record_local_eeg=not uses_bcigo_external_recording(self.config),
+            record_local_eeg=not uses_external_recording(self.config),
             no_sample_timeout_sec=float(self.config.get('device', {}).get('eeg_no_sample_timeout_sec', 5.0)),
             startup_timeout_sec=float(self.config.get('device', {}).get('eeg_startup_timeout_sec', 10.0)),
         )
@@ -1483,8 +1574,8 @@ class VideoRunner:
                 "eeg_connection_check": connection,
                 "expected_sampling_rate_hz": expected_sampling_rate(self.config),
                 "eeg_recording_mode": (
-                    "bcigo_external_edf"
-                    if uses_bcigo_external_recording(self.config)
+                    "emotivpro_external" if uses_emotivpro_recording(self.config) else "bcigo_external_edf"
+                    if uses_external_recording(self.config)
                     else "local_continuous_eeg"
                 ),
             }
@@ -1569,7 +1660,43 @@ class VideoRunner:
             )
         self.win.flip()
 
+    def _log_playback_failure(self, trial_idx, asset, movie, *, stage, reason, exc=None):
+        """Persist the original failure before the generic error page or export."""
+        self._last_playback_exception = exc
+        detail = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "timestamp_unix_sec": time.time(),
+            "subject_id": self.config.get("subject_id"),
+            "session_id": self.config.get("session_id"),
+            "trial_idx": trial_idx,
+            "asset_id": asset.asset_id,
+            "stim_file": asset.rel_path,
+            "stage": stage,
+            "reason": reason,
+            "frame_index": getattr(movie, "_current_index", None),
+            "declared_frames": getattr(movie, "_frame_count", None),
+            "fps": getattr(movie, "_fps", None),
+            "error_type": type(exc).__name__ if exc is not None else "",
+            "error_message": str(exc) if exc is not None else "",
+            "traceback": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)) if exc is not None else "",
+        }
+        print(json.dumps(detail, ensure_ascii=False, default=str), flush=True)
+        try:
+            output_dir = getattr(self.manager, "session_dir", None) or getattr(self, "progress_dir", None)
+            if output_dir is not None:
+                path = Path(output_dir) / "playback_errors.jsonl"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("a", encoding="utf-8") as handle:
+                    handle.write(json.dumps(detail, ensure_ascii=False, default=str) + "\n")
+                    handle.flush()
+                print(f"视频播放异常详情已保存：{path}", flush=True)
+        except Exception as log_error:
+            # A log failure must not replace the player exception or prevent
+            # the existing aborted-attempt and recovery-state saves.
+            print(f"视频异常日志保存失败：{log_error}", flush=True)
+
     def _run_trial(self, trial_idx: int, asset: VideoAsset) -> bool:
+        self._last_playback_exception = None
         manager = self._require_manager()
         trial_started = time.time()
         stim_file = asset.rel_path
@@ -1638,6 +1765,7 @@ class VideoRunner:
                 if bool(getattr(movie, "isFinished", False)):
                     if getattr(self, 'natural_eof_only', False) and getattr(movie, '_ended_prematurely', False):
                         status, abort_reason = 'aborted', 'premature_eof'
+                        self._log_playback_failure(trial_idx, asset, movie, stage="decode_eof", reason=abort_reason)
                         break
                     completed_naturally = True
                     status = "completed"
@@ -1647,7 +1775,9 @@ class VideoRunner:
                     status = "completed"
                     break
                 try:
+                    playback_stage = "movie.draw"
                     movie.draw()
+                    playback_stage = "win.flip"
                     self.win.flip()
                 except RuntimeError as exc:
                     message = str(exc)
@@ -1657,11 +1787,13 @@ class VideoRunner:
                         break
                     abort_reason = "playback_error"
                     status = "aborted"
+                    self._log_playback_failure(trial_idx, asset, movie, stage=playback_stage, reason=abort_reason, exc=exc)
                     print(f"视频播放异常，已记录为 aborted：{asset.rel_path}: {message}")
                     break
                 except Exception as exc:
                     abort_reason = "playback_error"
                     status = "aborted"
+                    self._log_playback_failure(trial_idx, asset, movie, stage=playback_stage, reason=abort_reason, exc=exc)
                     print(f"视频播放异常，已记录为 aborted：{asset.rel_path}: {exc}")
                     break
         except ExperimentAbort:
@@ -2343,6 +2475,20 @@ class VideoRunner:
 
 
 def probe_eeg_connection(config: dict[str, Any]) -> dict[str, Any]:
+    if config.get('device_type') == 'neuracle' and config.get('device', {}).get('neuracle_strict') and not config.get('hardware_dummy_mode'):
+        from video_eeg.utils.neuracle_recording import probe
+        return probe(config)
+    if uses_emotivpro_recording(config):
+        backend = build_marker_backend(config)
+        try:
+            backend.check_health()
+            return dict(device='emotivpro', channels=None, sfreq=None, samples=None,
+                expected_sampling_rate_hz=None, recording_mode='emotivpro_external',
+                marker_transport='serial', serial_port=backend.port,
+                external_environment_guard=backend.environment_report(),
+                emotivpro_recording_confirmed=False)
+        finally:
+            backend.close()
     if uses_bcigo_external_recording(config):
         backend = build_marker_backend(config)
         if not hasattr(backend, "wait_for_consumers"):

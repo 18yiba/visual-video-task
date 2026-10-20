@@ -24,6 +24,9 @@ def configure_emotion_only(config):
 def eeg_saved(attempt):
     """Require a complete playback, growing sample indices and its saved EEG part."""
     row = attempt.get('emotion_rating', {})
+    if row.get('eeg_recording_mode') == 'emotivpro_external':
+        from video_eeg.utils.emotivpro_recording import external_eeg_saved
+        return external_eeg_saved(attempt)
     onset, offset = row.get('video_onset_sample_index'), row.get('video_offset_sample_index')
     if not attempt.get('video_completed_naturally') or not isinstance(onset, int) or not isinstance(offset, int) or offset <= onset:
         return False
@@ -35,6 +38,14 @@ def eeg_saved(attempt):
             continue
         if metadata.get('eeg_part') != row.get('eeg_part'):
             continue
+        if metadata.get('device_type') == 'neuracle' and metadata.get('neuracle_trigger') is not None:
+            trigger = metadata['neuracle_trigger']
+            if metadata.get('neuracle_saved_trigger_required') and metadata.get('neuracle_saved_trigger', {}).get('status') != 'passed':
+                return False
+            if (metadata.get('background_error') or trigger.get('error') or trigger.get('pending_codes')
+                    or trigger.get('confirmed_count', 0) != trigger.get('sent_count', 0)
+                    or metadata.get('neuracle_forwarding', {}).get('error')):
+                return False
         filename = metadata.get('eeg_file')
         return bool(metadata.get('local_eeg_recorded') and metadata.get('sample_count', 0) >= offset
                     and filename and Path(filename).name == filename
@@ -127,7 +138,13 @@ class EmotionV3Runner(EmotionV2Runner):
         self._require_manager()
         row = attempt['emotion_rating']
         onset, offset = row.get('video_onset_sample_index'), row.get('video_offset_sample_index')
-        if not isinstance(onset, int) or not isinstance(offset, int) or offset <= onset:
+        if base.uses_emotivpro_recording(getattr(self, 'config', {})):
+            self.manager.raise_if_background_failed()
+            begin, end = row.get('video_onset_unix_sec'), row.get('video_offset_unix_sec')
+            if not attempt.get('video_completed_naturally') or begin is None or end is None or end <= begin:
+                raise RuntimeError('情绪视频未完整播放并发送起止标记，保留待重播。')
+            row['eeg_recording_mode'] = 'emotivpro_external'
+        elif not isinstance(onset, int) or not isinstance(offset, int) or offset <= onset:
             raise RuntimeError('情绪视频未收到 EEG 样本，不能标记采集完成或开放评分。')
         attempt['completed'] = True
         self.state.commit_completed_video(asset.asset_id, 0.)
@@ -220,6 +237,15 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if any(arg in {'--demo', '--dummy-eeg'} for arg in argv):
         raise ValueError('v3已移除Dummy测试入口，请使用真实EEG采集或独立行为评分。')
+    if not any(arg.split('=')[0] == '--device-type' for arg in argv):
+        argv += ['--device-type', 'emotivpro']
+    args = base.parse_args(argv)
+    if args.device_type == 'emotivpro' and args.emotion_stage == 'eeg' and not args.emotivpro_port and not args.doctor:
+        from video_eeg.utils.emotivpro_port_dialog import select_port
+        port = select_port()
+        if not port:
+            return 0
+        argv += ['--emotivpro-port', port]
     old_demo, old_default = base.DEMO_CONFIG_FILENAME, base.DEFAULT_CONFIG_FILENAME
     try:
         base.DEMO_CONFIG_FILENAME = 'video_emotion_v3_demo_config.yaml'

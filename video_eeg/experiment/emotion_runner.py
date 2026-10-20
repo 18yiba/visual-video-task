@@ -69,7 +69,7 @@ class EmotionVideoRunner(base.VideoRunner):
         self._event_times = {}
         result = super()._run_trial(trial_idx, asset)
         if not result and self.state.video_attempts[-1].get('abort_reason') in {'playback_error','premature_eof'}:
-            raise RuntimeError('视频未能完整解码，当前视频保留待重播。请主试核验材料与播放器。')
+            raise RuntimeError('视频未能完整解码，当前视频保留待重播。请主试核验材料与播放器。') from getattr(self, '_last_playback_exception', None)
         return result
 
     def _create_movie(self, media_path):
