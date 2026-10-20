@@ -19,7 +19,7 @@ protocol:
   session_manifest_path: video_eeg/config/session_manifest_emotion_v1.csv
   formal_exclusion_report_path: video_eeg/config/formal_excluded_over_60s.csv
   duration_bucket_count: 5
-  video_library_dir: ../video_materials/formal_v1/videos
+  video_library_dir: video_materials/formal_v1/videos
   video_library_mode: local
   playlist_mode: shuffle
   random_seed: 20260912
@@ -27,7 +27,7 @@ protocol:
   separate_emotion_ratings: true
   trials_per_session: 0
   session_manifest: video_eeg/config/session_manifest_emotion_v1.csv
-  emotion_library_dir: ../video_materials/formal_v1/emotion_video
+  emotion_library_dir: video_materials/formal_v1/emotion_video
   alarm_interval_net_sec: 600
   rating_scale_max: 7
   question_bank_path: video_eeg/config/complete_questions_20260908/question_bank.json

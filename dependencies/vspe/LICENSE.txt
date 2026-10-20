@@ -1,0 +1,117 @@
+You should carefully read the following terms and conditions before downloading, installing or using this software. 
+
+If you do not agree with the terms of this license, you must remove this software from your computer.
+
+Definitions
+
+For the purposes of these Terms and Conditions:
+
+"Affiliate" means an entity that controls, is controlled by or is under common control with a party, where "control" means ownership of 50% or more of the shares, equity interest or other securities entitled to vote for election of directors or other managing authority.
+
+"Company" (referred to as either "The Company", "We", "Us" or "Our" in this Agreement) refers to Olena Ter Eterlogic Software.
+
+"Country" refers to Norway.
+
+"Product" (referred to as either "The Product", "product", "The Software" or "software") refers to Virtual Serial Ports Emulator.
+
+"Terms and Conditions" (also referred as "Terms" or "Terms of Use") mean these Terms and Conditions that form the entire agreement between You and The Company regarding the use of the The Product.
+
+"Website" refers to Eterlogic Software web site, accessible from https://eterlogic.com
+
+"You" (also referred as "you" or "licensee") means the individual accessing or using the Software, or The Company, or other legal entity on behalf of which such individual is accessing or using the Software, as applicable.
+
+THE PRODUCT LICENSE AGREEMENT
+
+BY DOWNLOADING, INSTALLING OR USING THE PRODUCT, YOU ARE CONSENTING TO BE BOUND BY AND IS BECOMING A PARTY TO THIS AGREEMENT. 
+
+IF YOU DO NOT AGREE TO ALL OF THE TERMS OF THIS AGREEMENT, THE PRODUCT MUST NOT BE DOWNLOADED, AND YOU MUST NOT INSTALL OR USE THE PRODUCT.
+
+License grant
+The Company grants Licensee a non-exclusive and non-transferable license to reproduce, use and redistribute for any purposes the executable code version of the Product (limited by the purchased Product License conditions specified on the Product page), provided any copy must contain all of the original proprietary notices. This license does not entitle Licensee to receive from The Company hard-copy documentation, technical support, telephone assistance, or enhancements or updates to the Product. If more than one license agreement was provided for the Product, and the terms vary, the order of precedence of those license agreements is as follows: a signed agreement, a license agreement available for review on the website, a printed or electronic agreement that states clearly that it supersedes other agreements, a printed agreement provided with the Product, an electronic agreement provided with the Product.
+
+Restrictions
+Without The Company prior written consent, Licensee may not: (i) modify or create any derivative works of the Product or documentation, including customization, translation or localization; (ii) decompile, disassemble, reverse engineer, or otherwise attempt to derive the source code for the Product (except to the extent applicable laws specifically prohibit such restriction); (iii) remove or alter any trademark, logo, copyright or other proprietary notices, legends, symbols or labels in the Product.
+
+Proprietary rights
+The Company exclusively owns source code and all other copyrights referring to the Product.
+Title, ownership rights, and intellectual property rights in the Product shall remain in The Company and/or its suppliers. Licensee acknowledges such ownership and intellectual property rights and will not take any action to jeopardize, limit or interfere in any manner with The Company or its suppliers' ownership of or rights with respect to the Product. The Product is protected by copyright and other intellectual property laws and by international treaties. Licensee agrees, at its expense, to defend and hold The Company and its affiliates harmless from any and all costs, damages and reasonable attorneys' fees resulting from any claim that Licensee's use of the Product has injured or otherwise violated any right of any third party or violates any law.
+
+Disclaimer:
+This software is provided "as is" without any express or implied warranties. This includes, but is not limited to, warranties of merchantability, fitness for a particular purpose, and non-infringement.
+
+The developer does not guarantee that this software is free from defects, errors, security vulnerabilities, or unintended behavior. The user assumes all risks associated with the installation and use of this software. It is the user's responsibility to verify the software's integrity before installation.
+
+Due to the privileged nature of kernel-mode drivers, improper use, modification, or installation of this software may result in system crashes, data loss, or other unintended behavior. The developer shall not be held liable for any damages, including but not limited to data loss, hardware failure, or security breaches arising from the use of this software.
+
+User Responsibility:
+By using this software, the user agrees to:
+
+Test the software in a controlled environment before deploying it on a production system.
+
+Use this software only for lawful purposes and in compliance with all applicable laws, regulations, and licensing agreements. The developer shall not be held responsible for any misuse of this software.
+
+Take necessary precautions, such as backing up important data and using security measures to mitigate potential risks.
+
+By installing or using this software, the user acknowledges and accepts these terms.
+
+Disclaimer of Warranty
+THE PRODUCT IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION THE WARRANTIES THAT IT IS FREE OF DEFECTS, ABLE TO OPERATE ON AN UNINTERRUPTED BASIS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE OR NON-INFRINGING. THE DEVELOPER MAKES NO GUARANTEES THAT THE SOFTWARE IS FREE OF DEFECTS, ERRORS OR UNINTENDED BEHAVIOR. YOU BEAR THE RISK OF USING IT.
+
+THE USE OF THIS SOFTWARE WITH HARDWARE OR SOFTWARE IN SCENARIOS NOT SUPPORTED BY THEIR RESPECTIVE MANUFACTURERS OR DEVELOPERS MAY INVOLVE RISKS, INCLUDING BUT NOT LIMITED TO DAMAGE TO DEVICES, EQUIPMENT, OR CONNECTED SYSTEMS, AS WELL AS LOSS OR CORRUPTION OF DATA.
+
+YOU ASSUME FULL RESPONSIBILITY FOR ANY RISKS ASSOCIATED WITH THE USE OF THIS SOFTWARE. THE DEVELOPERS, DISTRIBUTORS, AND AFFILIATES OF THIS SOFTWARE ARE NOT LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING FROM ITS USE.
+
+IT IS RECOMMENDED TO USE THIS SOFTWARE IN A CONTROLLED AND SECURE ENVIRONMENT AND TO BACK UP ALL CRITICAL DATA BEFORE USE.
+
+THIS DISCLAIMER OF WARRANTY CONSTITUTES AN ESSENTIAL PART OF THIS AGREEMENT. NO USE OF THE PRODUCT IS AUTHORIZED HEREUNDER EXCEPT UNDER THIS DISCLAIMER.
+
+SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OF CERTAIN TYPES OF WARRANTIES OR LIMITATIONS ON APPLICABLE STATUTORY RIGHTS OF A CONSUMER, SO SOME OR ALL OF THE ABOVE EXCLUSIONS AND LIMITATIONS MAY NOT APPLY TO YOU. BUT IN SUCH A CASE THE EXCLUSIONS AND LIMITATIONS SET FORTH IN THIS SECTION SHALL BE APPLIED TO THE GREATEST EXTENT ENFORCEABLE UNDER APPLICABLE LAW.
+
+Limitation of Liability
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT WILL THE COMPANY OR ITS AFFILIATES OR SUPPLIERS BE LIABLE FOR ANY INDIRECT, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OF OR INABILITY TO USE THE PRODUCT, INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOST PROFITS, LOSS OF GOODWILL, WORK STOPPAGE, COMPUTER FAILURE OR MALFUNCTION, OR ANY AND ALL OTHER COMMERCIAL DAMAGES OR LOSSES, EVEN IF ADVISED OF THE POSSIBILITY THEREOF, AND REGARDLESS OF THE LEGAL OR EQUITABLE THEORY (CONTRACT, TORT OR OTHERWISE) UPON WHICH THE CLAIM IS BASED. IN ANY CASE, THE COMPANY COLLECTIVE LIABILITY UNDER ANY PROVISION OF THIS AGREEMENT SHALL NOT EXCEED IN THE AGGREGATE THE SUM OF THE FEES LICENSEE PAID FOR THIS LICENSE (IF ANY).
+
+NOTWITHSTANDING ANY DAMAGES THAT YOU MIGHT INCUR, THE ENTIRE LIABILITY OF THE COMPANY AND ANY OF ITS SUPPLIERS UNDER ANY PROVISION OF THIS TERMS AND YOUR EXCLUSIVE REMEDY FOR ALL OF THE FOREGOING SHALL BE LIMITED TO THE AMOUNT ACTUALLY PAID FOR THE PRODUCT.
+
+SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OF IMPLIED WARRANTIES OR LIMITATION OF LIABILITY FOR INCIDENTAL OR CONSEQUENTIAL DAMAGES, WHICH MEANS THAT SOME OF THE ABOVE LIMITATIONS MAY NOT APPLY. IN THESE JURISDICTIONS, EACH PARTY'S LIABILITY WILL BE LIMITED TO THE GREATEST EXTENT PERMITTED BY LAW.
+
+High risk activities
+The Product is not fault-tolerant and is not designed, manufactured or intended for use or resale as on-line control equipment in hazardous environments requiring fail-safe performance, such as in the operation of nuclear facilities, aircraft navigation or communication systems, air traffic control, direct life support machines, or weapons systems, in which the failure of the Product could lead directly to death, personal injury, or severe physical or environmental damage ("High Risk Activities"). Accordingly, The Company and its suppliers specifically disclaim any express or implied warranty of fitness for High Risk Activities. Licensee agrees that The Company and its suppliers will not be liable for any claims or damages arising from the use of the Product in such applications.
+
+Termination
+The Company may terminate this Agreement at any time, for any reason or no reason. The Company may also terminate this Agreement if Licensee breaches any of its terms and conditions. Upon termination, Licensee shall destroy all copies of the Product.
+
+Governing Law
+The laws of the Country, excluding its conflicts of law rules, shall govern this Terms and Your use of The Product. Your use of the Application may also be subject to other local, state, national, or international laws.
+
+Disputes Resolution
+If You have any concern or dispute about the The Product, You agree to first try to resolve the dispute informally by contacting The Company.
+
+For European Union (EU) Users
+If You are a European Union consumer, you will benefit from any mandatory provisions of the law of the country in which you are resident in.
+
+United States Legal Compliance
+You represent and warrant that (i) You are not located in a country that is subject to the United States government embargo, or that has been designated by the United States government as a "terrorist supporting" country, and (ii) You are not listed on any United States government list of prohibited or restricted parties.
+
+Severability
+If any provision of these Terms is held to be unenforceable or invalid, such provision will be changed and interpreted to accomplish the objectives of such provision to the greatest extent possible under applicable law and the remaining provisions will continue in full force and effect.
+
+Waiver
+Except as provided herein, the failure to exercise a right or to require performance of an obligation under these Terms shall not effect a party's ability to exercise such right or require such performance at any time thereafter nor shall be the waiver of a breach constitute a waiver of any subsequent breach.
+
+Translation Interpretation
+These Terms and Conditions may have been translated if We have made them available to You.
+You agree that the original English text shall prevail in the case of a dispute.
+
+Changes to These Terms and Conditions
+We reserve the right, at Our sole discretion, to modify or replace these Terms at any time. If a revision is material We will make reasonable efforts to provide at least 30 days' notice prior to any new terms taking effect. What constitutes a material change will be determined at Our sole discretion.
+By continuing to access or use The Product after those revisions become effective, You agree to be bound by the revised terms. If You do not agree to the new terms, in whole or in part, please stop using The Product.
+
+Third party components.
+The Software may include third party components (such as MICROSOFT VISUAL C++ 2015 - 2022 RUNTIME, zlib, OpenSSL and BOOST C++ library components) with separate legal notices or governed by other agreements, as may be described in the notices file(s) accompanying The Software.
+
+This software is an independent product which may be used with certain third-party devices and systems. 
+
+It is NOT affiliated with, endorsed by, or sponsored by any company, including but not limited to Microsoft, FlexRadio Systems, ICOM Inc, Kenwood, JVCKENWOOD, Yaesu, YAESU MUSEN CO or any other company or their affiliates.
+
+All trademarks mentioned are the property of their respective owners. 
+

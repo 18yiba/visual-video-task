@@ -1,0 +1,46 @@
+﻿EMOTIV v3：虚拟串口安装与配置
+
+换电脑时，把整个 visual-video-task-master 文件夹一起复制。
+虚拟串口安装包已放在 dependencies\vspe\SetupVSPE_64.msi，无需另行下载。
+随包版本：VSPE 1.5.8.489，适用于 Windows x64；厂商许可条款见同目录 LICENSE.txt。
+本包不包含 VSPE 激活密钥，也不包含 EmotivPRO 安装程序或账号许可。
+
+一、首次准备
+1. 双击 setup_virtual_serial.bat。
+   未安装 VSPE 时，打开随包官方安装向导；按提示完成安装和管理员权限确认。
+   已安装时直接打开 VSPE；已经运行时保留当前配置。
+   如果安装提示需要重启，保存工作、重启，再运行这个入口。
+2. VSPE 中点击 Device → Create new device，选择 Pair（成对虚拟串口）。
+   选择两个空闲 COM 编号，完成创建并启动，确认状态正常。
+   范式和 EmotivPRO 分别使用 Pair 的两端，不能选同一个端口。
+   编号以这台电脑实际创建的为准，不要求固定成 COM10/COM11。
+3. 打开 EmotivPRO 的 Serial port marking（串口标记）。
+   选择 Pair 的接收端；参数：波特率 115200、数据位 8、校验 None、停止位 1、流控 None。
+   点击 Start 开始监听。
+4. 双击 run_emotion_v3.bat，点击“选择 / 检查 Trigger 发送端”，选择 Pair 的另一端。
+   USB840M / nRF52 是脑电通信接收器，不能当作这个串口打标接收端。
+5. 在 EmotivPRO 确认脑电波形与接触质量，开始对应被试和 Session 的录制，再启动范式。
+   首次正式实验前做短测试，在 EmotivPRO 确认确实收到对应事件编号。
+
+二、每次重新开机
+先运行 setup_virtual_serial.bat，确认 Pair 存在并已启动，再设置 EmotivPRO 监听。
+未注册版不允许加载已保存配置（含开机自动加载），重启后可能需要重新手动创建 Pair。
+已有适用许可时，可按 VSPE 官方方法保存和加载配置；本入口不更改许可或自启动设置。
+本入口是“一键打开安装/配置流程”，不是自动完成 Pair 和 EmotivPRO 配置。
+
+三、只检查
+双击 check_virtual_serial.bat：校验安装包与官方签名、显示是否安装和当前端口。
+检查不会安装驱动、打开串口、发送标记、重启 VSPE 或改变现有配置。
+检查通过只代表上述项目通过，不代表 EEG 已连接、Pair 已正确配对或 EmotivPRO 已收到标记。
+
+四、新电脑运行范式
+虚拟串口准备不依赖 Python。若 run_emotion_v3.bat 提示缺少环境，
+请按项目原有流程运行 install_lab_env_uv.bat 安装该电脑的运行环境，此步骤可能需要联网。
+视频目录保持 video_materials\formal_v1\videos 和 video_materials\formal_v1\emotion_video。
+采集结束后在 EmotivPRO 导出 EDF；在 v3 控制台登记并确认对应录制后，进行独立评分。
+
+官方说明与离线包来源
+https://eterlogic.com/Products.VSPE.html
+https://eterlogic.com/Products.VSPE_License.html
+https://eterlogic.com/Products.VSPE_FAQ.html
+https://eterlogic.com/downloads/SetupVSPE_64_1.5.8.489.zip

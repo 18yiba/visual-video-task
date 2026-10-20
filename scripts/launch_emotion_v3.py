@@ -12,12 +12,24 @@ from video_eeg.experiment import video_runner as base
 from video_eeg.utils.v3_progress import inspect_progress, valid_subject
 
 
-def configuration(emotion_only=False):
+def is_neuracle():
+    return os.environ.get('VIDEO_EEG_BACKEND', '').lower() == 'neuracle'
+
+
+def configuration(emotion_only=False, port=""):
     config_path = Path(os.environ.get('VIDEO_EEG_V3_CONFIG', str(base.CONFIG_DIR / 'video_emotion_v3_config.yaml')))
     cfg = base.load_config(config_path)
     if cfg.get('hardware_dummy_mode') or cfg.get('demo_mode'):
         raise ValueError('v3入口仅支持真实EEG配置，请关闭配置中的模拟模式。')
     cfg['_project_dir'] = str(ROOT)
+    if is_neuracle():
+        from video_eeg.utils.neuracle_recording import configure, load_profile
+        profile = load_profile(ROOT)
+        if port: profile['serial_port'] = port
+        configure(cfg, profile)
+    else:
+        from video_eeg.utils.emotivpro_recording import configure
+        configure(cfg, port)
     if emotion_only:
         from video_eeg.experiment.emotion_v3_runner import configure_emotion_only
         configure_emotion_only(cfg)
@@ -33,9 +45,10 @@ def make_window():
     class Window(W.QDialog):
         def __init__(self):
             super().__init__()
-            self.setWindowTitle('v3 实验控制台')
+            self.setWindowTitle('v3 博睿康实验控制台' if is_neuracle() else 'v3 实验控制台')
             self.resize(1000, 700)
             self.connection = None
+            self.port = ''
             self.progress = None
             self.running = False
             self.setStyleSheet('''
@@ -98,12 +111,16 @@ def make_window():
                 label = W.QLabel(text); label.setObjectName('muted'); field.addWidget(label); field.addWidget(widget)
                 controls.addLayout(field)
             controls.addWidget(self.fullscreen)
-            self.detect = W.QPushButton('检测 EEG 连通性')
+            self.detect = W.QPushButton('配置 / 检测脑电与 TRG' if is_neuracle() else '选择 / 检查 Trigger 发送端')
             self.refresh = W.QPushButton('刷新进度')
             self.start = W.QPushButton('开始实验')
             self.start.setObjectName('primary')
             controls.addWidget(self.detect)
-            self.device_status = W.QLabel('尚未检测 EEG；请先检测再开始采集。'); self.device_status.setWordWrap(True)
+            self.register_eeg = W.QPushButton('登记已导出的 EmotivPRO EEG')
+            controls.addWidget(self.register_eeg)
+            if is_neuracle(): self.register_eeg.hide()
+            self.register_eeg.clicked.connect(self.confirm_external_eeg)
+            self.device_status = W.QLabel('尚未选择发送端；脑电请在 EmotivPRO 检查。'); self.device_status.setWordWrap(True)
             self.device_status.setObjectName('device'); controls.addWidget(self.device_status)
             controls.addStretch(); controls.addWidget(self.start)
             body.addWidget(setup)
@@ -159,7 +176,7 @@ def make_window():
             self.changed_mode()
 
         def locked(self, value):
-            for widget in (self.stage, self.scope, self.subject, self.session, self.paradigm, self.fullscreen, self.detect, self.refresh, self.start, self.table):
+            for widget in (self.stage, self.scope, self.subject, self.session, self.paradigm, self.fullscreen, self.detect, self.register_eeg, self.refresh, self.start, self.table):
                 widget.setEnabled(not value)
             if not value:
                 self.changed_stage()
@@ -174,8 +191,12 @@ def make_window():
             ratings = self.stage.currentIndex() == 1
             self.paradigm.setEnabled(not ratings and not self.running)
             self.detect.setEnabled(not ratings and not self.running)
+            if is_neuracle():
+                self.device_status.setText('行为评分无需设备；本阶段不连接或采集 EEG。' if ratings else
+                    (f"TCP + TRG 检测通过：{self.connection['channels']} 通道，信号 {self.connection['sfreq']:g} Hz，原始 TRG {self.connection.get('neuracle_forwarding',{}).get('trigger_mapping',{}).get('raw_sampling_rate_hz',self.connection['sfreq']):g} Hz。开始时会重新检测。" if self.connection else '请启动 Collect 数据转发，再检测脑电和同步盒。'))
+                return
             self.device_status.setText('行为评分无需设备；本阶段不连接或采集 EEG。' if ratings else
-                ('EEG连通性检测通过。启动时会再次核验数据流。' if self.connection else '尚未检测 EEG；请先检测再开始采集。'))
+                ('串口可打开；脑电与接收状态须在 EmotivPRO 核对。' if self.connection else '尚未选择发送端；脑电请在 EmotivPRO 检查。'))
 
         def check_progress(self):
             if not self.subject.text().strip():
@@ -187,11 +208,15 @@ def make_window():
                 self.progress = inspect_progress(configuration(self.scope.currentIndex() == 1), self.subject.text(), ROOT)
                 self.table.setRowCount(len(self.progress))
                 for i, r in enumerate(self.progress):
-                    status = '全部完成' if r['eeg_complete'] and r['ratings_complete'] else 'EEG完成，评分待完成' if r['eeg_complete'] else '采集未完成'
+                    status = '全部完成' if r['eeg_complete'] and r['ratings_complete'] else '观看完成，EEG待登记' if r['eeg_complete'] and r['emotion_eeg_saved'] < r['emotion_total'] else 'EEG已登记，评分待完成' if r['eeg_complete'] else '采集未完成'
                     values = [str(r['session']), f"{r['videos_completed']}/{r['videos_total']}",
                         f"{r['emotion_eeg_saved']}/{r['emotion_total']}", f"{r['ratings_completed']}/{r['emotion_total']}", status]
                     for j, text in enumerate(values):
                         self.table.setItem(i, j, W.QTableWidgetItem(text))
+                if is_neuracle():
+                    for i, r in enumerate(self.progress):
+                        status = '全部完成' if r['eeg_complete'] and r['ratings_complete'] else '采集与 TRG 已保存，待评分' if r['eeg_complete'] and r['emotion_eeg_saved'] == r['emotion_total'] else '需核对采集故障记录' if r['eeg_complete'] else '采集未完成'
+                        self.table.setItem(i, 4, W.QTableWidgetItem(status))
                 self.show_selected()
                 return True
             except Exception as exc:
@@ -204,10 +229,10 @@ def make_window():
             if not self.progress:
                 return
             r = self.progress[self.session.value() - 1]
-            eeg_done = sum(x['eeg_complete'] for x in self.progress)
+            eeg_done = sum(x['eeg_complete'] and x['emotion_eeg_saved'] == x['emotion_total'] for x in self.progress)
             rating_done = sum(x['ratings_complete'] for x in self.progress)
             self.overview.setText(f"被试总进度：EEG完成 {eeg_done}/{len(self.progress)} 个Session；评分完成 {rating_done}/{len(self.progress)} 个Session。\n"
-                f"当前Session可继续评分 {r['emotion_eeg_saved'] - r['ratings_completed']} 段；尚无已保存情绪EEG {r['emotion_total'] - r['emotion_eeg_saved']} 段。")
+                f"当前Session可继续评分 {r['emotion_eeg_saved'] - r['ratings_completed']} 段；尚未登记情绪EEG {r['emotion_total'] - r['emotion_eeg_saved']} 段。")
             self.location.setText(r['path']); self.location.setCursorPosition(0); self.location.setToolTip(r['path'])
             self.eeg_bar.setRange(0, max(1, r['videos_total'])); self.eeg_bar.setValue(r['videos_completed'])
             self.eeg_bar.setFormat('%v / %m · %p%')
@@ -215,10 +240,23 @@ def make_window():
             self.rating_bar.setFormat('%v / %m · %p%')
 
         def check_connection(self):
-            self.connection = None; self.probe_output = ''
+            self.connection = None
+            if is_neuracle():
+                from video_eeg.utils.neuracle_recording import select_profile
+                try:
+                    profile = select_profile(ROOT, self)
+                except Exception as exc:
+                    W.QMessageBox.warning(self, '配置未完成', str(exc)); return
+                self.port = profile['serial_port'] if profile else ''
+            else:
+                from video_eeg.utils.emotivpro_port_dialog import select_port
+                self.port = select_port()
+            if not self.port:
+                self.changed_stage(); return
+            self.probe_output = ''
             self.locked(True)
-            self.device_status.setText('正在检测真实 EEG，请确认设备已连接…')
-            args = [str(Path(__file__).resolve()), '--probe']
+            self.device_status.setText('正在核对 TCP 元数据、连续样本及测试码 250/251/252 的 TRG 回传…' if is_neuracle() else '正在检查 EmotivPRO 窗口、USB 接收器和发送端；录制状态仍需主试核对…')
+            args = [str(Path(__file__).resolve()), '--probe', '--port', self.port]
             self.probe.setWorkingDirectory(str(ROOT)); self.probe.start(sys.executable, args)
 
         def read_probe(self):
@@ -232,10 +270,20 @@ def make_window():
                     raise RuntimeError(report.get('error', '检测失败'))
                 self.connection = report['connection']
                 c = self.connection
-                self.device_status.setText(f"真实EEG检测通过：{c['device']}，{c['channels']}通道，{c['sfreq']} Hz，收到 {c['samples']} 样本。")
+                if is_neuracle():
+                    self.changed_stage(); return
+                self.device_status.setText(f"环境检查通过：{c['serial_port']}、EmotivPRO 窗口和 USB 接收器。录制、无线脑电及标记接收仍需主试核对。")
             except Exception as exc:
                 self.connection = None
                 self.device_status.setText('检测失败，可重试：' + str(exc))
+                if is_neuracle():
+                    self.log.appendPlainText('博睿康检测失败：\n' + str(exc))
+                    message = W.QMessageBox(self)
+                    message.setWindowTitle('博睿康检测失败')
+                    message.setText('未通过脑电 / TRG 检测，尚未允许开始采集。')
+                    message.setInformativeText(str(exc))
+                    message.setDetailedText(self.probe_output or str(exc))
+                    message.exec()
 
         def probe_failed(self, error):
             self.locked(False); self.connection = None
@@ -251,7 +299,7 @@ def make_window():
                 if ratings and r['emotion_eeg_saved'] == r['ratings_completed']:
                     raise ValueError('当前Session没有已保存EEG且尚待评分的情绪视频。')
                 if not ratings and not self.connection:
-                    raise ValueError('请先完成当前运行方式的EEG连通性检测。')
+                    raise ValueError('请先检测脑电与 TRG。' if is_neuracle() else '请先选择并检查 Trigger 发送端。')
                 if not ratings and not self.paradigm.text().strip():
                     raise ValueError('请填写当前视频范围在平台上已确认的范式代码。')
                 if not ratings:
@@ -260,11 +308,21 @@ def make_window():
                     cfg.update(subject_id=subject, paradigm_code=self.paradigm.text().strip())
                     v3_capture_identity(cfg)
                 if not ratings and r['eeg_complete']:
-                    raise ValueError('当前Session EEG采集已完成，请选择行为评分或其他Session。')
+                    raise ValueError('当前 Session 观看已完成，请查看采集与评分进度。' if is_neuracle() else '当前Session观看已完成，请先在 EmotivPRO 保存导出并登记 EEG，再进行行为评分。')
                 args = ['-m', 'video_eeg.experiment.emotion_v3_runner', '--no-dialog', '--integrated-startup',
                     '--subject-id', subject, '--session-id', str(self.session.value()), '--emotion-stage', 'ratings' if ratings else 'eeg']
                 args.append('--real-eeg')
-                if os.environ.get('VIDEO_EEG_V3_CONFIG'):
+                if is_neuracle():
+                    import tempfile
+                    import yaml
+                    runtime = ROOT / '.tmp'; runtime.mkdir(exist_ok=True)
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', prefix='neuracle_', dir=runtime, encoding='utf-8', delete=False) as stream:
+                        yaml.safe_dump(configuration(port=self.port), stream, allow_unicode=True)
+                        self.runtime_config = stream.name
+                    args += ['--device-type', 'neuracle', '--config', self.runtime_config]
+                elif not ratings:
+                    args += ['--device-type', 'emotivpro', '--emotivpro-port', self.port]
+                if not is_neuracle() and os.environ.get('VIDEO_EEG_V3_CONFIG'):
                     args += ['--config', os.environ['VIDEO_EEG_V3_CONFIG']]
                 if not ratings:
                     args += ['--paradigm-code', self.paradigm.text().strip()]
@@ -277,6 +335,16 @@ def make_window():
                 self.process.setWorkingDirectory(str(ROOT)); self.process.start(sys.executable, args)
             except Exception as exc:
                 W.QMessageBox.warning(self, '无法开始', str(exc))
+
+        def confirm_external_eeg(self):
+            try:
+                if not self.check_progress():
+                    return
+                from video_eeg.utils.emotivpro_recording import confirm_session_dialog
+                confirm_session_dialog(self, Path(self.progress[self.session.value()-1]['path']))
+                self.check_progress()
+            except Exception as exc:
+                W.QMessageBox.warning(self, '外部 EEG 登记未完成', str(exc))
 
         def run_finished(self, code, status):
             self.running = False; self.connection = None; self.locked(False)
@@ -305,14 +373,21 @@ def make_window():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--probe', action='store_true')
+    parser.add_argument('--port', default='')
     args = parser.parse_args()
     if args.probe:
         try:
-            print('V3_PROBE ' + json.dumps(dict(ok=True, connection=base.probe_eeg_connection(configuration()))), flush=True)
-            return 0
+            report = dict(ok=True, connection=base.probe_eeg_connection(configuration(port=args.port)))
         except Exception as exc:
-            print('V3_PROBE ' + json.dumps(dict(ok=False, error=str(exc))), flush=True)
-            return 1
+            report = dict(ok=False, error=str(exc))
+        if is_neuracle():
+            try:
+                from video_eeg.utils.neuracle_recording import write_probe_report
+                report['report_path'] = str(write_probe_report(ROOT, report))
+            except OSError as exc:
+                print('检测报告保存失败：' + str(exc), file=sys.stderr, flush=True)
+        print('V3_PROBE ' + json.dumps(report), flush=True)
+        return 0 if report['ok'] else 1
     window = make_window()
     return window.exec()
 
