@@ -1,0 +1,6 @@
+# Launcher defaults only. Immutable experiment contracts stay in video_eeg/config/.
+schema_version = 1
+
+[launcher]
+protocol = "v2"
+mode = "demo"

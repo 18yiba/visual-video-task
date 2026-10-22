@@ -134,5 +134,35 @@
   "public_versions": {
     "v1": "17 Sessions, video EEG",
     "v2": "45 Sessions, video EEG + emotion ratings"
+  },
+  "template_layout": {
+    "reference": "https://github.com/Omni-Intel/acq-task-template",
+    "source": "src/video_eeg",
+    "launcher_config": "config/config.toml",
+    "immutable_protocol_resources": "video_eeg/config",
+    "required_files": [
+      "main.py",
+      "config/config.toml",
+      "src/video_eeg/__init__.py",
+      "src/video_eeg/cli.py",
+      "src/video_eeg/paths.py",
+      "src/video_eeg/experiment/video_runner.py",
+      "video_eeg/__init__.py",
+      "video_eeg/config/video_legacy_17_config.yaml",
+      "video_eeg/config/video_demo_config.yaml",
+      "video_eeg/config/video_emotion_config.yaml",
+      "video_eeg/config/video_emotion_demo_config.yaml",
+      "video_eeg/config/session_manifest.csv",
+      "video_eeg/config/session_manifest_emotion_v1.csv",
+      "video_eeg/config/session_manifest_v2_active.csv",
+      "video_eeg/config/complete_questions_20260908/question_bank.json",
+      "docs/README.md",
+      "docs/deploy.md",
+      "docs/data-format.md",
+      "data/README.md",
+      "scripts/repository_layout.json",
+      "scripts/launch_experiment.py",
+      "scripts/prepare_demo_materials.py"
+    ]
   }
 }

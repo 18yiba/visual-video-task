@@ -67,6 +67,20 @@ def check_modules(
     else:
         if not quiet:
             print("[OK] video_eeg core")
+    try:
+        import subprocess
+        from imageio_ffmpeg import get_ffmpeg_exe
+        executable = get_ffmpeg_exe()
+        for flag, expected in [('-devices', 'dshow'), ('-encoders', 'libx264')]:
+            result = subprocess.run([executable, '-hide_banner', flag], capture_output=True,
+                text=True, timeout=15, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            if result.returncode or expected not in result.stdout + result.stderr:
+                raise RuntimeError(f'FFmpeg missing {expected}')
+        if not quiet:
+            print('[OK] facial recording FFmpeg: DirectShow + H.264 (camera not tested)')
+    except Exception as exc:
+        failures += 1
+        print(f'[FAIL] facial recording FFmpeg: {exc}')
     return 0 if failures == 0 else 1
 
 

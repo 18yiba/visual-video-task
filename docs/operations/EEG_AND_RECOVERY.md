@@ -31,6 +31,8 @@
 | video_liking_log.csv / fatigue_log.csv / ordinary_behavior_log.csv | V2喜好、疲劳及联合行为记录 |
 | emotion_rating_log.csv | V1/V2效价、唤醒、反应时间与量尺版本 |
 | rest_log.csv | 休息出现、选择及停留时间 |
+| 编码_facial.mp4 / 编码_facial_02.mp4 等 | v3源码情绪采集的面部录像，Session同目录递增保存；已有文件和中断片段保留 |
+| 编码_facial.timestamps.csv / facial_recording_log.jsonl | 逐帧软件时间、媒体PTS、EEG事件关联及录像验证结果；不替代session_state或EEG |
 | YYYYMMDD_HHMMSS/ | 一次EEG采集启动时刻命名的子目录，不是结束时刻 |
 | continuous_eeg.edf / continuous_eeg.npy | 新BrainCo采集为32导EDF，历史NPY保持原样；不跨采集段拼接 |
 | events.json | 事件、相对时间、样本索引和marker信息；重复样本索引可能提示断流 |

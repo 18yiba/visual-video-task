@@ -2,6 +2,10 @@
 
 # visual-video-task：视频EEG采集与情绪评分
 
+最新源码已加入 v3 情绪视频同步面部录像：使用 `UGREEN Camera 4K`，1080p、30帧/秒、无声音，录像直接保存到当前 Session。录像覆盖和时长验证通过后才提交该视频完成；摄像头故障会停止并保留进度。**此功能目前仅在源码中，下面的 v0.3.1 安装包不包含面部录像。**
+
+源码结构已按 [acq-task-template](https://github.com/Omni-Intel/acq-task-template) 整理：`main.py` 为统一源码入口，程序实现在 `src/video_eeg/`，启动默认值在 `config/config.toml`。先运行 `python main.py --validate` 检查结构和启动配置；实验运行使用已安装的 Python 3.12 实验室环境。默认打开 v1/v2 选择页并选 Demo；v3 保留独立入口。原协议 YAML、题库和固定清单仍在 `video_eeg/config/`，历史记录和材料路径不变。[部署](docs/deploy.md) · [文档索引](docs/README.md) · [结构与兼容边界](docs/maintenance/TEMPLATE_LAYOUT.md)
+
 当前安装包为 **Windows v0.3.1（v3 UI修正版）**，默认打开“v3 实验控制台”。v3先采集并保存EEG，再独立重播情绪视频进行评分；旧v1/v2从开始菜单的独立入口运行。安装包版本号、界面版本和实验协议不是同一个编号，升级不会把历史进度转换成v3。
 
 适用于Windows 10/11 64位、强脑BrainCo设备与厂家Wi-Fi SDK。安装包自带Python、PsychoPy和bcigo-sdk 1.0.2，无需另外安装Python或采集软件；视频材料不在安装包内。本仓库源码不包含被试数据、视频或开发环境。
@@ -10,7 +14,26 @@
 
 已知设备问题：部分真实设备返回`Unexpected BrainCo channel layout: (96, 33)`。这表示SDK已返回数据，但当前程序不接受该33列布局，不等同于Wi-Fi完全未连接。额外字段的位置及含义尚未确认，**v0.3.1尚未修复此问题**；不能直接删除一列或改成33个EEG通道后正式采集。请先完成下方诊断与真实设备验收。
 
-## v3安装与首次运行
+## 最新源码：情绪视频面部录像
+
+先按[源码安装](#源码安装与开始运行)准备实验环境，再双击 `run_emotion_v3.bat`。连接名称为 `UGREEN Camera 4K` 的摄像头，在 Windows 隐私设置中允许桌面应用访问摄像头，并关闭占用该设备的其他程序；选择“EEG采集”后，情绪视频会自动录像，无需单独开启录制。v3“全部视频”和“仅情绪视频”均支持；普通视频、独立行为评分重播及 v1/v2 不录制。
+
+录像使用1920×1080、30帧/秒的无声 H.264 MP4，设备名称、规格或编码预检失败时停止，不自动换用笔记本内置摄像头。FFmpeg 随 `imageio-ffmpeg` 依赖提供，无需单独安装系统 FFmpeg。
+
+| 当前 `session_XX` 内的文件 | 用途 |
+|---|---|
+| `情绪视频编码_facial.mp4` | 首次观看的面部录像；编码取材料文件名去掉扩展名 |
+| `情绪视频编码_facial_02.mp4`、`_03.mp4`… | 重复观看录像，编号递增、同目录保存，保留已有文件及中断片段 |
+| `情绪视频编码_facial.timestamps.csv`及重复录像同名文件 | 逐帧软件到达时间、捕获管线/编码PTS、相对刺激开始时间 |
+| `facial_recording_log.jsonl` | 录像状态、时钟映射、视频起止与EEG事件关联、时长验证及故障原因 |
+
+摄像头提前稳定输出，至少保留0.5秒预录和0.5秒后录。完整播放后解码核验，要求录像首尾覆盖刺激起止，录像时长同时≥材料核验时长且≥本次实际播放时长；不通过补帧或修改帧率拉长录像。校验失败或设备断流会停止当前运行，保存已有EEG和进度，修复后使用原编号、原Session续跑，当前视频重播并另存录像。
+
+时间同步采用同一电脑的单调时钟，刺激起止关联现有EEG事件及样本索引；摄像头时间是软件观察值，包含USB、驱动和处理延迟，**不代表曝光时刻或硬件级同步精度**。录像不自动加入BIDS/EEGQC包，备份须复制整个Session。详细规则见[面部录像操作说明](docs/operations/FACIAL_RECORDING.md)。
+
+验证已覆盖真实UGREEN摄像头＋真实PsychoPy窗口＋模拟EEG的三段录像、时长与事件关联，以及独立评分退出续跑；短测实际播放2.00054秒，解码录像3.100003秒，前录0.51282秒、后录0.55765秒。2026-10-22完整回归301项通过、5项跳过；215文件源码发行包及其独立启动结构检查通过。真实EEG、长时间负载、拔线及屏幕闪烁同步偏差仍待现场验收；既有BrainCo `(96, 33)` 布局问题不因增加摄像头功能而修复。
+
+## 已发布 v0.3.1：v3安装与首次运行
 
 1. 下载Release中的`VisualVideoTask-Setup-Windows-x64.exe`，按`SHA256SUMS.txt`核对。先正常保存并关闭实验，再覆盖安装；已有安装版无需卸载。GitHub的“Source code”ZIP是源码，不是安装包。
 2. 从开始菜单“视频EEG总范式”或“视频EEG v3 实验控制台”启动。首次设置本机材料和数据根目录：新电脑选择“新电脑，无历史数据”；已有记录的电脑按迁移流程保留原记录与原路径，不用新编号绕过冲突。
@@ -104,7 +127,7 @@ v0.3.1发布前完整回归229项通过、5项跳过；真实Qt/PsychoPy窗口�
 ### 1. 下载的是源码，视频另行准备
 
 1. 打开[仓库首页](https://github.com/18yiba/visual-video-task)，选择Code → Download ZIP；完整解压到可写本地目录，例如`D:/Experiments/visual-video-task`。
-2. 不要在ZIP预览窗口内双击BAT。确认所选文件夹直接包含`run_experiment.bat`、`video_eeg`、`scripts`和`README.md`。
+2. 不要在ZIP预览窗口内双击BAT。确认所选文件夹直接包含`main.py`、`src`、`config`、`video_eeg`、`scripts`和`README.md`。
 3. 用Windows 10/11 64位；文件所在磁盘需要给视频和EEG数据留出空间。路径可与开发电脑不同，不要求D盘、E盘或EDY用户名。
 4. 源码不含`.venv`、Python运行时、正式视频或被试数据。仅下载代码可以安装并运行两个Demo；正式实验还必须准备对应材料和真实设备。
 
@@ -166,7 +189,10 @@ v1净视频平均约177.5分钟，v2约89.60–90.23分钟；都是净视频时�
 
 ```text
 visual-video-task/
-  run_experiment.bat                 唯一实验启动入口：选版本、Demo或正式
+  main.py                            模板统一源码入口：选v1/v2、Demo或正式
+  config/config.toml                启动默认值；本机覆盖使用*.local.toml
+  run_experiment.bat                 保留的v1/v2兼容入口
+  run_emotion_v3.bat                 保留的v3独立入口
   install_lab_env_uv.bat              首次环境安装入口，不是实验入口
   download_materials.bat              下载普通视频母库，不下载情绪库
   README.md                          本完整操作指南
@@ -177,12 +203,14 @@ visual-video-task/
   requirements-psychopy.txt           安装脚本使用的依赖声明
   THIRD_PARTY_NOTICES.md              第三方组件说明
   .gitignore / .gitattributes         Git排除数据、环境及文件字节处理规则
-  video_eeg/                         范式源码，不能只复制其中一个runner
-    config/                          v1/v2的YAML、固定清单、题库及材料索引
+  video_eeg/                         旧脚本导入兼容层
+    config/                          原路径的YAML、固定清单、题库及材料索引，字节不变
+  src/video_eeg/                     范式源码，不能只复制其中一个runner
     devices/                         BrainCo、Neuracle、模拟等采集接口
     experiment/                      显示、视频播放、回答、休息和采集管理
     storage/                         连续EEG与事件文件写入
     utils/                           状态/视频库/marker/数据路径等公共逻辑
+    cli.py / paths.py                统一入口及资源路径定位
   scripts/
     launch_experiment.py             统一启动选择窗口与版本调度
     install_lab_env_uv.bat/.ps1       安装器内部实现

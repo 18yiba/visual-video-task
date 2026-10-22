@@ -71,6 +71,43 @@ class EmotionV3Runner(EmotionV2Runner):
     protocol_version = 'emotion-v3'
     acquisition_rating_stage_present = False
 
+    def _start_eeg(self, connection):
+        from video_eeg.experiment.facial_recording import FacialRecorder
+        pending = [v for v in self.state.queue_video_ids if self.library.rows[v]['trial_type'] == 'emotion']
+        if pending:
+            FacialRecorder(self.progress_dir, 'preflight', 0).preflight()
+        return super()._start_eeg(connection)
+
+    def _run_trial(self, trial_idx, asset):
+        from video_eeg.experiment.facial_recording import FacialRecorder
+        facial = None
+        if self.stage == 'eeg' and self.library.rows[asset.asset_id]['trial_type'] == 'emotion':
+            facial = FacialRecorder(self.progress_dir, Path(asset.rel_path).stem,
+                self._attempt_counter_by_video.get(asset.asset_id, 0) + 1)
+        self._facial_recorder = facial
+        original_emit = self.manager.emit
+        def emit(name, **payload):
+            original_emit(name, **payload)
+            if facial is not None and name in {'video_on', 'video_off'}:
+                facial.boundary(name, self._event_times[name])
+        self.manager.emit = emit
+        try:
+            return super()._run_trial(trial_idx, asset)
+        except BaseException:
+            if facial is not None and hasattr(getattr(self, 'win', None), '_toCall'):
+                self.win._toCall.clear()
+            raise
+        finally:
+            self.manager.emit = original_emit
+            self._facial_recorder = None
+            if facial is not None:
+                try:
+                    facial.finish()
+                finally:
+                    movie = getattr(self, '_active_movie', None)
+                    if movie is not None:
+                        movie.unload()
+
     def __init__(self, **kwargs):
         cfg = kwargs['config']
         self.stage = cfg.get('emotion_stage', 'eeg')

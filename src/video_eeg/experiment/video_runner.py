@@ -63,8 +63,7 @@ MUTED = "#94a3b8"
 DEFAULT_CONFIG_FILENAME = "video_legacy_17_config.yaml"
 DEMO_CONFIG_FILENAME = "video_demo_config.yaml"
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-PROJECT_ROOT = PACKAGE_ROOT.parent
-CONFIG_DIR = PACKAGE_ROOT / "config"
+from video_eeg.paths import PROJECT_ROOT, CONFIG_DIR
 _LSL_MARKER_BACKENDS: dict[tuple[str, str, str], Any] = {}
 
 ATTENTION_BUTTON_LAYOUT = {
@@ -1724,6 +1723,9 @@ class VideoRunner:
         self._active_movie = movie
         media_load_sec = time.perf_counter() - media_load_started
         planned_duration = asset.duration_sec
+        facial = getattr(self, '_facial_recorder', None)
+        if facial is not None:
+            facial.start()
         self.win.callOnFlip(manager.fixation_off, trial_idx=trial_idx)
         if getattr(self, 'natural_eof_only', False):
             movie.play()
@@ -1750,6 +1752,8 @@ class VideoRunner:
         try:
             while True:
                 manager.raise_if_background_failed()
+                if facial is not None:
+                    facial.check()
                 keys = self.keyboard.getKeys(["escape", "s"], waitRelease=False, clear=True)
                 names = {str(getattr(key, "name", key)).lower() for key in keys}
                 elapsed = time.perf_counter() - self._phase_started_at
@@ -1834,6 +1838,8 @@ class VideoRunner:
         )
         self.win.flip()
         cleanup_started = time.perf_counter()
+        if facial is not None:
+            facial.finish(complete=completed_naturally, material_duration=planned_duration)
         try:
             player = getattr(movie, "_player", None)
             if (

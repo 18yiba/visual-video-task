@@ -1,6 +1,7 @@
 """Shared company logo; GUI decoration only, outside the EEG recording timeline."""
 from pathlib import Path
-LOGO=Path(__file__).resolve().parents[2]/'assets/brand/company_logo.png'
+from video_eeg.paths import PROJECT_ROOT
+LOGO=PROJECT_ROOT/'assets/brand/company_logo.png'
 STARTUP_SIZE=(570,380)
 LOGO_SIZE=96
 

@@ -7,11 +7,11 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-FOLDERS = ('video_eeg', 'scripts', 'tests', 'docs', 'vendor', 'packaging', '.github')
+FOLDERS = ('src', 'config', 'video_eeg', 'scripts', 'tests', 'docs', 'vendor', 'packaging', '.github')
 SUFFIXES = {'.py', '.ps1', '.bat', '.md', '.txt', '.toml', '.yaml', '.yml', '.json', '.csv', '.docx', '.cs', '.iss', '.isl'}
 FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'setup.py', 'lab_uv_env.toml', 'uv.toml',
          'requirements-psychopy.txt', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md',
-         'assets/brand/company_logo.png')
+         'assets/brand/company_logo.png', 'main.py', 'data/README.md')
 PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/sourcedata/.gitkeep')
 ROOT_BATS = ('run_emotion_v3.bat', 'run_experiment.bat', 'install_lab_env_uv.bat', 'download_materials.bat')
 # Superseded deployment/history documents remain local; the current operator manual replaces them.
@@ -39,11 +39,13 @@ def source_files():
             if not p.is_file() or p.is_symlink():
                 continue
             parts=p.relative_to(ROOT).parts
-            if p.name.endswith('.local.json'):
+            if p.name.endswith(('.local.json', '.local.toml', '.local.yaml', '.local.yml')):
                 continue
             if any(part in {'__pycache__','build','dist','.pytest_cache'} or part.endswith(('.egg-info','.dist-info')) for part in parts):
                 continue
-            if p.relative_to(ROOT).as_posix() in excluded:
+            relative = p.relative_to(ROOT).as_posix()
+            legacy = relative.removeprefix('src/')
+            if relative in excluded or legacy in excluded:
                 continue
             if p.suffix.lower() in SUFFIXES or p.name == 'LICENSE':
                 result.append(p)

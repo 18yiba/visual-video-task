@@ -47,7 +47,8 @@ def main():
     # Ship official validator JS + its Deno binary locally; validation needs no network/Node.
     import importlib.metadata
     from deno import find_deno_bin
-    for package, distribution in (('bids_validator_deno','bids-validator-deno'),('deno','deno'),('edfio','edfio')):
+    for package, distribution in (('bids_validator_deno','bids-validator-deno'),('deno','deno'),('edfio','edfio'),
+                                  ('imageio_ffmpeg','imageio-ffmpeg')):
         shutil.copytree(packages/package,target/'runtime/Lib/site-packages'/package,dirs_exist_ok=True,
             ignore=lambda folder,names:[n for n in names if n=='__pycache__' or n.endswith('.pyc')])
         dist=importlib.metadata.distribution(distribution)

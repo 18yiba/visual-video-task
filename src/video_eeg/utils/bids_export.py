@@ -21,7 +21,7 @@ from uuid import uuid4
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
+from video_eeg.paths import PROJECT_ROOT as ROOT
 VERSION = '1.0.4'
 TABLES = ('trial_log.csv', 'emotion_rating_log.csv', 'ordinary_behavior_log.csv',
           'video_liking_log.csv', 'video_question_log.csv', 'fatigue_log.csv',
