@@ -99,6 +99,8 @@ def prepare(config, demo=False):
     settings_path = root/'emotion_library.local.json'
     settings = json.loads(settings_path.read_text(encoding='utf-8-sig')) if settings_path.exists() else {}
     emotion_root = os.environ.get('VIDEO_EEG_EMOTION_ROOT') or settings.get('emotion_root') or protocol.get('emotion_library_dir', '../video_materials/formal_v1/emotion_video')
+    if config.get('_material_roots_explicit'):
+        emotion_root=protocol['emotion_library_dir']
     roots['emotion'] = (root/Path(emotion_root)/'selected').resolve()
     if demo:
         roots['practice'] = root/'stimuli/emotion_demo'

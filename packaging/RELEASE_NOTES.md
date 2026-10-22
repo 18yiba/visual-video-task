@@ -1,4 +1,4 @@
-# Windows v0.3.2：双设备入口与情绪视频面部录像
+# Windows v0.3.3：NAS材料读取、双设备入口与面部录像
 
 本版同步GitHub master的src布局和v3情绪视频录像功能，自带Python、PsychoPy、设备适配器、FFmpeg H.264及官方离线BIDS校验运行环境，无需另装Python。视频材料单独准备，不包含被试记录、本机配置或摄像头影像。
 
@@ -9,6 +9,10 @@
 - 开始菜单“视频EEG v3 EMOTIV设备入口”：EmotivPRO外部录制及Trigger发送端流程。
 - 开始菜单“视频EEG v3 博睿康设备入口”：Collect数据转发、TCP接收及同步盒TRG流程。
 - “视频EEG总范式”及“v3实验控制台”默认EMOTIV；旧v1/v2入口继续保留Demo/正式，不改变原协议或历史进度。
+
+## NAS材料设置
+
+两个设备入口共用“视频材料位置（本机 / NAS）”按钮，开始菜单另有“视频EEG视频材料位置（本机或NAS）”。输入包含videos和emotion_video的共享根目录；先在Windows登录NAS。只保存材料路径，不保存NAS密码。NAS只读取，EEG、录像与状态仍保存本机；原Session与协议不变。每段正式视频校验原清单SHA256，读取或校验失败停止并保留进度，不切换到另一份本机材料。
 
 ## 情绪视频面部录像
 

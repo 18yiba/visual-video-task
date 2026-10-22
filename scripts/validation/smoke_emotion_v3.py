@@ -26,6 +26,22 @@ def main():
     if '--emotion-only' in sys.argv:
         configure_emotion_only(cfg)
     library, playlist = prepare(cfg, True)
+    nas_test='--nas-material-root' in sys.argv
+    if nas_test:
+        import csv
+        from video_eeg.utils.emotion_protocol import EmotionLibrary
+        from video_eeg.utils.video_library import VideoAsset
+        nas=Path(sys.argv[sys.argv.index('--nas-material-root')+1])
+        manifest=base.CONFIG_DIR/'session_manifest_v2_active.csv'
+        with manifest.open(encoding='utf-8-sig',newline='') as stream:
+            rows=[r for r in csv.DictReader(stream) if r['session_id']=='1' and r['trial_type']=='emotion']
+        selected=[min((r for r in rows if r['three_class_label']==label),key=lambda r:float(r['video_duration_sec']))
+                  for label in ['positive','neutral','negative']]
+        library=EmotionLibrary(selected,{'original':nas/'videos','emotion':nas/'emotion_video/selected'})
+        playlist=[VideoAsset(r['video_id'],r['video_path'],float(r['video_duration_sec']),'emotion','valid') for r in selected]
+        cfg.update(_material_roots_explicit=True,session_manifest_hash=hashlib.sha256(manifest.read_bytes()).hexdigest())
+        cfg['storage']['records_dir']='data/sourcedata/demo/v3_nas_smoke'
+        cfg['protocol'].update(video_library_dir=str(nas/'videos'),emotion_library_dir=str(nas/'emotion_video'))
     if cfg['protocol'].get('emotion_only'):
         assert len(playlist) == 3 and all(r['trial_type'] == 'emotion' for r in library.rows.values())
     win = base.visual.Window(size=(1100, 800), fullscr=False, units='height', color='black')
@@ -110,7 +126,7 @@ def main():
         report = dict(status='PASS', real_hardware=False, path=str(behavior.progress_dir),
             ratings=3, speeds=[1, 1.5, 2], eeg_files_unchanged=True, abort_resume=True,
             facial_source='synthetic' if '--facial-synthetic' in sys.argv else 'UGREEN Camera 4K',
-            facial_validated=len(passed))
+            facial_validated=len(passed),nas_input=nas_test)
         (base.PROJECT_ROOT / 'logs' / 'emotion_v3_smoke.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
         print(json.dumps(report), flush=True)
     finally:

@@ -73,6 +73,9 @@ class EmotionVideoRunner(base.VideoRunner):
         return result
 
     def _create_movie(self, media_path):
+        if self.config.get('_material_roots_explicit'):
+            from video_eeg.utils.material_settings import verify_trial
+            verify_trial(self.config,self._active_row,media_path)
         # Preserve the production player. A player failure must not silently switch to muted playback.
         movie = base.OpenCVVideoPlayer(self.win, str(media_path), autoLog=False)
         expected_audio = str(self._active_row.get('has_audio', '')).lower()=='true'
