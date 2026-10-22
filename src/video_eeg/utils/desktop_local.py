@@ -31,9 +31,8 @@ def no_links(path):
 def require_local(path):
     path=no_links(path)
     if os.name=='nt':
-        home=Path(os.environ.get('USERPROFILE',str(Path.home()))).resolve()
-        if path.anchor.lower()!=home.anchor.lower() or ctypes.windll.kernel32.GetDriveTypeW(path.anchor)!=3:
-            raise ValueError('运行路径必须在本机用户所在磁盘，不能使用移动硬盘或网络路径：'+str(path))
+        if ctypes.windll.kernel32.GetDriveTypeW(path.anchor)!=3:
+            raise ValueError('运行路径必须在本机固定磁盘，不能使用移动硬盘或网络路径：'+str(path))
     return path
 
 
@@ -76,7 +75,7 @@ def discover_materials(lab_root,app_root,selected=None):
             elif folder.name=='selected':emotion.append(require_material_path(folder.parent))
     candidates=list(dict.fromkeys(candidates));emotion=list(dict.fromkeys(emotion))
     if len(candidates)!=1:
-        raise ValueError(('找到多个完整普通视频库，请明确选择其中一个。' if candidates else '未找到完整普通视频库。应包含 formal_v1/videos；请先复制到本机。')+'\n查找位置：'+'；'.join(map(str,roots)))
+        raise ValueError(('找到多个完整普通视频库，请明确选择其中一个。' if candidates else '未找到完整普通视频库。应包含 formal_v1/videos；请选择本机或NAS材料目录。')+'\n查找位置：'+'；'.join(map(str,roots)))
     result={'ordinary_root':str(candidates[0])}
     if len(emotion)==1:result['emotion_root']=str(emotion[0])
     return result

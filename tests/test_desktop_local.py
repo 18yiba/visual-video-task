@@ -106,12 +106,38 @@ def test_symlink_rejected(layout):
     except OSError:pytest.skip('Symlink creation unavailable')
     with pytest.raises(ValueError,match='junction'):local.no_links(link)
 
-def test_nonlocal_volume_rejected_without_test_override(tmp_path,monkeypatch):
-    import importlib
-    # Exercise actual Windows volume guard independently of the fixture.
+def test_fixed_desktop_on_d_with_profile_on_c(monkeypatch):
     if __import__('os').name!='nt':pytest.skip('Windows volume check')
-    if tmp_path.anchor.lower()==Path.home().anchor.lower():pytest.skip('Need a non-profile drive')
-    with pytest.raises(ValueError,match='本机用户所在磁盘'):local.require_local(tmp_path)
+    monkeypatch.setenv('USERPROFILE',r'C:\Users\example')
+    monkeypatch.setattr(local.ctypes.windll.kernel32,'GetDriveTypeW',lambda anchor:3)
+    path=Path(r'D:\Users\example\Desktop\video')
+    assert local.require_local(path)==path.resolve()
+
+
+@pytest.mark.parametrize('drive_type',[0,1,2,4,5,6])
+def test_nonfixed_volume_rejected(monkeypatch,drive_type):
+    if __import__('os').name!='nt':pytest.skip('Windows volume check')
+    monkeypatch.setattr(local.ctypes.windll.kernel32,'GetDriveTypeW',lambda anchor:drive_type)
+    with pytest.raises(ValueError,match='本机固定磁盘'):
+        local.require_local(Path(r'D:\Users\example\Desktop\video'))
+
+
+def test_new_computer_materials_separate_from_local_records(layout):
+    root,app,old,cfg=layout
+    materials=root/'nas/formal_v1'
+    materials.parent.mkdir()
+    (root/'lab/video_materials/formal_v1').rename(materials)
+    before={p:local.sha256(p) for p in local.files_under(materials)}
+    lab=root/'redirected_desktop/video';user=root/'user'
+    settings=local.migrate({'materials_selection':str(materials)},user,lab,app)
+    local.validate_runtime(settings,user,app,formal=True)
+    assert Path(settings['data_root'])==lab/'data/sourcedata'
+    assert Path(settings['ordinary_root'])==materials/'videos'
+    assert Path(settings['emotion_root'])==materials/'emotion_video'
+    assert settings['resume_roots']=={'v1':[],'v2':[]}
+    assert not settings.get('legacy_snapshot')
+    assert all(local.sha256(p)==h for p,h in before.items())
+    assert not (materials/'data').exists()
 
 
 def test_current_desktop_rejects_arithmetic_only_without_modifying_source(layout):

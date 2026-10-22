@@ -18,7 +18,7 @@ def choose_binding(settings):
     from video_eeg.utils.desktop_local import desktop_root,migrate,discover_materials
     W=qt();box=W.QMessageBox();box.setWindowTitle('设置实验室本机路径')
     lab=desktop_root()
-    box.setText('请先正常结束并保存采集。\n本次把配置与已有记录复制、校验到本机，原件不删除。\n\n视频：'+str(lab/'video_materials')+'\n数据：'+str(lab/'data/sourcedata')+'\n\n完成后运行不再依赖移动硬盘。')
+    box.setText('请先正常结束并保存采集。\n本次把配置与已有记录复制、校验到本机，原件不删除。\n\n视频：可选择本机或NAS材料目录\n数据：'+str(lab/'data/sourcedata')+'\n\n数据目录支持本机C盘或D盘等固定磁盘。使用NAS材料时须保持网络连接。')
     existing=box.addButton('迁移内容题版v1到本机',W.QMessageBox.ButtonRole.AcceptRole)
     fresh=box.addButton('新电脑，无历史数据',W.QMessageBox.ButtonRole.ActionRole)
     box.addButton(W.QMessageBox.StandardButton.Cancel);box.exec()
@@ -36,10 +36,10 @@ def choose_binding(settings):
         selection['materials_selection']=str(Path(json.loads(materials_file.read_text(encoding='utf-8-sig'))['ordinary_root']).parent)
     try:discover_materials(lab,ROOT,selection.get('materials_selection'))
     except ValueError:
-        directory=W.QFileDialog.getExistingDirectory(None,'选择本机视频材料目录，可选video_materials或其上级目录',str(lab))
+        directory=W.QFileDialog.getExistingDirectory(None,'选择视频材料目录（本机或NAS），可选formal_v1或其上级目录',str(lab))
         if directory:selection['materials_selection']=directory
         else:
-            answer=W.QMessageBox.question(None,'尚未选择正式材料','是否先迁移配置和记录，只做Demo？正式实验仍须选择并核验本机视频库。')
+            answer=W.QMessageBox.question(None,'尚未选择正式材料','是否先迁移配置和记录，只做Demo？正式实验仍须选择并核验本机或NAS视频库。')
             if answer!=W.QMessageBox.StandardButton.Yes:return False
             selection['allow_missing_materials']=True
     progress=W.QProgressDialog('正在复制并校验历史记录；原文件不删除。',None,0,100)
