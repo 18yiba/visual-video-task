@@ -275,7 +275,8 @@ class SessionRecorder:
             segment_metadata.update(eeg_format='EDF', native_edf_profile=profile(),
                                     edf_quantization_step_uv=quantization,
                                     simulated_eeg=self._source_name == 'dummy')
-        version_file = Path(__file__).resolve().parents[2]/'packaging/version.txt'
+        from video_eeg.paths import PROJECT_ROOT
+        version_file = PROJECT_ROOT/'packaging/version.txt'
         software_version = version_file.read_text(encoding='utf-8').strip() if version_file.is_file() else 'unknown'
         segment_metadata.update(
             {

@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT));sys.path.insert(1,str(ROOT/'scripts'))
 from video_eeg.experiment import video_runner as base
-from launch_experiment import launch
+from video_eeg.cli import main as launch_source
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--protocol',choices=['v1','v2'],required=True);args=p.parse_args()
@@ -20,7 +20,7 @@ def main():
     def load():
         original();base.Keyboard=Keyboard;base.core.quit=lambda:None
     base._load_psychopy=load
-    result=launch(args.protocol,'demo',['--no-dialog','--windowed','--subject-id',subject,'--seed','20260912'])
+    result=launch_source(['--protocol',args.protocol,'--mode','demo','--no-dialog','--windowed','--subject-id',subject,'--seed','20260912'])
     assert result==0
     root=ROOT/'data/sourcedata/demo'/args.protocol/subject
     path=next(root.rglob('session_state.json'));state=json.loads(path.read_text(encoding='utf-8'))

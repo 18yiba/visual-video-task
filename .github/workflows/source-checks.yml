@@ -1,0 +1,27 @@
+name: Source structure and configuration
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.12', '3.13', '3.14']
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python main.py --validate
+      - run: python -m unittest discover -s tests -p test_template_layout.py -v
+      - run: python -m pip install --no-deps -e .
+      - run: acq-task --validate
+      - run: python scripts/maintenance/build_release.py build/source-check
+      - run: python build/source-check/main.py --validate

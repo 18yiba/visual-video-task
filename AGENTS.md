@@ -21,6 +21,12 @@
 ## Windows 1.0.4 BIDS export
 
 - Native recording/behavior/state remain the recovery contract. BIDS is an independent post-save copy; never substitute it for session_state or overwrite source records.
-- Exporter video_eeg/utils/bids_export.py uses the lab-confirmed BrainCo 31 EEG + first counter row, uV, IO profile; do not reuse device assumptions for another device. Preserve protocol/part identity, behavior fields and missing-EEG timing flags.
+- Exporter src/video_eeg/utils/bids_export.py (formerly video_eeg/utils/bids_export.py) uses the lab-confirmed BrainCo 31 EEG + first counter row, uV, IO profile; do not reuse device assumptions for another device. Preserve protocol/part identity, behavior fields and missing-EEG timing flags.
 - Offline official validator must be bundled with Deno; validate all TSV rows, without network. Passing BIDS structure validation does not certify signal quality or real hardware.
 - README and docs/operations/BIDS_EXPORT.md describe automatic export, manual retry, old records and source/BIDS directory boundaries.
+
+## Template source layout
+
+- Runtime implementation lives in src/video_eeg; root video_eeg/__init__.py is a compatibility import for existing source scripts. Keep video_eeg/config resource paths and bytes stable for protocol/snapshot compatibility.
+- main.py uses config/config.toml for launcher defaults only. Reject unknown TOML fields. Keep local overrides out of Git and source releases; retain v3 and device-specific independent entries.
+- docs/README.md, docs/deploy.md, docs/data-format.md and data/README.md explain deployment and data boundaries. data/README.md is source documentation, not an output placeholder.

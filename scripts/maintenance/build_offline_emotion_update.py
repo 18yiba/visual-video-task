@@ -14,7 +14,8 @@ def build(destination):
     target=Path(destination).resolve()/NAME
     if target.exists():raise ValueError('Use a new destination; never overwrite an installed update')
     allowed=set(source_files())
-    paths=[p for p in (ROOT/'video_eeg').rglob('*.py') if p in allowed]
+    paths=[p for p in allowed if p.suffix=='.py' and p.relative_to(ROOT).parts[0] in {'src','video_eeg'}]
+    paths += [p for p in allowed if p.relative_to(ROOT).as_posix().startswith('src/video_eeg/') and p.suffix=='.json']
     paths += [p for p in (ROOT/'video_eeg/config').glob('*emotion*') if p.is_file() and p in allowed]
     paths += [ROOT/'video_eeg/config/complete_questions_20260908/question_bank.json', ROOT/'README.md']
     paths += [ROOT/'assets/brand/company_logo.png']

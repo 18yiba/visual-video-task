@@ -17,6 +17,7 @@ dependencies = [
   "bcigo-sdk>=1.0.2",
   "brainflow",
   "numpy",
+  "imageio-ffmpeg>=0.6.0",
   "edfio==0.4.11",
   "pylsl",
   "psutil>=5.9",
@@ -30,6 +31,11 @@ bids = ["bids-validator-deno==3.0.1", "deno==2.9.6", "edfio==0.4.11"]
 
 [project.scripts]
 video-eeg = "video_eeg.experiment.video_runner:main"
+acq-task = "video_eeg.cli:main"
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["video_eeg*"]
+
+[tool.setuptools.package-data]
+video_eeg = ["utils/*.json"]

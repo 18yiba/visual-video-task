@@ -43,6 +43,8 @@ class DistributionTests(unittest.TestCase):
         self.assertIn(Path('AGENTS.md'), files)
         self.assertIn(Path('vendor/eeg-bids-converter/LICENSE'), files)
         for p in files:
+            if p.as_posix() == 'data/README.md':
+                continue
             if p.as_posix() in builder.PLACEHOLDERS:
                 self.assertEqual((ROOT / p).read_bytes(), b'')
                 continue

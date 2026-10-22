@@ -13,6 +13,11 @@ from video_eeg.utils.emotion_protocol import prepare
 
 
 def main():
+    if '--facial-synthetic' in sys.argv:
+        # Test-only synthetic source; production keeps strict named-camera checks.
+        from video_eeg.experiment.facial_recording import FacialRecorder
+        FacialRecorder.preflight = lambda self: None
+        FacialRecorder._input_args = lambda self: ['-re', '-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=30']
     base._load_psychopy()
     cfg = base.load_config(base.CONFIG_DIR / 'video_emotion_v3_demo_config.yaml')
     cfg.update(_project_dir=str(base.PROJECT_ROOT), subject_id='AUTO_V3_' + str(time.time_ns()), explicit_run_seed=20260912, _integrated_startup=True)
@@ -68,6 +73,12 @@ def main():
         attempts = [a for a in runner.state.video_attempts if 'emotion_rating' in a]
         assert len(attempts) == 3 and all(eeg_saved(a) for a in attempts)
         assert all(not a['emotion_rating']['completed'] for a in attempts)
+        facial_rows = [json.loads(line) for line in
+            (runner.progress_dir / 'facial_recording_log.jsonl').read_text(encoding='utf-8').splitlines()]
+        passed = [row for row in facial_rows if row['status'] == 'passed']
+        assert len(passed) == 3
+        assert all(row['decoded_duration_sec'] >= row['material_duration_sec'] for row in passed)
+        assert all(row['events']['video_off']['sample_index'] > row['events']['video_on']['sample_index'] for row in passed)
         events = json.loads((runner.manager.session_dir / runner.manager.recorder.events_filename).read_text(encoding='utf-8'))
         assert not any('RATING' in e['name'] for e in events)
         if cfg['protocol'].get('emotion_only'):
@@ -97,7 +108,9 @@ def main():
             assert set(eeg_files) == {p for p in behavior.progress_dir.rglob('*') if p.is_file() and
                 (p.suffix.lower() in {'.edf', '.npy'} or p.name.startswith(('events', 'metadata', 'eeg_health')))}
         report = dict(status='PASS', real_hardware=False, path=str(behavior.progress_dir),
-            ratings=3, speeds=[1, 1.5, 2], eeg_files_unchanged=True, abort_resume=True)
+            ratings=3, speeds=[1, 1.5, 2], eeg_files_unchanged=True, abort_resume=True,
+            facial_source='synthetic' if '--facial-synthetic' in sys.argv else 'UGREEN Camera 4K',
+            facial_validated=len(passed))
         (base.PROJECT_ROOT / 'logs' / 'emotion_v3_smoke.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
         print(json.dumps(report), flush=True)
     finally:

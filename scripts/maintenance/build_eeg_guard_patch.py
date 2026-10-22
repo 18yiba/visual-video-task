@@ -10,7 +10,9 @@ def build(destination):
     rows=[]
     for p in source_files():
         rel=p.relative_to(ROOT)
-        if not (rel.parts[0]=='video_eeg' and p.suffix=='.py') and rel.as_posix()!='assets/brand/company_logo.png':continue
+        if not (rel.parts[0] in {'src','video_eeg'} and p.suffix=='.py') and rel.as_posix()!='assets/brand/company_logo.png':continue
+        rel=Path(rel.as_posix().removeprefix('src/'))
+        if rel.as_posix()=='video_eeg/__init__.py':continue
         target=destination/'payload'/rel;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,target)
         rows.append(dict(path=rel.as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()))
     (destination/'PATCH_FILES.json').write_text(json.dumps(rows,indent=2),encoding='utf-8')
