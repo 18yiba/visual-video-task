@@ -49,9 +49,12 @@ def choose_binding(settings):
     try:new=migrate(selection,USER,lab,ROOT,source_project=source,progress=update)
     finally:progress.close()
     settings.clear();settings.update(new)
-    from video_eeg.utils.desktop_local import dependency_report
-    try:dependency_report(settings,USER,ROOT)
-    except (OSError,ValueError) as exc:print('迁移完成，盘点报告暂未生成：'+str(exc),flush=True)
+    # A new computer has no migrated records to audit. Full NAS inventory is
+    # available from the explicit menu entry, rather than blocking first setup.
+    if source is not None:
+        from video_eeg.utils.desktop_local import dependency_report
+        try:dependency_report(settings,USER,ROOT)
+        except (OSError,ValueError) as exc:print('迁移完成，盘点报告暂未生成：'+str(exc),flush=True)
     W.QMessageBox.information(None,'本机设置完成','新记录保存根目录：'+new['data_root']+'\n旧记录已按字节校验复制或保留在本机，原件未删除。\n开始菜单“视频EEG文件盘点”可导出逐文件清单。')
     return True
 
