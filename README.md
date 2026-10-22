@@ -2,6 +2,8 @@
 
 # visual-video-task：视频EEG采集与情绪评分
 
+源码ZIP修正版补齐博睿康入口 `run_neuracle_v3.bat`；解压后双击该文件进入博睿康控制台，`run_emotion_v3.bat` 为默认EMOTIV入口。此修正只涉及源码发行白名单，v0.3.4 EXE原有两个开始菜单入口不变。
+
 Windows v0.3.4修复首次设置时桌面位于D盘、用户目录位于C盘的启动错误；数据可保存在任一本机固定磁盘，NAS仅用于读取材料。已有安装版保存退出后覆盖安装，无需移动桌面或删除数据。
 
 NAS材料设置：在两个设备控制台点击“视频材料位置（本机 / NAS）”，或从开始菜单打开“视频EEG视频材料位置（本机或NAS）”，输入包含`videos`和`emotion_video`的共享根目录，例如`\\NAS\share\video_materials\formal_v1`。先在Windows资源管理器登录该共享；程序只保存路径，不保存NAS密码。两个设备入口共用此设置，EEG、面部录像和Session进度仍保存本机。
