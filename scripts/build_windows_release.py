@@ -60,10 +60,11 @@ def main():
         folder=Path(sys.prefix)/name
         if folder.is_dir() and not args.reuse_runtime:shutil.copytree(folder,target/'runtime'/name,dirs_exist_ok=True)
     from PIL import Image
-    Image.open(ROOT/'assets/brand/company_logo.png').save(ROOT/'packaging/app.ico',sizes=[(16,16),(32,32),(48,48),(64,64),(128,128)])
+    icon=output/'app.ico'
+    Image.open(ROOT/'assets/brand/company_logo.png').save(icon,sizes=[(16,16),(32,32),(48,48),(64,64),(128,128)])
     csc=Path(__import__('os').environ['WINDIR'])/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
     subprocess.run([str(csc),'/nologo','/target:winexe','/platform:x64','/r:System.Windows.Forms.dll',
-        '/win32icon:'+str(ROOT/'packaging/app.ico'),'/out:'+str(target/'VisualVideoTask.exe'),str(ROOT/'packaging/Launcher.cs')],check=True)
+        '/win32icon:'+str(icon),'/out:'+str(target/'VisualVideoTask.exe'),str(ROOT/'packaging/Launcher.cs')],check=True)
     shutil.copy2(ROOT/'docs/operations/WINDOWS_EXE.md',target/'离线安装与旧v1续跑说明.md')
     version=(ROOT/'packaging/version.txt').read_text().strip()
     files=[]
@@ -71,7 +72,16 @@ def main():
         if path.is_file() and path != target/'BUNDLE_MANIFEST.json':
             with path.open('rb') as f:digest=hashlib.file_digest(f,'sha256').hexdigest()
             files.append({'path':path.relative_to(target).as_posix(),'bytes':path.stat().st_size,'sha256':digest})
-    (target/'BUNDLE_MANIFEST.json').write_text(json.dumps({'version':version,'files':files},indent=2),encoding='utf-8')
+    commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    for row in rows:
+        relative=row['path']
+        if relative in ('stimuli/videos/.gitkeep','data/sourcedata/.gitkeep'):
+            continue
+        tracked=subprocess.run(['git','show',commit+':'+relative],cwd=ROOT,capture_output=True)
+        if tracked.returncode or hashlib.sha256(tracked.stdout).hexdigest()!=row['sha256']:
+            raise RuntimeError('Source differs from committed release: '+relative)
+    (target/'BUNDLE_MANIFEST.json').write_text(json.dumps({'version':version,'source_commit':commit,
+        'device_entries':['emotivpro','neuracle'],'files':files},indent=2),encoding='utf-8')
     import os
     check_env=os.environ.copy();check_env['VIDEO_EEG_USER_DIR']=str(output/'verification/user')
     subprocess.run([str(target/'VisualVideoTask.exe'),'--self-test'],check=True,env=check_env)

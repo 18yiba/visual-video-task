@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 import yaml
+import pytest
 
 
 def test_v3_desktop_uses_local_materials_and_independent_records(tmp_path, monkeypatch):
@@ -29,13 +30,15 @@ def test_v3_desktop_uses_local_materials_and_independent_records(tmp_path, monke
     assert not list((tmp_path/'records').glob('**/session_state.json'))
 
 
-def test_exe_default_dispatches_v3_without_old_selector(tmp_path, monkeypatch):
+@pytest.mark.parametrize('device', ['emotivpro','neuracle'])
+def test_exe_default_dispatches_v3_without_old_selector(tmp_path, monkeypatch, device):
     root=Path(__file__).resolve().parents[1]
     monkeypatch.syspath_prepend(str(root/'scripts'))
     spec=importlib.util.spec_from_file_location('desktop_default_test',root/'scripts/desktop_entry.py')
     desktop=importlib.util.module_from_spec(spec);spec.loader.exec_module(desktop)
     monkeypatch.setattr(desktop,'USER',tmp_path)
-    monkeypatch.setattr(sys,'argv',['desktop_entry.py'])
+    monkeypatch.setenv('VIDEO_EEG_BACKEND','untrusted-inherited-value')
+    monkeypatch.setattr(sys,'argv',['desktop_entry.py','--device',device])
     from video_eeg.utils import desktop_local
     monkeypatch.setattr(desktop_local,'require_local',lambda p:Path(p).resolve())
     monkeypatch.setattr(desktop_local,'validate_runtime',lambda *a,**k:None)
@@ -47,3 +50,12 @@ def test_exe_default_dispatches_v3_without_old_selector(tmp_path, monkeypatch):
     monkeypatch.setattr(launch_experiment,'choose',lambda **k:(_ for _ in ()).throw(AssertionError('old UI selected')))
     assert desktop.main()==0
     assert calls==[settings]
+    import os
+    assert os.environ['VIDEO_EEG_BACKEND']==device
+
+
+def test_installer_has_both_explicit_device_shortcuts():
+    text=(Path(__file__).resolve().parents[1]/'packaging/video-task.iss').read_text(encoding='utf-8')
+    assert 'Parameters: --device emotivpro' in text
+    assert 'Parameters: --device neuracle' in text
+    assert 'EMOTIV设备入口' in text and '博睿康设备入口' in text

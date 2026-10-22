@@ -39,6 +39,8 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 [Icons]
 Name: "{autoprograms}\视频EEG总范式"; Filename: "{app}\VisualVideoTask.exe"
 Name: "{autoprograms}\视频EEG v3 实验控制台"; Filename: "{app}\VisualVideoTask.exe"
+Name: "{autoprograms}\视频EEG v3 EMOTIV设备入口"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --device emotivpro
+Name: "{autoprograms}\视频EEG v3 博睿康设备入口"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --device neuracle
 Name: "{autoprograms}\视频EEG v1-v2 旧协议入口"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --legacy
 Name: "{autoprograms}\视频EEG设置（迁移到本机）"; Filename: "{app}\VisualVideoTask.exe"; Parameters: --settings
 Name: "{autodesktop}\视频EEG总范式"; Filename: "{app}\VisualVideoTask.exe"; Tasks: desktopicon

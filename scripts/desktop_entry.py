@@ -179,11 +179,14 @@ def launch_v3(settings=None, *, smoke=False):
         from psychopy.gui import qtgui
         C=import_module(f'{qtgui.haveQt}.QtCore')
         def inspect():
-            assert window.windowTitle()=='v3 实验控制台'
+            assert window.windowTitle()==('v3 博睿康实验控制台' if front.is_neuracle() else 'v3 实验控制台')
             assert window.stage.count()==2 and window.scope.count()==2
             assert not hasattr(window,'mode')
-            window.grab().save(str(USER/'logs/v3-desktop.png'))
-            print('V3 desktop UI PASS; no hardware started',flush=True)
+            device='neuracle' if front.is_neuracle() else 'emotivpro'
+            window.grab().save(str(USER/f'logs/v3-desktop-{device}.png'))
+            (USER/f'logs/ui-{device}.json').write_text(json.dumps(dict(status='PASS',device=device,
+                title=window.windowTitle(),root=str(ROOT),hardware_started=False)),encoding='utf-8')
+            print('V3 desktop UI PASS: '+device+'; no hardware started',flush=True)
             window.accept()
         C.QTimer.singleShot(1000,inspect)
     return window.exec()
@@ -192,8 +195,10 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--self-test',action='store_true');p.add_argument('--smoke',choices=['v1','v2','disconnect']);p.add_argument('--settings',action='store_true')
     p.add_argument('--eegqc-export',action='store_true');p.add_argument('--bids-export',dest='eegqc_export',action='store_true');p.add_argument('--audit',action='store_true');p.add_argument('--archive-caches',action='store_true');p.add_argument('--drive-report',nargs='?',const='ASK')
     p.add_argument('--legacy',action='store_true',help='Open the preserved v1/v2 launcher')
+    p.add_argument('--device',choices=['emotivpro','neuracle'],default='emotivpro',help='Select the v3 device entry')
     p.add_argument('--ui-smoke',action='store_true',help='Verify the v3 window without starting hardware')
     args=p.parse_args()
+    os.environ['VIDEO_EEG_BACKEND']=args.device
     USER.mkdir(parents=True,exist_ok=True)
     for name in ('logs','tmp','psychopy'):(USER/name).mkdir(exist_ok=True)
     os.environ.update(PYTHONUTF8='1',PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1',APPDATA=str(USER/'psychopy'),TEMP=str(USER/'tmp'),TMP=str(USER/'tmp'))
