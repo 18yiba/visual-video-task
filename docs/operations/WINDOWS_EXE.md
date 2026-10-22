@@ -1,4 +1,4 @@
-# 当前推荐Windows v0.3.2（双设备入口与面部录像）
+# 当前推荐Windows v0.3.3（双设备入口与面部录像）
 
 开始菜单提供“视频EEG v3 EMOTIV设备入口”（EmotivPRO外部录制与Trigger）和“视频EEG v3 博睿康设备入口”（Collect转发、TCP与TRG）；默认EXE及通用快捷方式使用EMOTIV。历史v1/v2从“视频EEG v1-v2 旧协议入口”进入，Demo/正式保持原样。v3使用本机材料设置，控制台及子进程传递同一配置；博睿康仍使用原有_neuracle独立数据根命名，避免混用设备进度。安装包自带Python、设备适配器、FFmpeg及离线校验环境，视频单独复制。
 

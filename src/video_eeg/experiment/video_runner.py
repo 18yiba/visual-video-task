@@ -864,6 +864,9 @@ def main(argv: list[str] | None = None) -> int:
     config["_project_dir"] = str(PROJECT_ROOT)
     config["_config_dir"] = str(config_path.resolve().parent)
     apply_cli_overrides(config, args)
+    if not args.demo:
+        from video_eeg.utils.material_settings import apply
+        apply(config,PROJECT_ROOT)
     config['emotion_stage'] = args.emotion_stage
     if args.paradigm_code:
         if not config.get('protocol', {}).get('separate_emotion_ratings'):

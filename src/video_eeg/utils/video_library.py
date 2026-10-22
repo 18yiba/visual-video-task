@@ -130,7 +130,7 @@ def load_video_library(config: dict[str, Any]) -> VideoLibrary:
     if not root.is_absolute():
         base_dir = Path(str(config.get("_project_dir") or config.get("_config_dir") or Path.cwd()))
         root = (base_dir / root).resolve()
-    if not _contains_video_files(root):
+    if not config.get('_material_roots_explicit') and not _contains_video_files(root):
         base_dir = Path(str(config.get("_project_dir") or config.get("_config_dir") or Path.cwd()))
         # GitHub checkouts can keep their materials inside the project. Only
         # the standard deployment path receives this fallback, not custom paths.

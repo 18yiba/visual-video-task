@@ -22,6 +22,8 @@ def configuration(emotion_only=False, port=""):
     if cfg.get('hardware_dummy_mode') or cfg.get('demo_mode'):
         raise ValueError('v3入口仅支持真实EEG配置，请关闭配置中的模拟模式。')
     cfg['_project_dir'] = str(ROOT)
+    from video_eeg.utils.material_settings import apply
+    apply(cfg,ROOT)
     if is_neuracle():
         from video_eeg.utils.neuracle_recording import configure, load_profile
         profile = load_profile(ROOT)
@@ -111,6 +113,9 @@ def make_window():
                 label = W.QLabel(text); label.setObjectName('muted'); field.addWidget(label); field.addWidget(widget)
                 controls.addLayout(field)
             controls.addWidget(self.fullscreen)
+            self.materials = W.QPushButton('视频材料位置（本机 / NAS）')
+            controls.addWidget(self.materials)
+            self.materials.clicked.connect(self.choose_materials)
             self.detect = W.QPushButton('配置 / 检测脑电与 TRG' if is_neuracle() else '选择 / 检查 Trigger 发送端')
             self.refresh = W.QPushButton('刷新进度')
             self.start = W.QPushButton('开始实验')
@@ -176,6 +181,7 @@ def make_window():
             self.changed_mode()
 
         def locked(self, value):
+            self.materials.setEnabled(not value)
             for widget in (self.stage, self.scope, self.subject, self.session, self.paradigm, self.fullscreen, self.detect, self.register_eeg, self.refresh, self.start, self.table):
                 widget.setEnabled(not value)
             if not value:
@@ -197,6 +203,19 @@ def make_window():
                 return
             self.device_status.setText('行为评分无需设备；本阶段不连接或采集 EEG。' if ratings else
                 ('串口可打开；脑电与接收状态须在 EmotivPRO 核对。' if self.connection else '尚未选择发送端；脑电请在 EmotivPRO 检查。'))
+
+        def choose_materials(self):
+            from video_eeg.utils.material_settings import save
+            cfg=configuration()
+            default=str(Path(cfg['protocol']['video_library_dir']).parent)
+            root,ok=W.QInputDialog.getText(self,'视频材料位置','输入包含videos和emotion_video的材料根目录，可使用NAS的\\\\服务器\\共享路径。\nNAS只读取；EEG、面部录像和进度仍保存本机。',text=default)
+            if not ok or not root.strip():return
+            try:
+                value=save(root.strip(),ROOT)
+                W.QMessageBox.information(self,'材料位置已保存','普通视频：'+value['ordinary_root']+'\n情绪视频：'+value['emotion_root']+'\\selected\n本机数据与原Session进度不变。')
+                self.check_progress()
+            except Exception as exc:
+                W.QMessageBox.warning(self,'材料位置未更新',str(exc))
 
         def check_progress(self):
             if not self.subject.text().strip():
@@ -295,6 +314,8 @@ def make_window():
                 if not self.check_progress():
                     return
                 ratings = self.stage.currentIndex() == 1
+                from video_eeg.utils.material_settings import check
+                check(configuration(self.scope.currentIndex() == 1))
                 r = self.progress[self.session.value() - 1]
                 if ratings and r['emotion_eeg_saved'] == r['ratings_completed']:
                     raise ValueError('当前Session没有已保存EEG且尚待评分的情绪视频。')

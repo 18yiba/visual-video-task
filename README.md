@@ -2,19 +2,23 @@
 
 # visual-video-task：视频EEG采集与情绪评分
 
-最新源码已加入 v3 情绪视频同步面部录像：使用 `UGREEN Camera 4K`，1080p、30帧/秒、无声音，录像直接保存到当前 Session。录像覆盖和时长验证通过后才提交该视频完成；摄像头故障会停止并保留进度。**Windows v0.3.2 安装包与最新源码均包含此功能，并提供 EMOTIV/EmotivPRO 和博睿康两个设备入口。**
+Windows v0.3.3新增NAS材料设置：在两个设备控制台点击“视频材料位置（本机 / NAS）”，或从开始菜单打开“视频EEG视频材料位置（本机或NAS）”，输入包含`videos`和`emotion_video`的共享根目录，例如`\\NAS\share\video_materials\formal_v1`。先在Windows资源管理器登录该共享；程序只保存路径，不保存NAS密码。两个设备入口共用此设置，EEG、面部录像和Session进度仍保存本机。
+
+普通材料读取`根目录\videos`，情绪材料读取`根目录\emotion_video\selected`；目录层级、文件名、固定Session和题库保持不变。每段正式视频播放前按原始材料清单核验SHA256，读取失败、校验不符或解码未完成会停止并保留进度，不自动改用旧本机库。重连后用原被试编号和Session续跑；NAS登录和路径设置须在每台实验电脑完成一次。详见[NAS材料设置](docs/operations/NAS_MATERIALS.md)。
+
+最新源码已加入 v3 情绪视频同步面部录像：使用 `UGREEN Camera 4K`，1080p、30帧/秒、无声音，录像直接保存到当前 Session。录像覆盖和时长验证通过后才提交该视频完成；摄像头故障会停止并保留进度。**Windows v0.3.3 安装包与最新源码均包含此功能，并提供 EMOTIV/EmotivPRO 和博睿康两个设备入口。**
 
 源码结构已按 [acq-task-template](https://github.com/Omni-Intel/acq-task-template) 整理：`main.py` 为统一源码入口，程序实现在 `src/video_eeg/`，启动默认值在 `config/config.toml`。先运行 `python main.py --validate` 检查结构和启动配置；实验运行使用已安装的 Python 3.12 实验室环境。默认打开 v1/v2 选择页并选 Demo；v3 保留独立入口。原协议 YAML、题库和固定清单仍在 `video_eeg/config/`，历史记录和材料路径不变。[部署](docs/deploy.md) · [文档索引](docs/README.md) · [结构与兼容边界](docs/maintenance/TEMPLATE_LAYOUT.md)
 
-当前安装包为 **Windows v0.3.2（双设备入口与面部录像）**，开始菜单可分别打开“视频EEG v3 EMOTIV设备入口”和“视频EEG v3 博睿康设备入口”；通用入口默认EMOTIV。v3先采集并保存EEG，再独立重播情绪视频进行评分；旧v1/v2从开始菜单的独立入口运行。安装包版本号、界面版本和实验协议不是同一个编号，升级不会把历史进度转换成v3。
+当前安装包为 **Windows v0.3.3（双设备入口与面部录像）**，开始菜单可分别打开“视频EEG v3 EMOTIV设备入口”和“视频EEG v3 博睿康设备入口”；通用入口默认EMOTIV。v3先采集并保存EEG，再独立重播情绪视频进行评分；旧v1/v2从开始菜单的独立入口运行。安装包版本号、界面版本和实验协议不是同一个编号，升级不会把历史进度转换成v3。
 
 适用于Windows 10/11 64位，v3提供EMOTIV/EmotivPRO与博睿康Collect设备入口；旧协议保留BrainCo适配器。安装包自带Python、PsychoPy和bcigo-sdk 1.0.2，无需另外安装Python或采集软件；视频材料不在安装包内。本仓库源码不包含被试数据、视频或开发环境。
 
-[下载Windows安装包](https://github.com/18yiba/visual-video-task/releases/download/v0.3.2/VisualVideoTask-Setup-Windows-x64.exe) · [版本说明、源码ZIP与SHA256](https://github.com/18yiba/visual-video-task/releases/tag/v0.3.2) · [v3完整操作说明](docs/versions/v3.md)
+[下载Windows安装包](https://github.com/18yiba/visual-video-task/releases/download/v0.3.3/VisualVideoTask-Setup-Windows-x64.exe) · [版本说明、源码ZIP与SHA256](https://github.com/18yiba/visual-video-task/releases/tag/v0.3.3) · [v3完整操作说明](docs/versions/v3.md)
 
-已知设备问题：部分真实设备返回`Unexpected BrainCo channel layout: (96, 33)`。这表示SDK已返回数据，但当前程序不接受该33列布局，不等同于Wi-Fi完全未连接。额外字段的位置及含义尚未确认，**v0.3.2仍未修复此问题**；不能直接删除一列或改成33个EEG通道后正式采集。请先完成下方诊断与真实设备验收。
+已知设备问题：部分真实设备返回`Unexpected BrainCo channel layout: (96, 33)`。这表示SDK已返回数据，但当前程序不接受该33列布局，不等同于Wi-Fi完全未连接。额外字段的位置及含义尚未确认，**v0.3.3仍未修复此问题**；不能直接删除一列或改成33个EEG通道后正式采集。请先完成下方诊断与真实设备验收。
 
-## v0.3.2安装版与源码：情绪视频面部录像
+## v0.3.3安装版与源码：情绪视频面部录像
 
 先按[源码安装](#源码安装与开始运行)准备实验环境，再双击 `run_emotion_v3.bat`。连接名称为 `UGREEN Camera 4K` 的摄像头，在 Windows 隐私设置中允许桌面应用访问摄像头，并关闭占用该设备的其他程序；选择“EEG采集”后，情绪视频会自动录像，无需单独开启录制。v3“全部视频”和“仅情绪视频”均支持；普通视频、独立行为评分重播及 v1/v2 不录制。
 
@@ -33,7 +37,7 @@
 
 验证已覆盖真实UGREEN摄像头＋真实PsychoPy窗口＋模拟EEG的三段录像、时长与事件关联，以及独立评分退出续跑；短测实际播放2.00054秒，解码录像3.100003秒，前录0.51282秒、后录0.55765秒。2026-10-22完整回归301项通过、5项跳过；215文件源码发行包及其独立启动结构检查通过。真实EEG、长时间负载、拔线及屏幕闪烁同步偏差仍待现场验收；既有BrainCo `(96, 33)` 布局问题不因增加摄像头功能而修复。
 
-## v0.3.2：v3安装与首次运行
+## v0.3.3：v3安装与首次运行
 
 1. 下载Release中的`VisualVideoTask-Setup-Windows-x64.exe`，按`SHA256SUMS.txt`核对。先正常保存并关闭实验，再覆盖安装；已有安装版无需卸载。GitHub的“Source code”ZIP是源码，不是安装包。
 2. 从开始菜单选择“视频EEG v3 EMOTIV设备入口”或“视频EEG v3 博睿康设备入口”；通用入口默认EMOTIV。首次设置本机材料和数据根目录：新电脑选择“新电脑，无历史数据”；已有记录的电脑按迁移流程保留原记录与原路径，不用新编号绕过冲突。
@@ -604,7 +608,7 @@ demo_mode: false
 
 ## 实验室硬盘更新
 
-当前安装包为文首链接的Windows v0.3.2双设备与面部录像版；安装和首次迁移结束后，日常采集无需连接交付硬盘。已有v1/v2从旧协议入口继续，不能因升级安装包而切换到v3续跑；新协议使用对应的独立记录。
+当前安装包为文首链接的Windows v0.3.3双设备与面部录像版；安装和首次迁移结束后，日常采集无需连接交付硬盘。已有v1/v2从旧协议入口继续，不能因升级安装包而切换到v3续跑；新协议使用对应的独立记录。
 
 已发出的旧离线包及断流补丁仍按包内入口和配置工作，没有被新版自动改写。继续使用这些历史入口时，应保留原环境、固定清单、题库和完整记录；不要为了统一文件名删除旧 BAT。原补丁及回退机制见[数据与 EEG 恢复](docs/operations/EEG_AND_RECOVERY.md)，历史源码包的部署见[硬盘部署说明](docs/operations/OFFLINE_UPDATE.md)。这些不是安装 EXE 的额外步骤。
 

@@ -36,6 +36,14 @@ def require_local(path):
             raise ValueError('运行路径必须在本机用户所在磁盘，不能使用移动硬盘或网络路径：'+str(path))
     return path
 
+
+def require_material_path(path):
+    """Only stimuli may live on SMB/UNC or another fixed local disk."""
+    path=no_links(path)
+    if os.name=='nt' and ctypes.windll.kernel32.GetDriveTypeW(path.anchor) not in (3,4):
+        raise ValueError('视频材料必须是本地固定磁盘或可访问的NAS共享目录：'+str(path))
+    return path
+
 def files_under(root,exclude=()):
     root=no_links(root);exclude=[Path(p).resolve() for p in exclude]
     if not root.exists():return []
@@ -57,15 +65,15 @@ def discover_materials(lab_root,app_root,selected=None):
     roots=[Path(selected)] if selected else [lab_root/'video_materials',lab_root/'video/_materials',lab_root/'_materials']
     candidates=[];emotion=[]
     for root in roots:
-        root=require_local(root)
+        root=require_material_path(root)
         if not root.is_dir():continue
         for folder,dirs,files in os.walk(root,followlinks=False):
             folder=Path(folder)
             dirs[:]=[d for d in dirs if d not in {'data','records_storage','.venv','runtime','logs','parquet_cache','_maintenance'} and not (folder/d).is_symlink() and not (folder/d).is_junction()]
             if len(folder.relative_to(root).parts)>=5:dirs[:]=[]
-            if names.issubset(set(files)):candidates.append(require_local(folder));dirs[:]=[]
-            if (folder/'selected').is_dir():emotion.append(require_local(folder))
-            elif folder.name=='selected':emotion.append(require_local(folder.parent))
+            if names.issubset(set(files)):candidates.append(require_material_path(folder));dirs[:]=[]
+            if (folder/'selected').is_dir():emotion.append(require_material_path(folder))
+            elif folder.name=='selected':emotion.append(require_material_path(folder.parent))
     candidates=list(dict.fromkeys(candidates));emotion=list(dict.fromkeys(emotion))
     if len(candidates)!=1:
         raise ValueError(('找到多个完整普通视频库，请明确选择其中一个。' if candidates else '未找到完整普通视频库。应包含 formal_v1/videos；请先复制到本机。')+'\n查找位置：'+'；'.join(map(str,roots)))
@@ -188,7 +196,7 @@ def validate_runtime(settings,user_dir,app_root,formal=False):
         for p in roots:require_local(p)
     if formal:
         for key in ('ordinary_root','emotion_root'):
-            if settings.get(key):require_local(settings[key])
+            if settings.get(key):require_material_path(settings[key])
 
 def local_recording_root(config,settings,subject_id=None):
     from video_eeg.utils.recording_paths import recording_root

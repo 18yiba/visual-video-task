@@ -30,7 +30,11 @@ def choose_binding(settings):
     elif box.clickedButton()==fresh:source=None
     else:return False
     selection={}
-    try:discover_materials(lab,ROOT)
+    from video_eeg.utils.material_settings import settings_path
+    materials_file=settings_path(ROOT)
+    if materials_file.is_file():
+        selection['materials_selection']=str(Path(json.loads(materials_file.read_text(encoding='utf-8-sig'))['ordinary_root']).parent)
+    try:discover_materials(lab,ROOT,selection.get('materials_selection'))
     except ValueError:
         directory=W.QFileDialog.getExistingDirectory(None,'选择本机视频材料目录，可选video_materials或其上级目录',str(lab))
         if directory:selection['materials_selection']=directory
@@ -53,7 +57,7 @@ def choose_binding(settings):
 
 def verify_materials(settings,protocol):
     from video_eeg.utils.desktop import save_json
-    from video_eeg.utils.desktop_local import discover_materials,require_local
+    from video_eeg.utils.desktop_local import discover_materials,require_local,require_material_path
     W=qt();cache_path=USER/'material_validation.json'
     cache=json.loads(cache_path.read_text(encoding='utf-8')) if cache_path.exists() else {}
     try:
@@ -76,7 +80,7 @@ def verify_materials(settings,protocol):
             if emotion.name.lower()=='selected':emotion=emotion.parent
         with (ROOT/'video_eeg/config/emotion_source_index_v1.csv').open(encoding='utf-8-sig',newline='') as f:
             rows.extend((emotion/'selected'/r['relative_selected_path'],r['sha256'],None) for r in csv.DictReader(f))
-        require_local(emotion)
+        require_material_path(emotion)
         settings['emotion_root']=str(emotion.resolve())
     progress=W.QProgressDialog('首次核验视频需要读取全部材料；后续仅重验变化文件。','取消',0,len(rows))
     progress.setWindowTitle('离线材料核验');progress.setMinimumDuration(0)
@@ -84,7 +88,7 @@ def verify_materials(settings,protocol):
         for i,(path,expected,size) in enumerate(rows):
             progress.setValue(i);W.QApplication.processEvents()
             if progress.wasCanceled():return False
-            require_local(path)
+            require_material_path(path)
             if not path.is_file():raise ValueError('缺少视频：'+str(path)+'\n请从移动硬盘补齐材料。')
             stat=path.stat();key=str(path.resolve());signature=[stat.st_size,stat.st_mtime_ns,expected]
             if size is not None and stat.st_size!=size:raise ValueError('视频大小不符：'+str(path))
@@ -97,6 +101,20 @@ def verify_materials(settings,protocol):
     settings['ordinary_root']=str(ordinary.resolve())
     save_json(cache_path,cache);save_json(USER/'settings.json',settings)
     return True
+
+
+def materials_dialog():
+    from video_eeg.utils.material_settings import save,settings_path
+    W=qt()
+    path=settings_path(ROOT)
+    default=''
+    if path.is_file():default=str(Path(json.loads(path.read_text(encoding='utf-8-sig'))['ordinary_root']).parent)
+    value,ok=W.QInputDialog.getText(None,'视频材料位置（本机 / NAS）',
+        '输入包含videos和emotion_video的材料根目录。\nNAS只读取；EEG、录像和进度仍保存本机。',text=default)
+    if not ok or not value.strip():return 0
+    roots=save(value.strip(),ROOT)
+    W.QMessageBox.information(None,'材料位置已保存','普通视频：'+roots['ordinary_root']+'\n情绪视频：'+roots['emotion_root']+'\\selected\n两个设备入口共用，原数据与进度不变。')
+    return 0
 
 def export_eegqc_dialog(settings):
     """Independent EEGQC handoff; acquisition must have finished and saved."""
@@ -197,9 +215,11 @@ def main():
     p.add_argument('--legacy',action='store_true',help='Open the preserved v1/v2 launcher')
     p.add_argument('--device',choices=['emotivpro','neuracle'],default='emotivpro',help='Select the v3 device entry')
     p.add_argument('--ui-smoke',action='store_true',help='Verify the v3 window without starting hardware')
+    p.add_argument('--materials-settings',action='store_true',help='Set read-only local or NAS media roots')
     args=p.parse_args()
     os.environ['VIDEO_EEG_BACKEND']=args.device
     USER.mkdir(parents=True,exist_ok=True)
+    os.environ['VIDEO_EEG_MATERIAL_SETTINGS']=str(USER/'materials.local.json')
     for name in ('logs','tmp','psychopy'):(USER/name).mkdir(exist_ok=True)
     os.environ.update(PYTHONUTF8='1',PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1',APPDATA=str(USER/'psychopy'),TEMP=str(USER/'tmp'),TMP=str(USER/'tmp'))
     os.environ.pop('VIDEO_EEG_EMOTION_ROOT',None)
@@ -207,6 +227,7 @@ def main():
     from psychopy import prefs
     prefs.connections['checkForUpdates']=False
     prefs.connections['allowUsageStats']=False
+    if args.materials_settings:return materials_dialog()
     if args.self_test:
         from check_video_eeg_env import check_modules
         result=check_modules(quiet=False)
@@ -251,6 +272,11 @@ def main():
     selected=launcher.choose(default_protocol='v1' if settings.get('legacy_snapshot') else 'v2',paths_hint='普通视频：'+settings['ordinary_root']+'\n新数据根目录：'+settings['data_root'])
     if not selected:return 0
     protocol,mode=selected
+    if mode=='formal':
+        from video_eeg.utils.material_settings import apply
+        configured=apply({'protocol':{}},ROOT)['protocol']
+        if configured:
+            settings=dict(settings,ordinary_root=configured['video_library_dir'],emotion_root=configured['emotion_library_dir'])
     if mode=='formal':
         validate_runtime(settings,USER,ROOT,formal=True)
         if not verify_materials(settings,protocol):return 0

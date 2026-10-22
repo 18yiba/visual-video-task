@@ -7,6 +7,8 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import launch_emotion_v3 as front
 
 def main():
+    from video_eeg.utils import material_settings
+    material_settings.check=lambda config:None  # Argument/UI check, no formal media required.
     from psychopy.gui import qtgui
     w = front.make_window()
     w.subject.setText('00000002'); w.check_progress()
