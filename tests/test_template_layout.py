@@ -73,6 +73,9 @@ class TemplateLayoutTests(unittest.TestCase):
             manifest = builder.build(target)
             names = {row['path'] for row in manifest}
             self.assertIn('src/video_eeg/experiment/video_runner.py', names)
+            for entry in ('run_emotion_v3.bat', 'run_neuracle_v3.bat'):
+                self.assertIn(entry, names)
+                self.assertEqual((target/entry).read_bytes(), (PROJECT_ROOT/entry).read_bytes())
             self.assertNotIn('video_eeg/experiment/video_runner.py', names)
             self.assertNotIn('src/video_eeg/utils/preprocessing.py', names)
             for row in manifest:
