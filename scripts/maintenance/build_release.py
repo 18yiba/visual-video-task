@@ -11,7 +11,7 @@ FOLDERS = ('src', 'config', 'video_eeg', 'scripts', 'tests', 'docs', 'vendor', '
 SUFFIXES = {'.py', '.ps1', '.bat', '.md', '.txt', '.toml', '.yaml', '.yml', '.json', '.csv', '.docx', '.cs', '.iss', '.isl'}
 FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'setup.py', 'lab_uv_env.toml', 'uv.toml',
          'requirements-psychopy.txt', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md',
-         'assets/brand/company_logo.png', 'main.py', 'data/README.md')
+         'assets/brand/company_logo.png', 'packaging/app.ico', 'main.py', 'data/README.md')
 PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/sourcedata/.gitkeep')
 ROOT_BATS = ('run_emotion_v3.bat', 'run_experiment.bat', 'install_lab_env_uv.bat', 'download_materials.bat')
 # Superseded deployment/history documents remain local; the current operator manual replaces them.

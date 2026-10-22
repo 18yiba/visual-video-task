@@ -1,6 +1,8 @@
-# 当前推荐Windows v0.3.1（v3 UI修正版）
+# 当前推荐Windows v0.3.2（双设备入口与面部录像）
 
-默认EXE、桌面“视频EEG总范式”和开始菜单“视频EEG v3 实验控制台”打开最新v3 UI。历史v1/v2从“视频EEG v1-v2 旧协议入口”进入，Demo/正式保持原样。v3使用本机材料设置，记录分别保存到数据根下v3/v3_emotion_only；控制台及子进程传递同一配置。安装包自带Python与bcigo-sdk 1.0.2，视频单独复制。
+开始菜单提供“视频EEG v3 EMOTIV设备入口”（EmotivPRO外部录制与Trigger）和“视频EEG v3 博睿康设备入口”（Collect转发、TCP与TRG）；默认EXE及通用快捷方式使用EMOTIV。历史v1/v2从“视频EEG v1-v2 旧协议入口”进入，Demo/正式保持原样。v3使用本机材料设置，控制台及子进程传递同一配置；博睿康仍使用原有_neuracle独立数据根命名，避免混用设备进度。安装包自带Python、设备适配器、FFmpeg及离线校验环境，视频单独复制。
+
+两个设备入口均在v3情绪视频采集时录制UGREEN面部录像，逐帧软件时间与EEG事件关联；同Session目录编号递增，覆盖和时长验证失败时停止并保留进度。详见[面部录像](FACIAL_RECORDING.md)。安装目录BUNDLE_MANIFEST.json记录准确Git提交及所有文件SHA256，可与同Release的SOURCE_MANIFEST核对；源码不一致时构建失败。
 
 先保存关闭正在运行的采集，再重新下载修正版覆盖安装，无需卸载。保留原材料、配置、协议及进度；v3不能接续v1/v2状态。新电脑按设置流程选择无历史数据；已有记录绑定原根目录。EXE真实窗口和Dummy EEG测试通过，不代替目标电脑真实设备验收。
 
