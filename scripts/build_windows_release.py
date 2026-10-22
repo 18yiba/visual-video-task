@@ -35,7 +35,7 @@ def main():
                 raise ValueError('Unsafe source staging path: '+str(path))
         if previous.exists():previous.rename(backup)
         fresh.rename(previous)
-    else:build_source(target/'app')
+    else:rows=build_source(target/'app')
     # Use a standalone base, never copy a venv launcher or its absolute home.
     base=Path(sys.base_prefix)
     if not (base/'python.exe').is_file():raise RuntimeError('Build on Windows with a complete Python 3.12 installation')
@@ -67,11 +67,13 @@ def main():
         '/win32icon:'+str(icon),'/out:'+str(target/'VisualVideoTask.exe'),str(ROOT/'packaging/Launcher.cs')],check=True)
     shutil.copy2(ROOT/'docs/operations/WINDOWS_EXE.md',target/'离线安装与旧v1续跑说明.md')
     version=(ROOT/'packaging/version.txt').read_text().strip()
-    files=[]
-    for path in target.rglob('*'):
-        if path.is_file() and path != target/'BUNDLE_MANIFEST.json':
-            with path.open('rb') as f:digest=hashlib.file_digest(f,'sha256').hexdigest()
-            files.append({'path':path.relative_to(target).as_posix(),'bytes':path.stat().st_size,'sha256':digest})
+    from concurrent.futures import ThreadPoolExecutor
+    def describe(path):
+        with path.open('rb') as f:digest=hashlib.file_digest(f,'sha256').hexdigest()
+        return {'path':path.relative_to(target).as_posix(),'bytes':path.stat().st_size,'sha256':digest}
+    paths=[p for p in target.rglob('*') if p.is_file() and p != target/'BUNDLE_MANIFEST.json']
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        files=list(pool.map(describe,paths))
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     for row in rows:
         relative=row['path']
