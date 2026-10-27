@@ -1,3 +1,9 @@
+## 2026-10-27 / VSPE 安装器改为官方下载
+
+- `setup_virtual_serial.bat` 改为从 Eterlogic 官方下载正式 x64 版本，提取 MSI 后校验 SHA256 和发布者签名；校验成功后才启动安装向导。检查入口不下载、不安装。
+- 移除仓库内 VSPE MSI 和附带文件，并忽略旧的本地 `dependencies/vspe/` 副本；新增串口安装说明及发行清单回归断言。
+- 验证：PowerShell 语法检查通过；发行清单和metadata测试11项通过、7个子测试通过；未执行真实安装或改动现有 VSPE、COM 端口配置。
+
 ## 2026-10-27 / Windows 打包源码移出范式仓库
 
 - 将Windows安装器定义、桌面启动器、语言文件、图标、版本信息及发布说明移到项目同级`visual-video-package/`；范式仓库和源码发行包不再包含根目录`packaging/`。

@@ -83,6 +83,7 @@ facial_recording_log.jsonl
 *.log
 
 /emotion_library.local.json
+/dependencies/vspe/
 *.local.toml
 *.local.yaml
 *.local.yml
