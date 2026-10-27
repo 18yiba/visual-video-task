@@ -1,4 +1,4 @@
-"""Source entry point; validation needs only Python 3.12 standard library."""
+"""Source-only entry point; validation uses the Python 3.12 standard library."""
 from pathlib import Path
 import sys
 

@@ -9,11 +9,13 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 FOLDERS = ('src', 'config', 'video_eeg', 'scripts', 'tests', 'docs', 'vendor', 'packaging', '.github')
 SUFFIXES = {'.py', '.ps1', '.bat', '.md', '.txt', '.toml', '.yaml', '.yml', '.json', '.csv', '.docx', '.cs', '.iss', '.isl'}
-FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'setup.py', 'lab_uv_env.toml', 'uv.toml',
+FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'lab_uv_env.toml',
+         'uv.lock', '.python-version', 'metadata.toml', '.dvc/config', '.dvc/.gitignore', '.dvcignore',
+         'assets/README.md', 'assets/.gitignore', 'assets/stimuli.dvc',
          'requirements-psychopy.txt', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md',
          'assets/brand/company_logo.png', 'packaging/app.ico', 'main.py', 'data/README.md')
 PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/sourcedata/.gitkeep')
-ROOT_BATS = ('run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_experiment.bat', 'install_lab_env_uv.bat', 'download_materials.bat')
+ROOT_BATS = ('run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat', 'run_experiment.bat', 'install_lab_env_uv.bat', 'download_materials.bat')
 # Superseded deployment/history documents remain local; the current operator manual replaces them.
 EXCLUDED = {'docs/CHANGELOG_LAB_ENV.md', 'docs/ENVIRONMENT_SETUP.md',
             'docs/SESSION_AUDIT_20260905.md', 'docs/VIDEO_QUESTION_AUDIT_20260908.md',

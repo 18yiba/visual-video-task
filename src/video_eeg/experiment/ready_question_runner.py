@@ -195,15 +195,8 @@ class QuestionVideoRunner(base.VideoRunner):
 
 
 def main(argv=None):
-    original_demo = base.DEMO_CONFIG_FILENAME
-    original_default = base.DEFAULT_CONFIG_FILENAME
-    try:
-        base.DEMO_CONFIG_FILENAME = 'video_demo_config.yaml'
-        base.DEFAULT_CONFIG_FILENAME = 'video_legacy_17_config.yaml'
-        return base.main(argv)
-    finally:
-        base.DEMO_CONFIG_FILENAME = original_demo
-        base.DEFAULT_CONFIG_FILENAME = original_default
+    return base.main(argv, default_config_filename='video_legacy_17_config.yaml',
+                     demo_config_filename='video_demo_config.yaml')
 
 
 if __name__ == '__main__':

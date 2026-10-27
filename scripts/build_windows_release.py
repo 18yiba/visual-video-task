@@ -12,6 +12,13 @@ def copy_runtime(source,target):
         return [n for n in names if n=='__pycache__' or n.endswith(('.pyc','.pyo')) or n=='direct_url.json']
     shutil.copytree(source,target,ignore=ignored)
 
+def assert_no_project_installations(site_packages):
+    sys.path.insert(0, str(ROOT/'scripts'))
+    from check_source_environment import project_installations
+    installed = project_installations(site_packages)
+    if installed:
+        raise RuntimeError('Do not bundle project aliases from site-packages: '+', '.join(installed))
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--iscc',required=True);p.add_argument('--reuse-runtime',action='store_true')
     p.add_argument('--output-dir',type=Path,default=ROOT/'dist',help='Independent bundle and installer output directory')
@@ -41,6 +48,7 @@ def main():
     if not (base/'python.exe').is_file():raise RuntimeError('Build on Windows with a complete Python 3.12 installation')
     if not args.reuse_runtime:copy_runtime(base,target/'runtime')
     packages=Path(sys.prefix)/'Lib/site-packages'
+    assert_no_project_installations(packages)
     if not args.reuse_runtime:
         shutil.copytree(packages,target/'runtime/Lib/site-packages',dirs_exist_ok=True,
             ignore=lambda folder,names:[n for n in names if n=='__pycache__' or n=='direct_url.json' or n.endswith(('.pyc','.pyo'))])

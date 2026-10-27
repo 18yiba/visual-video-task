@@ -1,17 +1,24 @@
 # 模板结构与兼容边界
 
-依据 `Omni-Intel/acq-task-template` 的 `main` 分支（2026-10-21 阅读），调整可维护源码和交付组织，保留本项目已确认的实验与设备合同。
+依据 [`Omni-Intel/acq-task-template` 提交 `b44af0a905cb604515bc1ff843df794b16f7952f`](https://github.com/Omni-Intel/acq-task-template/commit/b44af0a905cb604515bc1ff843df794b16f7952f)（2026-10-23），调整源码运行和交付组织，保留本项目已确认的实验与设备合同。
 
 | 路径 | 当前职责 |
 |---|---|
-| `main.py` / `config/` | 统一源码入口、严格校验的 TOML 启动默认值与私有覆盖；Windows 沿用已有 BAT 入口 |
-| `src/video_eeg/` | 实验执行器、显式设备适配器、存储、工具和 CLI 的唯一实现 |
+| `main.py` / `python -m src` / `config/` | 同一 CLI 的实验入口；`--paradigm`选择范式，TOML提供严格校验的启动默认值与私有覆盖 |
+| `run_experiment.bat` / `run_emotion_v3.bat` / `run_neuracle_v3.bat` | 保留的兼容BAT入口，统一转发至CLI；分别提供v1/v2选择页、EMOTIV v3与博睿康v3 |
+| `src/video_eeg/` | 实验执行器、共享设备/Trigger 组装、EEG记录服务契约、适配器和 CLI 的唯一实现 |
 | `video_eeg/` | 根目录仅保留导入兼容层和 `config/` 中不可改写的协议资源；旧脚本无需重装环境即可导入新源码 |
 | `assets/` / `stimuli/` / `data/` | 品牌资源、已有刺激路径、私有原始记录；视频与数据不移动、不进入源码包 |
 | `docs/` / `tests/` / `scripts/` | 文档索引与数据说明、自动验证、安装及显式白名单发行 |
 
-模板模拟任务不具有本项目的固定 Session、恢复状态及已发布安装版兼容要求，因此不复制其 mock 执行器，不改写原 YAML 为 TOML，不替换原始数据格式。启动 TOML 只新增启动选项层。`src/video_eeg/paths.py` 在新 src 布局和旧平铺安全补丁中保持资源根一致。
+模板改为 source-only：`uv sync` 只安装第三方依赖，不安装本项目或生成 CLI 别名。入口统一转发到既有 `video_eeg.cli`。本项目保留 `src/video_eeg` 和根导入兼容层作为存量结构，不创建第二套执行器。固定 Session、恢复状态、协议 YAML 和原始数据格式不变；TOML 只负责启动选项。
 
-`pyproject.toml` 从 `src/` 发现包；源码脚本兼容层、`main.py` 的显式 src 引导和实验室安装器共同支持未做 editable install 的新源码下载。可选 `pip install --no-deps -e .` 用于已有依赖的开发环境；完整任务资源仍需保留源码目录，单独复制 Python 包不能构成可运行的实验部署。
+`pyproject.toml` 设置 `[tool.uv] package = false`。`main.py`、`python -m src` 和既有 BAT 直接运行源码；不额外创建通用 `RUNME.bat`。项目 distribution、editable `.pth` 和控制台命令不作为运行依赖。Windows EXE 自带第三方环境与源码，不从 site-packages 复制本项目。现有 `.venv` 和 `runtime/python312` 在锁定运行环境完成验收前继续保留。
+
+安装器检查旧项目 distribution、入口别名及专属 `.pth/.egg-link`；若存在则保留旧 `.venv` 备份后重建。Windows 打包器在复制第三方 site-packages 前执行同类检查，发现旧别名即停止，避免将开发机安装路径带入可搬迁包。源码发行包由显式白名单构建，并按 `repository_layout.json` 校验必需入口和文件；DVC 本机凭据不进入发行包。
+
+runner 通过 `video_runner.main(..., default_config_filename=..., demo_config_filename=..., config_transform=...)` 显式选择配置，不再临时替换执行器全局变量。`experiment/acquisition.py` 统一构造采集设备和 Trigger；`video_protocol.EegSessionManager` 依赖 `recording_contracts.py` 定义的记录器、健康监测接口，按设备注入原有 SessionRecorder 或 Neuracle 专用记录器。SessionRecorder 的 export 是封存边界，事件、EEG文件和 metadata 仍保持原格式。后续协议迁移应继续经这些接口，逐步把设备检查、封存验证与协议 UI 分开。
+
+项目身份由 `metadata.toml` 提供，当前 `EMOVID-20261008`，只用于素材与归档目录，不重写内部协议 ID、EEGQC 范式代码或历史记录。DVC 素材是单独副本；正式材料采集前下载到本机是模板要求，旧 NAS 直读保留为兼容路径。NAS 归档只处理已封存单记录包，原始数据仍是恢复依据。
 
 旧 v1/v2、v3、设备专用入口继续保留，统一公开选择仍恰为 v1/v2。历史文件和未知本机文件保留；retired 白名单同时适用于迁移后的 src 路径。离线更新包携带 src 和兼容层；针对旧平铺安装的安全补丁仍按原路径交付源码。

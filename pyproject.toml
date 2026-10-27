@@ -1,41 +1,36 @@
-[build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "video-eeg"
 version = "0.1.0"
-description = "PsychoPy video EEG paradigm with BrainCo SDK acquisition"
+description = "Video EEG acquisition and emotion ratings; source-only project"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 authors = [
   { name = "NCCLab" }
 ]
-dependencies = [
-  "psychopy",
-  "bcigo-sdk>=1.0.2",
-  "brainflow",
-  "numpy",
-  "imageio-ffmpeg>=0.6.0",
+dependencies = []
+
+[dependency-groups]
+test = ["pytest>=8,<10"]
+assets = ["dvc[s3]>=3,<4"]
+# Candidate runtime requires dependency and real-window acceptance; see docs/deploy.md.
+runtime = [
+  "psychopy==2026.2.2; sys_platform == 'win32'",
+  "bcigo-sdk==1.0.2; sys_platform == 'win32'",
+  "brainflow==5.22.2; sys_platform == 'win32'",
+  "numpy==2.3.5",
+  "imageio-ffmpeg==0.6.0",
   "edfio==0.4.11",
-  "pylsl",
-  "psutil>=5.9",
-  "pyserial",
-  "pyyaml",
-  "zeroconf",
+  "pylsl==1.18.2",
+  "psutil==7.2.2",
+  "pyserial==3.5",
+  "pyyaml==6.0.3",
+  "zeroconf==0.150.0",
 ]
+bids = ["bids-validator-deno==3.0.1", "deno==2.9.6", "edfio==0.4.11", "eeg-bids-converter"]
 
-[project.optional-dependencies]
-bids = ["bids-validator-deno==3.0.1", "deno==2.9.6", "edfio==0.4.11"]
+[tool.uv]
+package = false
 
-[project.scripts]
-video-eeg = "video_eeg.experiment.video_runner:main"
-acq-task = "video_eeg.cli:main"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["video_eeg*"]
-
-[tool.setuptools.package-data]
-video_eeg = ["utils/*.json"]
+[tool.uv.sources]
+eeg-bids-converter = { path = "vendor/eeg-bids-converter" }

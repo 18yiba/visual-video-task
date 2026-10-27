@@ -136,17 +136,33 @@
     "v2": "45 Sessions, video EEG + emotion ratings"
   },
   "template_layout": {
-    "reference": "https://github.com/Omni-Intel/acq-task-template",
+    "reference": "https://github.com/Omni-Intel/acq-task-template/commit/b44af0a905cb604515bc1ff843df794b16f7952f",
     "source": "src/video_eeg",
     "launcher_config": "config/config.toml",
     "immutable_protocol_resources": "video_eeg/config",
     "required_files": [
+      ".python-version",
+      "metadata.toml",
+      ".dvc/config",
+      ".dvc/.gitignore",
+      ".dvcignore",
+      "pyproject.toml",
+      "uv.lock",
       "main.py",
+      "run_emotion_v3.bat",
+      "run_neuracle_v3.bat",
+      "run_brainco_v3.bat",
       "config/config.toml",
+      "src/__init__.py",
+      "src/__main__.py",
+      "src/project_metadata.py",
       "src/video_eeg/__init__.py",
       "src/video_eeg/cli.py",
       "src/video_eeg/paths.py",
       "src/video_eeg/experiment/video_runner.py",
+      "src/video_eeg/experiment/acquisition.py",
+      "src/video_eeg/experiment/recording_contracts.py",
+      "src/video_eeg/experiment/video_protocol.py",
       "video_eeg/__init__.py",
       "video_eeg/config/video_legacy_17_config.yaml",
       "video_eeg/config/video_demo_config.yaml",
@@ -162,7 +178,11 @@
       "data/README.md",
       "scripts/repository_layout.json",
       "scripts/launch_experiment.py",
-      "scripts/prepare_demo_materials.py"
+      "scripts/prepare_demo_materials.py",
+      "scripts/check_source_environment.py",
+      "scripts/configure_assets.py",
+      "assets/README.md",
+      "assets/.gitignore"
     ]
   }
 }

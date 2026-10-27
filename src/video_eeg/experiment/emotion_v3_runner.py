@@ -283,13 +283,8 @@ def main(argv=None):
         if not port:
             return 0
         argv += ['--emotivpro-port', port]
-    old_demo, old_default = base.DEMO_CONFIG_FILENAME, base.DEFAULT_CONFIG_FILENAME
-    try:
-        base.DEMO_CONFIG_FILENAME = 'video_emotion_v3_demo_config.yaml'
-        base.DEFAULT_CONFIG_FILENAME = 'video_emotion_v3_config.yaml'
-        return base.main(argv)
-    finally:
-        base.DEMO_CONFIG_FILENAME, base.DEFAULT_CONFIG_FILENAME = old_demo, old_default
+    return base.main(argv, default_config_filename='video_emotion_v3_config.yaml',
+                     demo_config_filename='video_emotion_v3_demo_config.yaml')
 
 
 if __name__ == '__main__':

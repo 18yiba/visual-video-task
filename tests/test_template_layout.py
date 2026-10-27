@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -20,6 +21,10 @@ class TemplateLayoutTests(unittest.TestCase):
                                 cwd=PROJECT_ROOT.parent, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)['public_versions'], ['v1', 'v2'])
+        module_result = subprocess.run([sys.executable, '-m', 'src', '--validate'],
+                                       cwd=PROJECT_ROOT, capture_output=True, text=True)
+        self.assertEqual(module_result.returncode, 0, module_result.stderr)
+        self.assertEqual(json.loads(module_result.stdout)['public_versions'], ['v1', 'v2'])
 
     def test_config_rejects_unknown_keys_and_unsupported_values(self):
         cases = [
@@ -45,10 +50,54 @@ class TemplateLayoutTests(unittest.TestCase):
         with patch.dict(sys.modules, {'launch_experiment': module}):
             self.assertEqual(cli.main([]), 0)
             self.assertEqual(calls[0], {'default_protocol': 'v2', 'default_mode': 'demo'})
+            self.assertEqual(cli.main(['--paradigm', 'v2', '--mode', 'demo', '--no-dialog']), 0)
+            self.assertEqual(calls[-1], ('v2', 'demo', ['--no-dialog']))
             self.assertEqual(cli.main(['--protocol', 'v2', '--mode', 'demo', '--no-dialog']), 0)
             self.assertEqual(calls[-1], ('v2', 'demo', ['--no-dialog']))
+            self.assertEqual(cli.main(['--protocol', 'v1', '--mode', 'formal', '--device', 'neuracle']), 0)
+            self.assertEqual(calls[-1], ('v1', 'formal', ['--device-type', 'neuracle']))
             self.assertEqual(cli.main(['--run']), 0)
             self.assertEqual(calls[-1], ('v2', 'demo', []))
+
+    def test_v3_routes_explicit_phase_and_device_without_hardware(self):
+        calls = []
+        launcher = types.ModuleType('launch_emotion_v3')
+        launcher.launch_direct = lambda *args: calls.append(args) or 0
+        with patch.dict(sys.modules, {'launch_emotion_v3': launcher}):
+            self.assertEqual(cli.main(['--paradigm', 'v3', '--phase', 'acquisition',
+                                       '--device', 'neuracle', '--subject-id', '12345678']), 0)
+            self.assertEqual(calls[-1], ('acquisition', 'neuracle', ['--subject-id', '12345678']))
+            self.assertEqual(cli.main(['--protocol', 'v3', '--phase', 'behavior-rating',
+                                       '--device', 'emotivpro']), 0)
+            self.assertEqual(calls[-1], ('behavior-rating', 'emotivpro', []))
+            self.assertEqual(cli.main(['--protocol', 'v3', '--phase', 'acquisition',
+                                       '--device', 'brainco', '--subject-id', '12345678']), 0)
+            self.assertEqual(calls[-1], ('acquisition', 'brainco', ['--subject-id', '12345678']))
+
+    def test_v3_compatibility_args_default_to_acquisition(self):
+        calls = []
+        launcher = types.ModuleType('launch_emotion_v3')
+        launcher.launch_direct = lambda *args: calls.append(args) or 0
+        with patch.dict(sys.modules, {'launch_emotion_v3': launcher}):
+            self.assertEqual(cli.main(['--protocol', 'v3', '--device', 'emotivpro',
+                                       '--subject-id', '12345678']), 0)
+        self.assertEqual(calls[0], ('acquisition', 'emotivpro', ['--subject-id', '12345678']))
+
+    def test_bat_device_route_without_phase_opens_v3_console(self):
+        calls = []
+        launcher = types.ModuleType('launch_emotion_v3')
+        launcher.main = lambda argv=None: calls.append(os.environ.get('VIDEO_EEG_BACKEND')) or 0
+        with patch.dict(sys.modules, {'launch_emotion_v3': launcher}):
+            self.assertEqual(cli.main(['--protocol', 'v3', '--device', 'neuracle']), 0)
+        self.assertEqual(calls, ['neuracle'])
+
+    def test_brainco_bat_route_opens_v3_console(self):
+        calls = []
+        launcher = types.ModuleType('launch_emotion_v3')
+        launcher.main = lambda argv=None: calls.append(os.environ.get('VIDEO_EEG_BACKEND')) or 0
+        with patch.dict(sys.modules, {'launch_emotion_v3': launcher}):
+            self.assertEqual(cli.main(['--protocol', 'v3', '--device', 'brainco']), 0)
+        self.assertEqual(calls, ['brainco'])
 
     def test_local_toml_is_used_without_rewriting_it(self):
         module = types.ModuleType('launch_experiment')
@@ -72,8 +121,12 @@ class TemplateLayoutTests(unittest.TestCase):
             target = Path(directory)/'source'
             manifest = builder.build(target)
             names = {row['path'] for row in manifest}
+            layout = json.loads((PROJECT_ROOT/'scripts/repository_layout.json').read_text(encoding='utf-8'))
+            self.assertTrue(set(layout['template_layout']['required_files']).issubset(names))
+            self.assertNotIn('.dvc/config.local', names)
+            self.assertFalse(any(path.startswith('assets/stimuli/') for path in names))
             self.assertIn('src/video_eeg/experiment/video_runner.py', names)
-            for entry in ('run_emotion_v3.bat', 'run_neuracle_v3.bat'):
+            for entry in ('run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat'):
                 self.assertIn(entry, names)
                 self.assertEqual((target/entry).read_bytes(), (PROJECT_ROOT/entry).read_bytes())
             self.assertNotIn('video_eeg/experiment/video_runner.py', names)
@@ -85,6 +138,10 @@ class TemplateLayoutTests(unittest.TestCase):
             result = subprocess.run([sys.executable, '-I', str(target/'main.py'), '--validate'],
                                     cwd=directory, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+            module_result = subprocess.run([sys.executable, '-m', 'src', '--validate'],
+                                           cwd=target, capture_output=True, text=True)
+            self.assertEqual(module_result.returncode, 0, module_result.stderr)
+            self.assertEqual(json.loads(module_result.stdout)['public_versions'], ['v1', 'v2'])
             result = subprocess.run([sys.executable, '-I', '-c',
                                      'import sys;sys.path.insert(0,sys.argv[1]);from video_eeg.paths import PROJECT_ROOT;print(PROJECT_ROOT)', str(target)],
                                     cwd=directory, capture_output=True, text=True)

@@ -91,10 +91,10 @@ bids/v2/
 
 本版使用 BIDS Validator 3.0.1 + Deno 2.9.6，在禁止网络访问的参数下检查全部 TSV 行；安装包已包含所需运行时。源数据不上传。官方校验的零错误只说明格式检查通过，不等于实验设计、信号质量、有效试次数或真实硬件验收通过。
 
-源码使用：安装 `pip install -e ".[bids]"`（安装依赖时可联网），然后：
+源码使用：在干净隔离环境准备锁定的 BIDS 与运行依赖组（PowerShell先设置 `$env:UV_PROJECT_ENVIRONMENT = Join-Path $PWD '.tmp/bids-runtime-env'`，再执行 `uv sync --locked --group bids --group runtime`），然后由该环境 Python 执行以下命令；不安装本项目，不生成控制台别名。不要在既有实验环境执行 `uv sync`。
 
 ```powershell
-python scripts/export_bids.py --source "C:\Users\EDY\Desktop\video\data\sourcedata\v2\被试编号" --output "C:\Users\EDY\Desktop\video\data\bids\v2" --protocol v2 --validate
+uv run --no-sync python scripts/export_bids.py --source "C:\Users\EDY\Desktop\video\data\sourcedata\v2\被试编号" --output "C:\Users\EDY\Desktop\video\data\bids\v2" --protocol v2 --validate
 ```
 
 旧 `vendor/eeg-bids-converter` 作为历史通用组件保留。本次桌面功能使用针对本范式事件和行为表实现的 `video_eeg/utils/bids_export.py`，不再让主试手动套用旧通用转换配置。

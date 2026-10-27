@@ -50,9 +50,8 @@ def launch(protocol, mode, extra=None):
     if protocol not in PROTOCOLS:raise ValueError('Only visual-video-task v1 and v2 are supported')
     from video_eeg.experiment import video_runner as base
     formal,demo=PROTOCOLS[protocol][1:]
-    original=base.load_config;old_default=base.DEFAULT_CONFIG_FILENAME;old_demo=base.DEMO_CONFIG_FILENAME
-    def configured(path):
-        config=original(path);config['_unified_protocol']=protocol;config['demo_mode']=mode=='demo'
+    def configure(config):
+        config['_unified_protocol']=protocol;config['demo_mode']=mode=='demo'
         # Ordinary Demo must work without the official materials, on every installation.
         if mode=='demo' and protocol=='v1':
             from prepare_demo_materials import main as prepare_demo
@@ -63,16 +62,16 @@ def launch(protocol, mode, extra=None):
             else:
                 config['protocol']['question_bank_path']='stimuli/demo/question_bank.json'
         return config
-    base.load_config=configured;base.DEFAULT_CONFIG_FILENAME=formal;base.DEMO_CONFIG_FILENAME=demo
-    try:return base.main((['--demo'] if mode=='demo' else ['--real-eeg'])+list(extra or []))
-    finally:base.load_config=original;base.DEFAULT_CONFIG_FILENAME=old_default;base.DEMO_CONFIG_FILENAME=old_demo
+    return base.main((['--demo'] if mode=='demo' else ['--real-eeg'])+list(extra or []),
+                     default_config_filename=formal, demo_config_filename=demo,
+                     config_transform=configure)
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--protocol',choices=list(PROTOCOLS));p.add_argument('--mode',choices=['demo','formal'])
+    p.add_argument('--paradigm','--protocol',dest='paradigm',choices=list(PROTOCOLS));p.add_argument('--mode',choices=['demo','formal'])
     args,extra=p.parse_known_args()
-    if bool(args.protocol)!=bool(args.mode):p.error('--protocol and --mode must be specified together')
-    selected=[args.protocol,args.mode] if args.protocol else choose()
+    if bool(args.paradigm)!=bool(args.mode):p.error('--paradigm and --mode must be specified together')
+    selected=[args.paradigm,args.mode] if args.paradigm else choose()
     if not selected:return 0
     if any(x in extra for x in ('--config','--demo','--dummy-eeg','--real-eeg')):
         p.error('Use --protocol and --mode to select the configuration and recording type')

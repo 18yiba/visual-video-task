@@ -84,7 +84,7 @@ def test_ordinary_hash_comes_from_unchanged_base_catalog(tmp_path):
     assert catalog.read_bytes()==before
 
 
-@pytest.mark.parametrize('device',['emotivpro','neuracle'])
+@pytest.mark.parametrize('device',['emotivpro','neuracle','brainco'])
 def test_both_frontends_use_shared_local_settings(roots,monkeypatch,device):
     import sys
     project,root=roots
@@ -96,7 +96,26 @@ def test_both_frontends_use_shared_local_settings(roots,monkeypatch,device):
     cfg=launch_emotion_v3.configuration()
     assert cfg['protocol']['video_library_dir']==str(root/'videos')
     assert cfg['device_type']==device
+    if device=='brainco':
+        assert cfg['device']['brainco_transport']=='sdk'
+        assert cfg['storage']['records_dir'].endswith('_brainco')
     assert str(root) not in cfg['storage']['records_dir']
+
+
+def test_v3_direct_brainco_route_keeps_sdk_backend(monkeypatch,tmp_path):
+    import sys
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1]/'scripts'))
+    import launch_emotion_v3 as front
+    from video_eeg.experiment import emotion_v3_runner
+    monkeypatch.setattr(front,'ROOT',tmp_path)
+    seen={}
+    monkeypatch.setattr(front,'configuration',lambda **kwargs:seen.update(backend=os.environ.get('VIDEO_EEG_BACKEND')) or {'device_type':'brainco'})
+    monkeypatch.setattr(emotion_v3_runner,'main',lambda argv:seen.update(argv=argv) or 0)
+    monkeypatch.setenv('VIDEO_EEG_BACKEND','emotivpro')
+    assert front.launch_direct('acquisition','brainco',['--subject-id','12345678'])==0
+    assert seen['backend']=='brainco'
+    assert '--device-type' in seen['argv'] and 'brainco' in seen['argv']
+    assert os.environ['VIDEO_EEG_BACKEND']=='emotivpro'
 
 
 @pytest.mark.skipif(os.name!='nt',reason='Windows drive policy')

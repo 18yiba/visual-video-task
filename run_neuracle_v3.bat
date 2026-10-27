@@ -15,5 +15,5 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 set "VIDEO_EEG_BACKEND=neuracle"
-.venv\Scripts\python.exe scripts\launch_emotion_v3.py %*
+.venv\Scripts\python.exe main.py --protocol v3 --device neuracle %*
 if errorlevel 1 pause

@@ -14,10 +14,5 @@ if not exist ".venv\Scripts\python.exe" (
   pause
   exit /b 1
 )
-if not "%~1"=="" goto run
-.venv\Scripts\python.exe scripts\launch_emotion_v3.py
-goto end
-:run
-.venv\Scripts\python.exe -m video_eeg.experiment.emotion_v3_runner %*
-:end
+.venv\Scripts\python.exe main.py --protocol v3 --device emotivpro %*
 if errorlevel 1 pause
