@@ -5,6 +5,7 @@ import json
 import random
 import time
 from pathlib import Path
+from video_eeg.paths import resolve_project_path
 from video_eeg.experiment.emotion_runner import EmotionVideoRunner, base
 from video_eeg.experiment.ready_question_runner import load_questions, response_letter
 from video_eeg.utils.emotion_protocol import parse_rating
@@ -99,7 +100,7 @@ class EmotionV2Runner(EmotionVideoRunner):
                    status='ready',source='synthetic_practice',review_status='practice_only')
             bank={q['video_file']:q}; raw=json.dumps({'questions':[q]},ensure_ascii=False).encode()
         else:
-            path=Path(cfg['_project_dir'])/proto['question_bank_path']
+            path=resolve_project_path(proto['question_bank_path'], project_root=Path(cfg['_project_dir']))
             raw=path.read_bytes(); bank=load_questions(path)
         self.question_bank_sha256=hashlib.sha256(raw).hexdigest()
         self.questions={r['video_path']:bank[Path(r['video_path']).name]

@@ -12,14 +12,14 @@ PROJECT = Path(__file__).resolve().parents[1]
 
 
 def test_real_formal_manifest_files_and_eligible_pool():
-    config = load_config(PROJECT / 'video_eeg/config/video_legacy_17_config.yaml')
+    config = load_config(PROJECT / 'src/video_eeg/config/video_legacy_17_config.yaml')
     config['_project_dir'] = str(PROJECT)
     root = load_video_library(config).root
     if not root.exists() or not any(root.glob('*.mp4')):
         pytest.skip('Integration test requires the separately distributed formal video corpus')
     manifest = SessionManifest.load(PROJECT / config['protocol']['session_manifest_path'], session_count=config['protocol']['num_sessions'])
     report = inspect_session_files(manifest, root)
-    with (PROJECT / 'video_eeg/config/formal_excluded_over_60s.csv').open(encoding='utf-8-sig') as handle:
+    with (PROJECT / 'src/video_eeg/config/formal_excluded_over_60s.csv').open(encoding='utf-8-sig') as handle:
         exclusions = {row['filename'] for row in csv.DictReader(handle)}
     assert report['missing'] == []
     assert report['duplicate_assignments'] == []
@@ -29,7 +29,7 @@ def test_real_formal_manifest_files_and_eligible_pool():
 
 
 def test_demo_uses_full_pool_not_leftover_smoke_directory():
-    config = load_config(PROJECT / 'video_eeg/config/video_demo_config.yaml')
+    config = load_config(PROJECT / 'src/video_eeg/config/video_demo_config.yaml')
     config['_project_dir'] = str(PROJECT)
     library = load_video_library(config)
     if not library.root.exists() or not any(library.root.glob('*.mp4')):

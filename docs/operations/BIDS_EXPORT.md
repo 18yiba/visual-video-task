@@ -58,7 +58,7 @@ bids/v2/
 
 按实验室确认的 BrainCo 配置：原 NPY 为首行计数加 31 个 EEG 通道，单位 µV、参考 IO。导出验证数组、首行计数与配置，再把 31 通道以原 float32 精度写入 BrainVision，单位换算信息写在头文件中。计数行仍保留在原 NPY，不当作 EEG。真实采样率来自每段 metadata，不照搬参考数据集。
 
-通道顺序在 `video_eeg/config/bids_profile.json`。换帽子、型号、固件或通道输出顺序时必须先复核配置；不能仅凭“也是32行”判断一致。50 Hz 为现有实验室工频配置。未取得实际电极坐标、设备序列号、硬件滤波参数或独立坏导标记，不生成虚构信息，也不把所有通道写成“good”。
+通道顺序在 `src/video_eeg/config/bids_profile.json`。换帽子、型号、固件或通道输出顺序时必须先复核配置；不能仅凭“也是32行”判断一致。50 Hz 为现有实验室工频配置。未取得实际电极坐标、设备序列号、硬件滤波参数或独立坏导标记，不生成虚构信息，也不把所有通道写成“good”。
 
 `events.tsv` 的 `onset`、`duration` 使用段内样本索引/实际采样率，秒为单位；不是把系统单调时钟直接当起始时间。保留原事件名称、样本索引、反应、RT、视频ID、attempt编号及 JSON 编码的完整原字段 `source_details`。
 
@@ -97,4 +97,4 @@ bids/v2/
 uv run --no-sync python scripts/export_bids.py --source "C:\Users\EDY\Desktop\video\data\sourcedata\v2\被试编号" --output "C:\Users\EDY\Desktop\video\data\bids\v2" --protocol v2 --validate
 ```
 
-旧 `vendor/eeg-bids-converter` 作为历史通用组件保留。本次桌面功能使用针对本范式事件和行为表实现的 `video_eeg/utils/bids_export.py`，不再让主试手动套用旧通用转换配置。
+旧 `vendor/eeg-bids-converter` 作为历史通用组件保留。本次桌面功能使用针对本范式事件和行为表实现的 `src/video_eeg/utils/bids_export.py`，不再让主试手动套用旧通用转换配置。

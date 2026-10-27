@@ -35,7 +35,7 @@
 
 1. 结束正在进行的实验并正常保存；备份旧data。不要在采集中更新。
 2. 双击硬盘交付目录的 `00_一键部署到实验室电脑.bat`。
-3. 选择**原程序主目录**，其中有原正式配置（当前源码为 `video_eeg/config/video_legacy_17_config.yaml`）和启动BAT；不要选video_materials，也不要选新旧更新包内部。
+3. 选择**原程序主目录**，其中有原正式配置（当前源码为 `src/video_eeg/config/video_legacy_17_config.yaml`）和启动BAT；不要选video_materials，也不要选新旧更新包内部。
 4. 程序在旧目录内新增 `_video_eeg_emotion_v2_update`。旧环境、旧配置、旧数据不被替换。
 5. 在新文件夹依次双击 `01_先检查.bat` → `02_Demo.bat` → 完成真实设备短测 → `03_正式45组.bat`。
 6. 把03入口创建为清楚标注“V2 七级 喜好 抽查 疲劳”的新快捷方式。旧快捷方式供旧协议继续使用。

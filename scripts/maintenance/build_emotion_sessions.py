@@ -107,10 +107,10 @@ def build(ordinary, emotion, seed=SEED):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--ordinary-manifest', type=Path, default=ROOT/'video_eeg/config/session_manifest.csv')
+    p.add_argument('--ordinary-manifest', type=Path, default=ROOT/'src/video_eeg/config/session_manifest.csv')
     p.add_argument('--ordinary-root', type=Path, required=True)
     p.add_argument('--emotion-root', type=Path, required=True)
-    p.add_argument('--output', type=Path, default=ROOT/'video_eeg/config')
+    p.add_argument('--output', type=Path, default=ROOT/'src/video_eeg/config')
     p.add_argument('--verify-media', action='store_true')
     p.add_argument('--ffprobe', default=shutil.which('ffprobe'))
     p.add_argument('--verification-cache', type=Path)

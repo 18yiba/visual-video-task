@@ -13,7 +13,7 @@ from video_eeg.experiment.emotion_runner import EmotionVideoRunner
 
 ROOT = Path(__file__).resolve().parents[1]
 def read(name):
-    with (ROOT/'video_eeg/config'/name).open(encoding='utf-8-sig', newline='') as f:
+    with (ROOT/'src/video_eeg/config'/name).open(encoding='utf-8-sig', newline='') as f:
         return list(csv.DictReader(f))
 
 def test_all_materials_exactly_once_and_every_session_balanced():
@@ -95,4 +95,4 @@ def test_export_failure_still_stops_and_exports_eeg():
 def test_legacy_manifests_byte_identical():
     expected={'session_manifest.csv':'56dc9fa3bcfeb90c5e42fdccc114c633dc9284dba6e17295e4f95de7671679b9'}
     for name,digest in expected.items():
-        assert hashlib.sha256((ROOT/'video_eeg/config'/name).read_bytes()).hexdigest()==digest
+        assert hashlib.sha256((ROOT/'src/video_eeg/config'/name).read_bytes()).hexdigest()==digest

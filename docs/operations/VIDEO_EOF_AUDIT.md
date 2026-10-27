@@ -47,7 +47,7 @@
 | 43 | positive_excitation_0073_00000649.mp4 | 580 | 579 | 情绪 |
 | 45 | 3945.mp4 | 388 | 386 | 普通 |
 
-完整SHA256及FPS见[已审计兼容清单](../../video_eeg/utils/verified_video_eof.json)。trial_log的decoder_eof_compatibility记录是否实际应用该规则。
+完整SHA256及FPS见[已审计兼容清单](../../src/video_eeg/utils/verified_video_eof.json)。trial_log的decoder_eof_compatibility记录是否实际应用该规则。
 
 ## 已从1.0.3的v2移除的三条文件
 

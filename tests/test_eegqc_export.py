@@ -175,11 +175,11 @@ def test_release_never_includes_private_platform_mapping(tmp_path,monkeypatch):
     import importlib.util
     spec=importlib.util.spec_from_file_location('eegqc_release',b.ROOT/'scripts/maintenance/build_release.py')
     builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
-    (tmp_path/'video_eeg/config').mkdir(parents=True)
+    (tmp_path/'src/video_eeg/config').mkdir(parents=True)
     (tmp_path/'scripts').mkdir()
     b.write_json(tmp_path/'scripts/repository_layout.json',{'retired':[]})
-    b.write_json(tmp_path/'video_eeg/config/eegqc.local.json',{'participant_map':'PRIVATE'})
-    b.write_json(tmp_path/'video_eeg/config/eegqc_settings.example.json',{'participant_map':{}})
+    b.write_json(tmp_path/'src/video_eeg/config/eegqc.local.json',{'participant_map':'PRIVATE'})
+    b.write_json(tmp_path/'src/video_eeg/config/eegqc_settings.example.json',{'participant_map':{}})
     monkeypatch.setattr(builder,'ROOT',tmp_path)
     names={p.name for p in builder.source_files()}
     assert 'eegqc.local.json' not in names and 'eegqc_settings.example.json' in names

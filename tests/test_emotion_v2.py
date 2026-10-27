@@ -11,8 +11,8 @@ from video_eeg.utils.session_protocol import SessionState
 ROOT=Path(__file__).resolve().parents[1]
 
 def test_all_sessions_have_nine_ordinary_bound_checks_near_ten_minute_targets():
-    rows=list(csv.DictReader((ROOT/'video_eeg/config/session_manifest_emotion_v1.csv').open(encoding='utf-8-sig')))
-    bank=load_questions(ROOT/'video_eeg/config/complete_questions_20260908/question_bank.json')
+    rows=list(csv.DictReader((ROOT/'src/video_eeg/config/session_manifest_emotion_v1.csv').open(encoding='utf-8-sig')))
+    bank=load_questions(ROOT/'src/video_eeg/config/complete_questions_20260908/question_bank.json')
     gaps=[]
     for sid in range(1,46):
         group=[r for r in rows if int(r['session_id'])==sid];lookup={r['video_id']:r for r in group}
@@ -125,7 +125,7 @@ def test_binary_session_constructor_resume_preserves_answers_and_snapshot(tmp_pa
     from video_eeg.utils.video_library import VideoAsset
     monkeypatch.setattr(base,'visual',SimpleNamespace(TextStim=Mock()))
     monkeypatch.setattr(base,'event',None)
-    cfg=base.load_config(ROOT/'video_eeg/config/video_emotion_demo_config.yaml')
+    cfg=base.load_config(ROOT/'src/video_eeg/config/video_emotion_demo_config.yaml')
     cfg.update(_project_dir=str(tmp_path),practice_materials=True,session_manifest_hash='materials',subject_id='OLD')
     cfg['storage']['records_dir']=str(tmp_path)
     proto=base.VideoExperimentConfig.from_config(cfg)

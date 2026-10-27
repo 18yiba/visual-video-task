@@ -2,6 +2,7 @@
 from pathlib import Path
 import argparse,csv,hashlib,json,os,sys,time,traceback
 ROOT=Path(__file__).resolve().parents[1]
+CONFIG_DIR=ROOT/'src/video_eeg/config'
 sys.path[:0]=[str(ROOT),str(ROOT/'scripts')]
 USER=Path(os.environ.get('VIDEO_EEG_USER_DIR',str(Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'VisualVideoTask')))
 
@@ -69,7 +70,7 @@ def verify_materials(settings,protocol):
         directory=W.QFileDialog.getExistingDirectory(None,'重新选择本机普通材料目录，可选video_materials上级',settings['lab_root'])
         if not directory:return False
         ordinary=Path(discover_materials(settings['lab_root'],ROOT,directory)['ordinary_root'])
-    manifest=json.loads((ROOT/'video_eeg/config/materials_manifest.json').read_text(encoding='utf-8'))
+    manifest=json.loads((CONFIG_DIR/'materials_manifest.json').read_text(encoding='utf-8'))
     from video_eeg.utils.material_exclusions import excluded_filenames
     excluded = excluded_filenames(protocol)
     rows=[(ordinary/Path(r['path']).name,r['sha256'],r['bytes']) for r in manifest['files']
@@ -81,7 +82,7 @@ def verify_materials(settings,protocol):
             if not directory:return False
             emotion=Path(directory)
             if emotion.name.lower()=='selected':emotion=emotion.parent
-        with (ROOT/'video_eeg/config/emotion_source_index_v1.csv').open(encoding='utf-8-sig',newline='') as f:
+        with (CONFIG_DIR/'emotion_source_index_v1.csv').open(encoding='utf-8-sig',newline='') as f:
             rows.extend((emotion/'selected'/r['relative_selected_path'],r['sha256'],None) for r in csv.DictReader(f))
         require_material_path(emotion)
         settings['emotion_root']=str(emotion.resolve())
@@ -180,7 +181,7 @@ def launch_v3(settings=None, *, smoke=False):
         import yaml
         from video_eeg.utils.desktop import adapt_config
         from video_eeg.utils.desktop_local import require_local
-        path=ROOT/'video_eeg/config/video_emotion_v3_config.yaml'
+        path=CONFIG_DIR/'video_emotion_v3_config.yaml'
         original=front.base.load_config(path)
         # v3 has its own protocol and records; never inherit the old v1 contract.
         current={k:v for k,v in settings.items() if k not in {'legacy_snapshot','legacy_project'}}

@@ -2,7 +2,7 @@
 
 源码不包含视频。17组只需普通母库；最新融合版还需最终3138段情绪材料。两个Demo均使用自动生成的练习材料，不依赖正式视频。
 
-情绪库放在项目旁video_materials/formal_v1/emotion_video/selected，或根目录emotion_library.local.json中配置emotion_root。必须保留positive/excitation、positive/relaxation、neutral/neutral、negative/fear、negative/sad、negative/tension层级和最终文件名；来源索引见video_eeg/config/emotion_source_index_v1.csv。原始来源为[官方eMotions](https://huggingface.co/datasets/Conna/eMotions)，情绪文件不包含在下面普通母库的Release。实际实验室副本位于硬盘E:/video/video_materials/formal_v1/emotion_video/selected；复制时不得混入parquet或重新抽样。没有该副本时需向材料维护人员取得同一最终集合，或按最终索引从官方parquet恢复并通过SHA256；不能用任意同类视频替换。
+情绪库放在项目旁video_materials/formal_v1/emotion_video/selected，或根目录emotion_library.local.json中配置emotion_root。必须保留positive/excitation、positive/relaxation、neutral/neutral、negative/fear、negative/sad、negative/tension层级和最终文件名；来源索引见src/video_eeg/config/emotion_source_index_v1.csv。原始来源为[官方eMotions](https://huggingface.co/datasets/Conna/eMotions)，情绪文件不包含在下面普通母库的Release。实际实验室副本位于硬盘E:/video/video_materials/formal_v1/emotion_video/selected；复制时不得混入parquet或重新抽样。没有该副本时需向材料维护人员取得同一最终集合，或按最终索引从官方parquet恢复并通过SHA256；不能用任意同类视频替换。
 
 检查情绪与普通材料：在项目目录执行`.\.venv\Scripts\python.exe scripts/audit_emotion_materials.py`。报告在logs中；要求全部11087段清单材料可用，情绪SHA256及ffprobe通过。17组也可用`... scripts/maintenance/audit_session_pool.py`检查普通母库，具体选项见--help。
 
@@ -74,13 +74,13 @@ GitHub 对单个 Release 附件有 2 GiB 上限，因此本库按约 512 MiB 分
 ## 程序如何找到视频和题目
 
 新电脑使用 `stimuli/videos`。兼容实验室既有的 `../video_materials/formal_v1/videos`，该母库存在时默认优先使用它。
-不要同时放两套内容不同的母库。若自定义位置，在 `video_eeg/config/video_config.yaml` 的
+不要同时放两套内容不同的母库。若自定义位置，在 `src/video_eeg/config/video_config.yaml` 的
 `protocol.video_library_dir` 填写实际视频目录；Demo 配置也需作对应修改。
 `--destination` 只决定下载位置，参数应为 `videos` 的父目录，不会自动修改实验配置。
 
-正式清单为 `video_eeg/config/session_manifest.csv`，包含7949段，固定分配为v1的17个Session；v2使用自己的45个Session固定清单。
+正式清单为 `src/video_eeg/config/session_manifest.csv`，包含7949段，固定分配为v1的17个Session；v2使用自己的45个Session固定清单。
 47 段超过 60 秒的视频随母库保留，但不进入正式流程。
-题库为 `video_eeg/config/complete_questions_20260908/question_bank.json`，按文件名精确绑定视频。
+题库为 `src/video_eeg/config/complete_questions_20260908/question_bank.json`，按文件名精确绑定视频。
 每个 Session 从有题的视频中抽 18 个目标，在对应视频自然结束后立即提问；不是每段都提问。
 
 当前快照是 **7993 道题**，覆盖正式视频 **7946/7949**。

@@ -1,3 +1,9 @@
+## 2026-10-27 / 移除根 video_eeg 目录
+
+- 将协议资源移动到 `src/video_eeg/config/`，原配置文件内容逐字节保留；根目录只留 `video_eeg.py` 导入兼容模块，源码包不再包含根 `video_eeg/`。
+- 既有协议 YAML、状态快照中的 `video_eeg/config/...` 路径由统一解析器映射到新位置；新的代码与文档使用 `src/video_eeg/config/`。历史协议 ID、快照和被试数据路径未迁移。
+- 同步发行白名单、模板结构要求、启动文档和路径回归测试。
+
 ## 2026-10-27 / VSPE 安装器改为官方下载
 
 - `setup_virtual_serial.bat` 改为从 Eterlogic 官方下载正式 x64 版本，提取 MSI 后校验 SHA256 和发布者签名；校验成功后才启动安装向导。检查入口不下载、不安装。

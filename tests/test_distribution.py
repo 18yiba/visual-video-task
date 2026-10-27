@@ -12,10 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class DistributionTests(unittest.TestCase):
     def test_complete_snapshot_is_structurally_valid_and_covers_18_checks_per_session(self):
-        bank = load_questions(ROOT / 'video_eeg/config/complete_questions_20260908/question_bank.json')
+        bank = load_questions(ROOT / 'src/video_eeg/config/complete_questions_20260908/question_bank.json')
         self.assertEqual(len(bank), 7993)
         self.assertEqual(sum(q['status'] == 'generated_unreviewed' for q in bank.values()), 5214)
-        manifest = SessionManifest.load(ROOT / 'video_eeg/config/session_manifest.csv', session_count=17)
+        manifest = SessionManifest.load(ROOT / 'src/video_eeg/config/session_manifest.csv', session_count=17)
         self.assertEqual({e.video_path for e in manifest.entries} - set(bank),
                          {'5728.mp4', '6722.mp4', '6883.mp4'})
         for session in range(1, 18):

@@ -47,7 +47,7 @@ class VideoExperimentConfigTests(unittest.TestCase):
         self.assertEqual(parsed.trials_per_session, 500)
 
     def test_demo_config_uses_ten_random_nonrepeating_videos(self) -> None:
-        config = load_config(Path("video_eeg/config/video_demo_config.yaml"))
+        config = load_config(Path("src/video_eeg/config/video_demo_config.yaml"))
         parsed = VideoExperimentConfig.from_config(config)
         assets = [
             VideoAsset(str(index), f"{index}.mp4")

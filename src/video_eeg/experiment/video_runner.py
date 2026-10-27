@@ -63,7 +63,7 @@ MUTED = "#94a3b8"
 DEFAULT_CONFIG_FILENAME = "video_legacy_17_config.yaml"
 DEMO_CONFIG_FILENAME = "video_demo_config.yaml"
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-from video_eeg.paths import PROJECT_ROOT, CONFIG_DIR
+from video_eeg.paths import PROJECT_ROOT, CONFIG_DIR, resolve_project_path
 
 ATTENTION_BUTTON_LAYOUT = {
     "left": {"key": "F", "response": "incorrect", "label": "错误", "fill_color": "#7f1d1d", "line_color": "#f87171"},
@@ -611,10 +611,7 @@ def apply_cli_overrides(config: dict[str, Any], args: argparse.Namespace) -> Non
 
 
 def _resolve_config_value(config: dict[str, Any], value: str, *, default_base: Path) -> Path:
-    path = Path(str(value))
-    if path.is_absolute():
-        return path.resolve()
-    return (default_base / path).resolve()
+    return resolve_project_path(value, project_root=default_base)
 
 
 def _session_manifest_path(config: dict[str, Any]) -> Path:
@@ -655,7 +652,10 @@ def ensure_session_manifest(config: dict[str, Any], library: Any, *, force_rebui
     protocol = dict(config.get("protocol", {}))
     maximum_duration_sec = float(protocol.get("formal_max_video_duration_sec", 60.0))
     eligible, excluded = split_formal_duration_exclusions(assets, maximum_duration_sec=maximum_duration_sec)
-    exclusion_report = Path(config.get("formal_exclusion_report_path", CONFIG_DIR / "formal_excluded_over_60s.csv"))
+    exclusion_report = resolve_project_path(
+        config.get("formal_exclusion_report_path", CONFIG_DIR / "formal_excluded_over_60s.csv"),
+        project_root=PROJECT_ROOT,
+    )
     _write_formal_exclusion_report(exclusion_report, excluded)
     manifest = build_duration_balanced_manifest(
         eligible,

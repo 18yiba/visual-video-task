@@ -22,7 +22,7 @@
 
 ## 旧被试续跑时怎样处理
 
-- 原固定分组CSV及其哈希保留为历史契约。有效清单另见 [session_manifest_v2_active.csv](../../video_eeg/config/session_manifest_v2_active.csv)，排除依据见 [material_exclusions_v2.json](../../video_eeg/config/material_exclusions_v2.json)。其他分组的旧状态校验照常执行。
+- 原固定分组CSV及其哈希保留为历史契约。有效清单另见 [session_manifest_v2_active.csv](../../src/video_eeg/config/session_manifest_v2_active.csv)，排除依据见 [material_exclusions_v2.json](../../src/video_eeg/config/material_exclusions_v2.json)。其他分组的旧状态校验照常执行。
 - 受影响的未完成Session首次续跑时，先在同目录保存一份原状态的逐字节备份：`session_state.before_v2-remove-three-incomplete-20260919.<SHA256>.json`。然后仅从待播放队列排除该片；其余队列相对顺序、已完成片段、实际累计观看时间、休息记录和历史attempt保留。
 - 如果一题尚未完成且原先绑定在被移除视频上，将它绑定到同组队列内另一条尚未完成且未绑定其他题目的正常普通视频。其他题目不重抽，已保存答案不修改；调整前后映射写入`material_exclusion_history`。若极端情况下已无合适候选，程序保留原状态并停止说明原因，不能补造答案或偷偷重播已完成视频。
 - 已完成的Session不追溯重写。未完成Session中早先记录的坏视频尝试也不删除；排除不等于该片曾成功播放。

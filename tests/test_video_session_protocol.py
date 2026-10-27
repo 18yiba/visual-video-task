@@ -54,7 +54,7 @@ class SessionPlanningTests(unittest.TestCase):
         self.assertTrue(all(item.video_duration_sec <= 60.0 for item in manifest.entries))
 
     def test_current_formal_manifest_has_no_legacy_long_videos(self) -> None:
-        path = Path("video_eeg/config/session_manifest.csv")
+        path = Path("src/video_eeg/config/session_manifest.csv")
         manifest = SessionManifest.load(path)
         self.assertEqual(manifest.source_video_count, 7996)
         self.assertEqual(manifest.excluded_video_count, 47)
@@ -66,7 +66,7 @@ class SessionPlanningTests(unittest.TestCase):
             self.assertEqual(labels, {"very_short", "short", "medium", "long", "very_long"})
 
     def test_current_manifest_generates_18_boundary_attention_tasks_per_session(self) -> None:
-        manifest = SessionManifest.load(Path("video_eeg/config/session_manifest.csv"))
+        manifest = SessionManifest.load(Path("src/video_eeg/config/session_manifest.csv"))
         for session_id in range(1, 18):
             schedule = build_attention_schedule(manifest.session_assets(session_id), task_count=18, random_seed=17 + session_id)
             self.assertEqual(len(schedule), 18)
@@ -151,8 +151,8 @@ class SessionPlanningTests(unittest.TestCase):
 
     def test_demo_config_is_short_and_separate(self) -> None:
         from video_eeg.experiment.video_runner import load_config, VideoExperimentConfig
-        formal_config = load_config(Path("video_eeg/config/video_legacy_17_config.yaml"))
-        demo_config = load_config(Path("video_eeg/config/video_demo_config.yaml"))
+        formal_config = load_config(Path("src/video_eeg/config/video_legacy_17_config.yaml"))
+        demo_config = load_config(Path("src/video_eeg/config/video_demo_config.yaml"))
         formal = VideoExperimentConfig.from_config(formal_config)
         demo = VideoExperimentConfig.from_config(demo_config)
         self.assertEqual(formal_config["sfreq"], 1000.0)

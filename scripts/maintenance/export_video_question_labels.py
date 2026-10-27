@@ -11,7 +11,7 @@ from video_eeg.utils.session_protocol import SessionManifest
 
 
 def main():
-    config = ROOT / 'video_eeg/config'
+    config = ROOT / 'src/video_eeg/config'
     bank = load_questions(config / 'complete_questions_20260908/question_bank.json')
     materials = json.loads((config/'materials_manifest.json').read_text(encoding='utf-8'))
     current = {e.video_path:e for e in SessionManifest.load(config/'session_manifest.csv', session_count=17).entries}

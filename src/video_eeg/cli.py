@@ -37,7 +37,7 @@ def validate_layout(root: Path) -> dict:
     if set(layout['public_versions']) != {'v1', 'v2'}:
         raise ValueError('The public protocol selector must contain exactly v1 and v2')
     return {'layout': 'OK', 'public_versions': ['v1', 'v2'],
-            'protocol_resources': 'video_eeg/config', 'hardware_tested': False}
+            'protocol_resources': 'src/video_eeg/config', 'hardware_tested': False}
 
 
 def main(argv=None) -> int:

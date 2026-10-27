@@ -26,7 +26,7 @@ def load_questions(path):
 
 
 def question_path(config):
-    return base.PROJECT_ROOT / config['protocol']['question_bank_path']
+    return base.resolve_project_path(config['protocol']['question_bank_path'], project_root=base.PROJECT_ROOT)
 
 
 def response_letter(key):

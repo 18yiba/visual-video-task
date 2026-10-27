@@ -16,8 +16,9 @@ def build(destination):
     allowed=set(source_files())
     paths=[p for p in allowed if p.suffix=='.py' and p.relative_to(ROOT).parts[0] in {'src','video_eeg'}]
     paths += [p for p in allowed if p.relative_to(ROOT).as_posix().startswith('src/video_eeg/') and p.suffix=='.json']
-    paths += [p for p in (ROOT/'video_eeg/config').glob('*emotion*') if p.is_file() and p in allowed]
-    paths += [ROOT/'video_eeg/config/complete_questions_20260908/question_bank.json', ROOT/'README.md']
+    config_dir=ROOT/'src/video_eeg/config'
+    paths += [p for p in config_dir.glob('*emotion*') if p.is_file() and p in allowed]
+    paths += [config_dir/'complete_questions_20260908/question_bank.json', ROOT/'README.md']
     paths += [ROOT/'assets/brand/company_logo.png']
     paths += [ROOT/'scripts'/p for p in ('offline_emotion_update.py','check_video_eeg_env.py','audit_emotion_materials.py')]
     paths += [ROOT/'docs'/p for p in ('operations/OFFLINE_UPDATE.md','versions/v2.md','operations/EEG_AND_RECOVERY.md')]

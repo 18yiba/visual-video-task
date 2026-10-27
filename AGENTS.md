@@ -27,7 +27,7 @@
 
 ## Template source layout
 
-- Runtime implementation lives in src/video_eeg; root video_eeg/__init__.py is a compatibility import for existing source scripts. Keep video_eeg/config resource paths and bytes stable for protocol/snapshot compatibility.
+- Runtime implementation and protocol resources live in src/video_eeg, including src/video_eeg/config. Root video_eeg.py is a compatibility package shim for existing source imports; do not recreate a root video_eeg/ directory. Keep configuration resource bytes unchanged. Persisted video_eeg/config/... references remain valid through resolve_project_path; new source/documentation paths use src/video_eeg/config/.
 - main.py uses config/config.toml for launcher defaults only. Reject unknown TOML fields. Keep local overrides out of Git and source releases; retain v3 and device-specific independent entries.
 - docs/README.md, docs/deploy.md, docs/data-format.md and data/README.md explain deployment and data boundaries. data/README.md is source documentation, not an output placeholder.
 - The project is source-only: keep `pyproject.toml` at `package = false`; do not build/install this project, create console aliases, or restore editable-install instructions. `uv.lock` locks tooling and candidate dependency groups; do not sync the existing lab environment until the runtime set passes dependency and real-window acceptance.
