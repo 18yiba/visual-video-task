@@ -1,6 +1,6 @@
 [project]
 name = "video-eeg"
-version = "0.1.0"
+version = "0.3.5"
 description = "Video EEG acquisition and emotion ratings; source-only project"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

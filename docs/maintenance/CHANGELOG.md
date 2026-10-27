@@ -1,3 +1,9 @@
+## 2026-10-27 / v0.3.5 源码版本：模板对齐与强脑 SDK 入口
+
+- 最新源码位于 `codex/brainco-v3-sdk` 分支；项目版本号更新为 `0.3.5`。当前 Windows 安装包仍为 v0.3.4，本次未生成或发布新安装包。
+- 更新 metadata 测试临时目录创建方式，确保干净 checkout 上 CI 无需预置被忽略的 `.tmp` 目录。
+- 验证：7项 project metadata、DVC配置和旧安装残留检查通过；GitHub Actions 已随分支重新推送启动，结果待完成。
+
 ## 2026-10-27 / v3 强脑 SDK 源码入口
 
 - 新增 `run_brainco_v3.bat`，统一 CLI 和 v3 控制台可选择强脑 SDK；使用 v3 现有BrainCo通道和EDF合同，不调整采集处理或通道裁剪。

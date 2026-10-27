@@ -2,6 +2,8 @@
 
 # visual-video-task：视频EEG采集与情绪评分
 
+最新源码版本为 **v0.3.5**，分支名为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)。该分支包含模板约束对齐和 v3 强脑 SDK 源码入口；目前尚未发布对应的 Windows 安装包。已发布的 Windows 安装包仍为 v0.3.4。
+
 源码现提供三种 v3 BAT 入口：`run_emotion_v3.bat`（EMOTIV）、`run_neuracle_v3.bat`（博睿康 Collect TCP）和 `run_brainco_v3.bat`（强脑 SDK）。Windows v0.3.4 EXE仍保留原有两个开始菜单入口。
 
 Windows v0.3.4修复首次设置时桌面位于D盘、用户目录位于C盘的启动错误；数据可保存在任一本机固定磁盘，NAS仅用于读取材料。已有安装版保存退出后覆盖安装，无需移动桌面或删除数据。
