@@ -11,16 +11,17 @@ import urllib.request
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+CONFIG_DIR = ROOT / 'src' / 'video_eeg' / 'config'
 
 
 def validate_source_metadata():
     """Validate current source files, separately from the immutable release metadata."""
-    folder = ROOT / 'video_eeg/config'
+    folder = ROOT / 'src' / 'video_eeg' / 'config'
     current = json.loads((folder / 'materials_source_metadata.json').read_text(encoding='utf-8'))
     if sha256(folder / 'materials_manifest.json') != current['release_manifest_sha256']:
         raise ValueError('Pinned materials release manifest checksum mismatch')
     for name, expected in current['metadata'].items():
-        path = ROOT / 'video_eeg/config' / name
+        path = CONFIG_DIR / name
         if not path.is_file() or sha256(path) != expected:
             raise ValueError('Source configuration does not match pinned materials: ' + name)
 
@@ -96,7 +97,7 @@ def main():
     parser.add_argument('--keep-archives', action='store_true')
     parser.add_argument('--destination', type=Path, default=ROOT / 'stimuli', help='Parent of videos directory')
     args = parser.parse_args()
-    manifest = json.loads((ROOT / 'video_eeg/config/materials_manifest.json').read_text(encoding='utf-8'))
+    manifest = json.loads((CONFIG_DIR / 'materials_manifest.json').read_text(encoding='utf-8'))
     validate_source_metadata()
     destination = args.destination.resolve()
     rows_by_asset = {}

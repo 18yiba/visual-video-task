@@ -69,7 +69,7 @@ def test_offline_legacy_arithmetic_demo_keeps_original_attention(monkeypatch):
 def test_launcher_selects_expected_config_without_editing_yaml(monkeypatch,protocol,mode):
     from video_eeg.experiment import video_runner as base
     old_default,old_demo=base.DEFAULT_CONFIG_FILENAME,base.DEMO_CONFIG_FILENAME
-    before={p:p.read_bytes() for p in (ROOT/'video_eeg/config').glob('*.yaml')}
+    before={p:p.read_bytes() for p in (ROOT/'src/video_eeg/config').glob('*.yaml')}
     def run(args, **options):
         filename=options['demo_config_filename'] if mode=='demo' else options['default_config_filename']
         cfg=base.load_config(base.CONFIG_DIR/filename)

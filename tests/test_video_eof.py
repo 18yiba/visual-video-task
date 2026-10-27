@@ -68,12 +68,12 @@ def test_actual_audited_material_if_provided():
 def test_all_profiles_are_pinned_to_fixed_material_manifest():
     import csv
     root=Path(__file__).resolve().parents[1]
-    with (root/'video_eeg/config/session_manifest_emotion_v1.csv').open(encoding='utf-8-sig',newline='') as handle:
+    with (root/'src/video_eeg/config/session_manifest_emotion_v1.csv').open(encoding='utf-8-sig',newline='') as handle:
         rows={r['video_path']:r for r in csv.DictReader(handle)}
     for name,p in video_eof.PROFILES.items():
         assert Path(p['video_path']).name==name
         import json
-        hashes={x['path']:x['sha256'] for x in json.loads((root/'video_eeg/config/materials_manifest.json').read_text(encoding='utf-8-sig'))['files']}
+        hashes={x['path']:x['sha256'] for x in json.loads((root/'src/video_eeg/config/materials_manifest.json').read_text(encoding='utf-8-sig'))['files']}
         expected=rows[p['video_path']]['sha256'] or hashes[p['video_path'].replace('original/','videos/',1)]
         assert p['sha256']==expected
         assert int(p['session_id'])==int(rows[p['video_path']]['session_id'])

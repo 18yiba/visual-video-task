@@ -7,6 +7,7 @@ information, not runtime dependencies.
 from pathlib import Path
 import copy,csv,ctypes,hashlib,json,os,shutil,time,uuid
 import yaml
+from video_eeg.paths import resolve_project_path
 from video_eeg.utils.desktop import legacy_config,save_json,assert_legacy_idle
 
 SCHEMA=2
@@ -59,7 +60,8 @@ def files_under(root,exclude=()):
 def discover_materials(lab_root,app_root,selected=None):
     """Resolve the actual leaf, including selection of the desktop/video parent."""
     lab_root=require_local(lab_root);app_root=Path(app_root)
-    manifest=json.loads((app_root/'video_eeg/config/materials_manifest.json').read_text(encoding='utf-8'))
+    manifest_path=resolve_project_path('video_eeg/config/materials_manifest.json',project_root=app_root)
+    manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
     names={Path(r['path']).name for r in manifest['files']}
     roots=[Path(selected)] if selected else [lab_root/'video_materials',lab_root/'video/_materials',lab_root/'_materials']
     candidates=[];emotion=[]
@@ -139,14 +141,15 @@ def migrate(settings,user_dir,lab_root,app_root,source_project=None,progress=Non
     save_json(journal/'receipt.json',receipt)
     new={'schema':SCHEMA,'configured':True,'lab_root':str(lab_root),'data_root':str(data_root),**materials,'migration_receipt':str(journal/'receipt.json'),'resume_roots':{'v1':[],'v2':[]}}
     if source:
-        snapshot=journal/'profile';cfgdir=snapshot/'video_eeg/config';cfgdir.mkdir(parents=True)
+        snapshot=journal/'profile';cfgdir=snapshot/'src/video_eeg/config';cfgdir.mkdir(parents=True)
         references={}
-        for name,cfg in [('video_config.yaml',old_cfg),('video_demo_config.yaml',yaml.safe_load((source/'video_eeg/config/video_demo_config.yaml').read_text(encoding='utf-8-sig')))]:
+        demo_path=resolve_project_path('video_eeg/config/video_demo_config.yaml',project_root=source)
+        for name,cfg in [('video_config.yaml',old_cfg),('video_demo_config.yaml',yaml.safe_load(demo_path.read_text(encoding='utf-8-sig')))]:
             cfg=copy.deepcopy(cfg)
             for key in REFERENCE_KEYS:
                 value=cfg.get('protocol',{}).get(key)
                 if not value:continue
-                origin=(source/value).resolve()
+                origin=resolve_project_path(value,project_root=source)
                 if origin not in references:
                     target=snapshot/'references'/(f'{len(references)+1:02d}_'+origin.name)
                     receipt['files'].append(copy_checked(origin,target));references[origin]=target
@@ -154,7 +157,7 @@ def migrate(settings,user_dir,lab_root,app_root,source_project=None,progress=Non
             # The archived originals preserve bytes; only the runtime copy's
             # reference paths change. Experiment content and parameters do not.
             (cfgdir/name).write_text(yaml.safe_dump(cfg,allow_unicode=True,sort_keys=False),encoding='utf-8')
-        for original in (formal_path,source/'video_eeg/config/video_demo_config.yaml'):
+        for original in (formal_path,demo_path):
             receipt['files'].append(copy_checked(original,journal/'original_config'/original.name))
         new['legacy_snapshot']=str(snapshot);new['legacy_source']=str(source)
         for i,(origin,destination) in enumerate(plans):

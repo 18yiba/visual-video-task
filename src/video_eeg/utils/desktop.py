@@ -2,6 +2,7 @@
 from pathlib import Path
 import copy,json,os
 import yaml
+from video_eeg.paths import resolve_project_path
 
 def save_json(path, value):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
@@ -12,7 +13,7 @@ def save_json(path, value):
 def legacy_config(project,*,content_only=False):
     project=Path(project).resolve()
     for name in ('video_config.yaml','video_legacy_17_config.yaml','video_ready_config.yaml'):
-        path=project/'video_eeg/config'/name
+        path=resolve_project_path(Path('video_eeg/config')/name,project_root=project)
         if not path.is_file():continue
         cfg=yaml.safe_load(path.read_text(encoding='utf-8-sig'))
         if int(cfg.get('protocol',{}).get('num_sessions',0))!=17:continue
@@ -20,7 +21,7 @@ def legacy_config(project,*,content_only=False):
         if cfg.get('hardware_dummy_mode'):raise ValueError('旧正式配置启用了模拟EEG，请先核对原配置。')
         for key in ('session_manifest_path','question_bank_path'):
             if key=='question_bank_path' and not cfg['protocol'].get(key):continue
-            if not cfg['protocol'].get(key) or not (project/cfg['protocol'][key]).is_file():
+            if not cfg['protocol'].get(key) or not resolve_project_path(cfg['protocol'][key],project_root=project).is_file():
                 raise ValueError('原实验缺少文件：'+key)
         return path,cfg
     if content_only:raise ValueError('这个目录未找到当前17组视频内容题配置，可能是已停用的算术版本。请重新选择实际使用的内容题版目录；旧数据未转换或覆盖。')
@@ -51,14 +52,14 @@ def adapt_config(config, filename, settings, user_dir, project_dir):
         if v1:
             inherited=original
             if demo:
-                path=old/'video_eeg/config/video_demo_config.yaml'
+                path=resolve_project_path('video_eeg/config/video_demo_config.yaml',project_root=old)
                 if not path.is_file():raise ValueError('原v1缺少Demo配置。')
                 inherited=yaml.safe_load(path.read_text(encoding='utf-8-sig'))
             cfg.update(copy.deepcopy(inherited))
             if demo and settings.get('schema')==2 and original['protocol'].get('question_bank_path'):
                 cfg['protocol']['question_bank_path']=original['protocol']['question_bank_path']
             for key in ('question_bank_path','session_manifest_path','session_manifest','formal_exclusion_report_path'):
-                if cfg['protocol'].get(key):cfg['protocol'][key]=str((old/cfg['protocol'][key]).resolve())
+                if cfg['protocol'].get(key):cfg['protocol'][key]=str(resolve_project_path(cfg['protocol'][key],project_root=old))
             cfg['_legacy_attention']=not bool(cfg['protocol'].get('question_bank_path'))
         for key in ('device','device_type','sfreq','eeg_sampling_rate_hz','buffer_sec'):
             if key in original:cfg[key]=copy.deepcopy(original[key])

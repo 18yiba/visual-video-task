@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
-    folder = ROOT / 'video_eeg/config/complete_questions_20260908'
+    folder = ROOT / 'src/video_eeg/config/complete_questions_20260908'
     questions = json.loads((folder / 'question_bank.json').read_text(encoding='utf-8-sig'))['questions']
     fields = ['video_file', 'video_id', 'session_id', 'status', 'review_status', 'source',
               'question', 'option_A', 'option_B', 'option_C', 'option_D', 'answer']

@@ -12,10 +12,17 @@ import unittest
 from unittest.mock import patch
 
 from video_eeg import cli
-from video_eeg.paths import PROJECT_ROOT
+from video_eeg.paths import PROJECT_ROOT, resolve_project_path
 
 
 class TemplateLayoutTests(unittest.TestCase):
+    def test_protocol_resource_paths_migrate_without_a_root_package_directory(self):
+        self.assertFalse((PROJECT_ROOT / 'video_eeg').exists())
+        self.assertEqual(
+            resolve_project_path('video_eeg/config/session_manifest.csv'),
+            PROJECT_ROOT / 'src/video_eeg/config/session_manifest.csv',
+        )
+
     def test_validate_does_not_import_runtime_or_write_records(self):
         result = subprocess.run([sys.executable, '-I', str(PROJECT_ROOT/'main.py'), '--validate'],
                                 cwd=PROJECT_ROOT.parent, capture_output=True, text=True)
@@ -133,8 +140,11 @@ class TemplateLayoutTests(unittest.TestCase):
             self.assertNotIn('src/video_eeg/utils/preprocessing.py', names)
             for row in manifest:
                 self.assertFalse(row['path'].endswith(('.local.toml', '.local.json', '.local.yaml', '.local.yml')))
-                if row['path'].startswith('video_eeg/config/'):
+                if row['path'].startswith('src/video_eeg/config/'):
                     self.assertEqual(hashlib.sha256((target/row['path']).read_bytes()).hexdigest(), row['sha256'])
+            self.assertNotIn('video_eeg/__init__.py', names)
+            self.assertFalse(any(path.startswith('video_eeg/') for path in names))
+            self.assertIn('video_eeg.py', names)
             result = subprocess.run([sys.executable, '-I', str(target/'main.py'), '--validate'],
                                     cwd=directory, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)

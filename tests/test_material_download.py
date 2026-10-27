@@ -14,17 +14,17 @@ spec.loader.exec_module(materials)
 
 
 def test_published_source_metadata_is_complete_and_preserves_release_pins():
-    manifest = json.loads((materials.ROOT / 'video_eeg/config/materials_manifest.json').read_text(encoding='utf-8'))
+    manifest = json.loads((materials.ROOT / 'src/video_eeg/config/materials_manifest.json').read_text(encoding='utf-8'))
     materials.validate_source_metadata()
     assert manifest['metadata']['session_manifest_34.csv']
-    current = json.loads((materials.ROOT / 'video_eeg/config/materials_source_metadata.json').read_text(encoding='utf-8'))
+    current = json.loads((materials.ROOT / 'src/video_eeg/config/materials_source_metadata.json').read_text(encoding='utf-8'))
     assert current['formal_manifest'] == 'session_manifest.csv'
     assert len(manifest['files']) == 7996
 
 
 def test_changed_source_metadata_is_rejected(tmp_path, monkeypatch):
     monkeypatch.setattr(materials, 'ROOT', tmp_path)
-    p = tmp_path / 'video_eeg/config/test.csv'
+    p = tmp_path / 'src/video_eeg/config/test.csv'
     p.parent.mkdir(parents=True)
     p.write_bytes(b'changed')
     (p.parent/'materials_manifest.json').write_bytes(b'{}')
@@ -37,7 +37,7 @@ def test_changed_source_metadata_is_rejected(tmp_path, monkeypatch):
 
 def test_modified_release_manifest_is_rejected(tmp_path,monkeypatch):
     monkeypatch.setattr(materials,'ROOT',tmp_path)
-    folder=tmp_path/'video_eeg/config';folder.mkdir(parents=True)
+    folder=tmp_path/'src/video_eeg/config';folder.mkdir(parents=True)
     (folder/'materials_manifest.json').write_bytes(b'{"tampered":true}')
     (folder/'materials_source_metadata.json').write_text(json.dumps({
         'release_manifest_sha256':hashlib.sha256(b'{}').hexdigest(),'metadata':{}}),encoding='utf-8')

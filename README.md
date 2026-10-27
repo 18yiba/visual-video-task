@@ -218,10 +218,9 @@ visual-video-task/
   requirements-psychopy.txt           安装脚本使用的依赖声明
   THIRD_PARTY_NOTICES.md              第三方组件说明
   .gitignore / .gitattributes         Git排除数据、环境及文件字节处理规则
-  video_eeg/                         旧脚本导入兼容层
-    config/                          原路径的YAML、固定清单、题库及材料索引，字节不变
-  src/                                源码模块和 python -m src 入口
-    video_eeg/                       唯一范式实现，不能只复制其中一个runner
+  video_eeg.py                       旧脚本导入兼容模块
+  src/                                源码模块、配置资源和 python -m src 入口
+    video_eeg/                       唯一范式实现及 config/ 协议资源，不能只复制其中一个runner
     devices/                         BrainCo、Neuracle、模拟等采集接口
     experiment/                      显示、视频播放、回答、休息和采集管理
     storage/                         连续EEG与事件文件写入
@@ -467,7 +466,7 @@ YAML中的`storage.records_dir`保留旧版本值用于恢复兼容。通过统�
 
 ### v1正式配置原文
 
-文件：`video_eeg/config/video_legacy_17_config.yaml`。
+文件：`src/video_eeg/config/video_legacy_17_config.yaml`。
 
 ```yaml
 subject_id: S001
@@ -534,7 +533,7 @@ storage:
 
 ### v2正式配置原文
 
-文件：`video_eeg/config/video_emotion_config.yaml`。
+文件：`src/video_eeg/config/video_emotion_config.yaml`。
 
 ```yaml
 subject_id: S001

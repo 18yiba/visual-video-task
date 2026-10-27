@@ -6,6 +6,7 @@ import json
 import os
 import random
 from pathlib import Path
+from video_eeg.paths import resolve_project_path
 from video_eeg.utils.video_library import VideoAsset, load_video_library
 
 CLASSES = ('positive', 'neutral', 'negative')
@@ -108,7 +109,7 @@ def prepare(config, demo=False):
         config['practice_materials'] = True
         digest = hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
     else:
-        path = root/protocol['session_manifest']
+        path = resolve_project_path(protocol['session_manifest'], project_root=root)
         with path.open(encoding='utf-8-sig', newline='') as f:
             all_rows = list(csv.DictReader(f))
         rows = [r for r in all_rows if int(r['session_id'])==int(config['session_id'])]

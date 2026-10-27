@@ -21,7 +21,7 @@ from uuid import uuid4
 
 import numpy as np
 
-from video_eeg.paths import PROJECT_ROOT as ROOT
+from video_eeg.paths import PROJECT_ROOT as ROOT, CONFIG_DIR
 VERSION = '1.0.4'
 TABLES = ('trial_log.csv', 'emotion_rating_log.csv', 'ordinary_behavior_log.csv',
           'video_liking_log.csv', 'video_question_log.csv', 'fatigue_log.csv',
@@ -113,7 +113,7 @@ def profile_for(metadata, source_rows, profile=None):
             raise BidsExportError('Native EDF device/channel contract mismatch.')
         return native
     if profile is None:
-        profile = read_json(ROOT/'video_eeg/config/bids_profile.json')
+        profile = read_json(CONFIG_DIR/'bids_profile.json')
     if metadata.get('device_type', '').lower() != profile['device_type']:
         raise BidsExportError('设备不匹配；请使用对应设备的真实 BIDS 通道/单位配置。')
     names = profile['channel_names']

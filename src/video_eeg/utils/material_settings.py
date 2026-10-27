@@ -4,6 +4,8 @@ import json
 import os
 from functools import lru_cache
 
+from video_eeg.paths import resolve_project_path
+
 
 def settings_path(project):
     return Path(os.environ.get('VIDEO_EEG_MATERIAL_SETTINGS') or Path(project)/'materials.local.json')
@@ -70,7 +72,8 @@ def verify_asset(path, expected):
 
 @lru_cache(maxsize=8)
 def ordinary_hashes(project):
-    value=json.loads((Path(project)/'video_eeg/config/materials_manifest.json').read_text(encoding='utf-8'))
+    path=resolve_project_path('video_eeg/config/materials_manifest.json', project_root=Path(project))
+    value=json.loads(path.read_text(encoding='utf-8'))
     return {Path(row['path']).name:row['sha256'] for row in value['files']}
 
 

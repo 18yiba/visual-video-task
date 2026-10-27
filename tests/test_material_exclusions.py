@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_effective_manifest_is_exact_subsequence_no_regrouping():
-    path = ROOT / 'video_eeg/config/session_manifest_emotion_v1.csv'
+    path = ROOT / 'src/video_eeg/config/session_manifest_emotion_v1.csv'
     assert hashlib.sha256(path.read_bytes()).hexdigest() == policy.MANIFEST_SHA256
     with path.open(encoding='utf-8-sig') as handle:
         original = list(csv.DictReader(handle))
@@ -32,7 +32,7 @@ def test_effective_manifest_is_exact_subsequence_no_regrouping():
 def make_runner(tmp_path, monkeypatch, sid=20, subject='S', apply=True):
     monkeypatch.setattr(base, 'visual', SimpleNamespace(TextStim=Mock()))
     monkeypatch.setattr(base, 'event', None)
-    cfg = base.load_config(ROOT / 'video_eeg/config/video_emotion_config.yaml')
+    cfg = base.load_config(ROOT / 'src/video_eeg/config/video_emotion_config.yaml')
     cfg.update(_project_dir=str(ROOT), subject_id=subject, session_id=sid, explicit_run_seed=123)
     cfg['storage']['records_dir'] = str(tmp_path)
     library, playlist = prepare(cfg, False)

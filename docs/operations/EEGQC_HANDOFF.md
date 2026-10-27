@@ -8,7 +8,7 @@ v3按用户提供的第一版规范及本地 `examples.zip` 视频模板接入�
 
 v3独立行为评分没有EEG，保留原始行为CSV及状态，不混入已有记录的BIDS事件或改写封存包。全部视频模式采集中发生的普通喜好/抽查/疲劳仍按原事件与行为保存。新段UUID与平台预约Session无关联；仅在EEGQC人工确认范式、评分、上传和回写。
 
-将 `video_eeg/config/eegqc_settings.example.json` 复制为本机私有 `eegqc.local.json`：源码版放项目根目录，安装版放 `%LOCALAPPDATA%/VisualVideoTask`。文件被 Git 和源码白名单排除；不要把被试映射提交到 GitHub。
+将 `src/video_eeg/config/eegqc_settings.example.json` 复制为本机私有 `eegqc.local.json`：源码版放项目根目录，安装版放 `%LOCALAPPDATA%/VisualVideoTask`。文件被 Git 和源码白名单排除；不要把被试映射提交到 GitHub。
 
 必须填写以下四组信息，空模板不能用于正式导出：
 
