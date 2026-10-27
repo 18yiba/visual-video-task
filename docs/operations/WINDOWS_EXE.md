@@ -77,6 +77,6 @@
 
 ## 构建
 
-运行源码环境安装器后，用.venv/Scripts/python.exe执行scripts/build_windows_release.py，传入--iscc编译器路径。使用源码白名单构建，不发布实验室配置、迁移回执、数据或真实视频。
+运行源码环境安装器后，用.venv/Scripts/python.exe执行scripts/build_windows_release.py，传入--iscc编译器路径。默认将构建目录、安装包、日志和SHA256清单写入项目同级`visual-video-package/`；也可用`--output-dir`指定其他独立目录。目标目录已有构建内容时脚本会停止，不覆盖旧产物。使用源码白名单构建，不发布实验室配置、迁移回执、数据或真实视频。
 
 当前v1/v2保留视频内容选择题，不运行旧算术判断题。Demo也使用内容题练习；不要把历史算术目录当作当前实验目录。

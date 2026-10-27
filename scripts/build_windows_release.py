@@ -21,10 +21,13 @@ def assert_no_project_installations(site_packages):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--iscc',required=True);p.add_argument('--reuse-runtime',action='store_true')
-    p.add_argument('--output-dir',type=Path,default=ROOT/'dist',help='Independent bundle and installer output directory')
+    p.add_argument('--output-dir',type=Path,default=ROOT.parent/'visual-video-package',
+        help='Independent bundle and installer output directory (defaults to a sibling visual-video-package folder)')
     args=p.parse_args()
     output=args.output_dir.resolve()
     if output==ROOT or ROOT.is_relative_to(output):raise ValueError('Output must not replace the working project')
+    if output.exists() and any(output.iterdir()) and not args.reuse_runtime:
+        raise ValueError('Build output directory must be new and empty; refusing to overwrite existing artifacts')
     output.mkdir(parents=True,exist_ok=True)
     target=output/'VisualVideoTask'
     if target.exists() and not args.reuse_runtime:raise ValueError('Build destination exists; use a fresh build directory, do not overwrite a running app')
