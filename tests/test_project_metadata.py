@@ -43,7 +43,7 @@ class ProjectMetadataTests(unittest.TestCase):
             'full_name="Video"\nunique_name="EMO-20261008"\ndescription=""',
             'full_name="Video"\nunique_name="EMO-20261008"\ndescription="Capture"\nextra=1',
         )
-        with tempfile.TemporaryDirectory(dir=ROOT / '.tmp') as directory:
+        with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'metadata.toml'
             for text in cases:
                 path.write_text(text, encoding='utf-8')
@@ -52,7 +52,7 @@ class ProjectMetadataTests(unittest.TestCase):
 
     def test_invalid_metadata_stops_before_dvc_mutation(self):
         tool = load_script('configure_assets')
-        with tempfile.TemporaryDirectory(dir=ROOT / '.tmp') as directory:
+        with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / '.dvc').mkdir()
             (root / '.dvc/config').write_text('original', encoding='utf-8')
@@ -76,7 +76,7 @@ class ProjectMetadataTests(unittest.TestCase):
 
     def test_source_check_allows_dependency_pth_but_detects_project_alias(self):
         check = load_script('check_source_environment')
-        with tempfile.TemporaryDirectory(dir=ROOT / '.tmp') as directory:
+        with tempfile.TemporaryDirectory() as directory:
             site = Path(directory)
             harmless = site / 'vendor-runtime.pth'
             harmless.write_text('vendor', encoding='utf-8')
@@ -99,7 +99,7 @@ class ProjectMetadataTests(unittest.TestCase):
                 self.version = '1.0'
                 self.entry_points = [type('Entry', (), {'name': item}) for item in entries]
 
-        with tempfile.TemporaryDirectory(dir=ROOT / '.tmp') as directory:
+        with tempfile.TemporaryDirectory() as directory:
             site = Path(directory)
             with patch.object(check.importlib.metadata, 'distributions', return_value=[
                     Dist('video_eeg'), Dist('acq_task_template'),
@@ -113,7 +113,7 @@ class ProjectMetadataTests(unittest.TestCase):
 
     def test_windows_bundle_rejects_project_editable_alias(self):
         builder = load_script('build_windows_release')
-        with tempfile.TemporaryDirectory(dir=ROOT / '.tmp') as directory:
+        with tempfile.TemporaryDirectory() as directory:
             site = Path(directory)
             (site / '__editable__.acq_task.pth').write_text('old', encoding='utf-8')
             with self.assertRaisesRegex(RuntimeError, 'Do not bundle project aliases'):
