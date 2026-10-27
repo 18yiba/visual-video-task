@@ -11,4 +11,5 @@
 | [材料](operations/MATERIALS.md) / [EEG 与恢复](operations/EEG_AND_RECOVERY.md) | 准备素材、断流处理和旧进度续跑 |
 | [面部录像](operations/FACIAL_RECORDING.md) | v3摄像头、同目录命名、软件同步及录像时长验证 |
 | [NAS材料](operations/NAS_MATERIALS.md) | 两设备共用只读材料路径，本机记录与进度不变 |
+| [虚拟串口](operations/VIRTUAL_SERIAL.md) | 从 Eterlogic 官方站点取得并验证 VSPE；检查入口不下载、不安装 |
 | [结构迁移](maintenance/TEMPLATE_LAYOUT.md) / [维护记录](maintenance/CHANGELOG.md) | 目录职责、兼容边界及验证记录 |

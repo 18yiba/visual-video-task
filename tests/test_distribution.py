@@ -40,8 +40,11 @@ class DistributionTests(unittest.TestCase):
         spec.loader.exec_module(builder)
         files = [p.relative_to(ROOT) for p in builder.source_files()]
         self.assertIn(Path('scripts/install_lab_env_uv.ps1'), files)
+        self.assertIn(Path('setup_virtual_serial.bat'), files)
+        self.assertIn(Path('check_virtual_serial.bat'), files)
         self.assertIn(Path('AGENTS.md'), files)
         self.assertIn(Path('vendor/eeg-bids-converter/LICENSE'), files)
+        self.assertFalse(any(p.parts[0] in {'dependencies', 'packaging'} for p in files))
         for p in files:
             if p.as_posix() == 'data/README.md':
                 continue
@@ -52,6 +55,15 @@ class DistributionTests(unittest.TestCase):
             self.assertNotIn(p.suffix, {'.npy', '.mp4', '.exe', '.log', '.env'})
             self.assertNotIn('build',p.parts)
             self.assertFalse(any(part.endswith(('.egg-info','.dist-info')) for part in p.parts))
+
+    def test_virtual_serial_installer_fetches_and_verifies_official_msi(self):
+        script = (ROOT / 'scripts/setup_virtual_serial.ps1').read_text(encoding='utf-8-sig')
+        self.assertIn('https://eterlogic.com/downloads/SetupVSPE_64_1.5.8.489.zip', script)
+        self.assertIn('C6B6D46393B97C3C34430E400F1AD2370EAB41B66563BBD16D33D144348886B2', script)
+        self.assertIn('Get-AuthenticodeSignature', script)
+        self.assertIn('if ($CheckOnly)', script)
+        self.assertNotIn('dependencies\\vspe', script)
+        self.assertFalse((ROOT / 'dependencies/vspe/SetupVSPE_64.msi').exists())
 
 
 if __name__ == '__main__':

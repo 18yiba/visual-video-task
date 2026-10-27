@@ -11,6 +11,8 @@
 | `assets/` / `stimuli/` / `data/` | 品牌资源、已有刺激路径、私有原始记录；视频与数据不移动、不进入源码包 |
 | `docs/` / `tests/` / `scripts/` | 文档索引与数据说明、自动验证、安装及显式白名单发行 |
 
+Windows安装器构建源码单独维护在仓库外的`visual-video-package/`目录；范式仓库只保留调用构建流程的维护脚本，不包含Inno Setup定义、桌面启动器或安装器图标。默认构建产物放在外置目录的`artifacts/`子目录，避免打包文件混入源码发行。
+
 模板改为 source-only：`uv sync` 只安装第三方依赖，不安装本项目或生成 CLI 别名。入口统一转发到既有 `video_eeg.cli`。本项目保留 `src/video_eeg` 和根导入兼容层作为存量结构，不创建第二套执行器。固定 Session、恢复状态、协议 YAML 和原始数据格式不变；TOML 只负责启动选项。
 
 `pyproject.toml` 设置 `[tool.uv] package = false`。`main.py`、`python -m src` 和既有 BAT 直接运行源码；不额外创建通用 `RUNME.bat`。项目 distribution、editable `.pth` 和控制台命令不作为运行依赖。Windows EXE 自带第三方环境与源码，不从 site-packages 复制本项目。现有 `.venv` 和 `runtime/python312` 在锁定运行环境完成验收前继续保留。

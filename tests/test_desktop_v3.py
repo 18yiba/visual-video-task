@@ -55,7 +55,12 @@ def test_exe_default_dispatches_v3_without_old_selector(tmp_path, monkeypatch, d
 
 
 def test_installer_has_both_explicit_device_shortcuts():
-    text=(Path(__file__).resolve().parents[1]/'packaging/video-task.iss').read_text(encoding='utf-8')
+    root=Path(__file__).resolve().parents[1]
+    assert not (root/'packaging').exists()
+    installer_source=root.parent/'visual-video-package'/'video-task.iss'
+    if not installer_source.is_file():
+        pytest.skip('Windows installer source is maintained outside the paradigm repository')
+    text=installer_source.read_text(encoding='utf-8')
     assert 'Parameters: --device emotivpro' in text
     assert 'Parameters: --device neuracle' in text
     assert 'EMOTIV设备入口' in text and '博睿康设备入口' in text
