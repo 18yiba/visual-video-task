@@ -276,8 +276,12 @@ class SessionRecorder:
                                     edf_quantization_step_uv=quantization,
                                     simulated_eeg=self._source_name == 'dummy')
         from video_eeg.paths import PROJECT_ROOT
-        version_file = PROJECT_ROOT/'packaging/version.txt'
-        software_version = version_file.read_text(encoding='utf-8').strip() if version_file.is_file() else 'unknown'
+        project_file = PROJECT_ROOT/'pyproject.toml'
+        software_version = 'unknown'
+        if project_file.is_file():
+            import tomllib
+            with project_file.open('rb') as handle:
+                software_version = tomllib.load(handle)['project']['version']
         segment_metadata.update(
             {
                 "recording_uuid": self._recording_uuid,

@@ -2,6 +2,7 @@
 from pathlib import Path
 import argparse,hashlib,json,shutil,subprocess,sys,time
 ROOT=Path(__file__).resolve().parents[1]
+PACKAGE_SOURCE=ROOT.parent/'visual-video-package'
 sys.path.insert(0,str(ROOT/'scripts/maintenance'))
 from build_release import build as build_source
 
@@ -21,9 +22,14 @@ def assert_no_project_installations(site_packages):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--iscc',required=True);p.add_argument('--reuse-runtime',action='store_true')
-    p.add_argument('--output-dir',type=Path,default=ROOT.parent/'visual-video-package',
-        help='Independent bundle and installer output directory (defaults to a sibling visual-video-package folder)')
+    p.add_argument('--output-dir',type=Path,default=PACKAGE_SOURCE/'artifacts',
+        help='Independent bundle and installer output directory (defaults to visual-video-package/artifacts)')
     args=p.parse_args()
+    required_package_sources=('Launcher.cs','version.txt','video-task.iss','app.ico','ChineseSimplified.isl')
+    missing=[name for name in required_package_sources if not (PACKAGE_SOURCE/name).is_file()]
+    if missing:
+        raise FileNotFoundError('External Windows package sources are missing from '
+            +str(PACKAGE_SOURCE)+': '+', '.join(missing))
     output=args.output_dir.resolve()
     if output==ROOT or ROOT.is_relative_to(output):raise ValueError('Output must not replace the working project')
     if output.exists() and any(output.iterdir()) and not args.reuse_runtime:
@@ -75,9 +81,9 @@ def main():
     Image.open(ROOT/'assets/brand/company_logo.png').save(icon,sizes=[(16,16),(32,32),(48,48),(64,64),(128,128)])
     csc=Path(__import__('os').environ['WINDIR'])/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
     subprocess.run([str(csc),'/nologo','/target:winexe','/platform:x64','/r:System.Windows.Forms.dll',
-        '/win32icon:'+str(icon),'/out:'+str(target/'VisualVideoTask.exe'),str(ROOT/'packaging/Launcher.cs')],check=True)
+        '/win32icon:'+str(icon),'/out:'+str(target/'VisualVideoTask.exe'),str(PACKAGE_SOURCE/'Launcher.cs')],check=True)
     shutil.copy2(ROOT/'docs/operations/WINDOWS_EXE.md',target/'离线安装与旧v1续跑说明.md')
-    version=(ROOT/'packaging/version.txt').read_text().strip()
+    version=(PACKAGE_SOURCE/'version.txt').read_text().strip()
     from concurrent.futures import ThreadPoolExecutor
     def describe(path):
         with path.open('rb') as f:digest=hashlib.file_digest(f,'sha256').hexdigest()
@@ -99,7 +105,7 @@ def main():
     check_env=os.environ.copy();check_env['VIDEO_EEG_USER_DIR']=str(output/'verification/user')
     subprocess.run([str(target/'VisualVideoTask.exe'),'--self-test'],check=True,env=check_env)
     with (output/'installer_build.log').open('w',encoding='utf-8') as log:
-        subprocess.run([args.iscc,'/Q','/O'+str(output),'/DAppVersion='+version,'/DSourceDir='+str(target),str(ROOT/'packaging/video-task.iss')],check=True,stdout=log,stderr=subprocess.STDOUT)
+        subprocess.run([args.iscc,'/Q','/O'+str(output),'/DAppVersion='+version,'/DSourceDir='+str(target),str(PACKAGE_SOURCE/'video-task.iss')],check=True,stdout=log,stderr=subprocess.STDOUT)
     exe=output/'VisualVideoTask-Setup-Windows-x64.exe'
     with exe.open('rb') as f:digest=hashlib.file_digest(f,'sha256').hexdigest()
     (output/'SHA256SUMS.txt').write_text(digest+'  '+exe.name+'\n',encoding='ascii')
