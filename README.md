@@ -2,21 +2,23 @@
 
 # visual-video-task：视频EEG采集与情绪评分
 
-源码ZIP修正版补齐博睿康入口 `run_neuracle_v3.bat`；解压后双击该文件进入博睿康控制台，`run_emotion_v3.bat` 为默认EMOTIV入口。此修正只涉及源码发行白名单，v0.3.4 EXE原有两个开始菜单入口不变。
+最新源码版本为 **v0.3.5**，分支名为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)。该分支包含模板约束对齐和 v3 强脑 SDK 源码入口；目前尚未发布对应的 Windows 安装包。已发布的 Windows 安装包仍为 v0.3.4。
+
+源码现提供三种 v3 BAT 入口：`run_emotion_v3.bat`（EMOTIV）、`run_neuracle_v3.bat`（博睿康 Collect TCP）和 `run_brainco_v3.bat`（强脑 SDK）。Windows v0.3.4 EXE仍保留原有两个开始菜单入口。
 
 Windows v0.3.4修复首次设置时桌面位于D盘、用户目录位于C盘的启动错误；数据可保存在任一本机固定磁盘，NAS仅用于读取材料。已有安装版保存退出后覆盖安装，无需移动桌面或删除数据。
 
-NAS材料设置：在两个设备控制台点击“视频材料位置（本机 / NAS）”，或从开始菜单打开“视频EEG视频材料位置（本机或NAS）”，输入包含`videos`和`emotion_video`的共享根目录，例如`\\NAS\share\video_materials\formal_v1`。先在Windows资源管理器登录该共享；程序只保存路径，不保存NAS密码。两个设备入口共用此设置，EEG、面部录像和Session进度仍保存本机。
+NAS材料设置：在设备控制台点击“视频材料位置（本机 / NAS）”，或从开始菜单打开“视频EEG视频材料位置（本机或NAS）”，输入包含`videos`和`emotion_video`的共享根目录，例如`\\NAS\share\video_materials\formal_v1`。先在Windows资源管理器登录该共享；程序只保存路径，不保存NAS密码。各设备入口共用此设置，EEG、面部录像和Session进度仍保存本机。
 
 普通材料读取`根目录\videos`，情绪材料读取`根目录\emotion_video\selected`；目录层级、文件名、固定Session和题库保持不变。每段正式视频播放前按原始材料清单核验SHA256，读取失败、校验不符或解码未完成会停止并保留进度，不自动改用旧本机库。重连后用原被试编号和Session续跑；NAS登录和路径设置须在每台实验电脑完成一次。详见[NAS材料设置](docs/operations/NAS_MATERIALS.md)。
 
-最新源码已加入 v3 情绪视频同步面部录像：使用 `UGREEN Camera 4K`，1080p、30帧/秒、无声音，录像直接保存到当前 Session。录像覆盖和时长验证通过后才提交该视频完成；摄像头故障会停止并保留进度。**Windows v0.3.4 安装包与最新源码均包含此功能，并提供 EMOTIV/EmotivPRO 和博睿康两个设备入口。**
+最新源码已加入 v3 情绪视频同步面部录像：使用 `UGREEN Camera 4K`，1080p、30帧/秒、无声音，录像直接保存到当前 Session。录像覆盖和时长验证通过后才提交该视频完成；摄像头故障会停止并保留进度。Windows v0.3.4 安装包提供 EMOTIV/EmotivPRO 和博睿康两个设备入口；源码另增加强脑 SDK BAT 入口。
 
-源码结构已按 [acq-task-template](https://github.com/Omni-Intel/acq-task-template) 整理：`main.py` 为统一源码入口，程序实现在 `src/video_eeg/`，启动默认值在 `config/config.toml`。先运行 `python main.py --validate` 检查结构和启动配置；实验运行使用已安装的 Python 3.12 实验室环境。默认打开 v1/v2 选择页并选 Demo；v3 保留独立入口。原协议 YAML、题库和固定清单仍在 `video_eeg/config/`，历史记录和材料路径不变。[部署](docs/deploy.md) · [文档索引](docs/README.md) · [结构与兼容边界](docs/maintenance/TEMPLATE_LAYOUT.md)
+源码按 [acq-task-template](https://github.com/Omni-Intel/acq-task-template) 直接运行，不安装本项目或创建控制台别名。`main.py` 和 `python -m src` 是统一源码入口；`run_experiment.bat` 及三个 v3 设备 BAT 是转发到该入口的兼容入口。uv 仅管理锁定的第三方依赖。默认打开 v1/v2 选择页并选 Demo；v3 控制台保留阶段、设备选择与进度管理。原协议 YAML、题库、固定清单和历史记录不转换。[部署](docs/deploy.md) · [文档索引](docs/README.md) · [结构与兼容边界](docs/maintenance/TEMPLATE_LAYOUT.md)
 
-当前安装包为 **Windows v0.3.4（双设备入口与面部录像）**，开始菜单可分别打开“视频EEG v3 EMOTIV设备入口”和“视频EEG v3 博睿康设备入口”；通用入口默认EMOTIV。v3先采集并保存EEG，再独立重播情绪视频进行评分；旧v1/v2从开始菜单的独立入口运行。安装包版本号、界面版本和实验协议不是同一个编号，升级不会把历史进度转换成v3。
+当前安装包为 **Windows v0.3.4（双设备入口与面部录像）**，开始菜单可分别打开“视频EEG v3 EMOTIV设备入口”和“视频EEG v3 博睿康设备入口”；通用入口默认EMOTIV。强脑 SDK 入口目前仅在源码中提供。v3先采集并保存EEG，再独立重播情绪视频进行评分；旧v1/v2从开始菜单的独立入口运行。安装包版本号、界面版本和实验协议不是同一个编号，升级不会把历史进度转换成v3。
 
-适用于Windows 10/11 64位，v3提供EMOTIV/EmotivPRO与博睿康Collect设备入口；旧协议保留BrainCo适配器。安装包自带Python、PsychoPy和bcigo-sdk 1.0.2，无需另外安装Python或采集软件；视频材料不在安装包内。本仓库源码不包含被试数据、视频或开发环境。
+适用于Windows 10/11 64位，v3源码提供EMOTIV/EmotivPRO、博睿康Collect及强脑 SDK 入口；安装包入口仍为前两者。安装包自带Python、PsychoPy和bcigo-sdk 1.0.2，无需另外安装Python或采集软件；视频材料不在安装包内。本仓库源码不包含被试数据、视频或开发环境。
 
 [下载Windows安装包](https://github.com/18yiba/visual-video-task/releases/download/v0.3.4/VisualVideoTask-Setup-Windows-x64.exe) · [版本说明、源码ZIP与SHA256](https://github.com/18yiba/visual-video-task/releases/tag/v0.3.4) · [v3完整操作说明](docs/versions/v3.md)
 
@@ -58,7 +60,7 @@ NAS材料设置：在两个设备控制台点击“视频材料位置（本机 /
 | 安装版默认入口；源码`run_emotion_v3.bat` | v3：45个Session，EEG与情绪行为评分分开 | 数据根下`v3`或`v3_emotion_only` |
 | 开始菜单“视频EEG v1-v2 旧协议入口”；源码`run_experiment.bat` | v1：17个Session；v2：45个Session，保留Demo/正式 | 数据根下`v1`/`v2`；已识别旧被试仍沿原根目录续跑 |
 
-安装版程序默认安装到`%LOCALAPPDATA%/Programs/VisualVideoTask`，本机设置和日志位于`%LOCALAPPDATA%/VisualVideoTask`。数据根以首次绑定为准，本实验室常用`Desktop/video/data/sourcedata`；源码v3默认使用项目的`data/sourcedata/v3`。全部视频和仅情绪模式进度独立，v1/v2/v3之间不能换协议续跑。
+安装版程序默认安装到`%LOCALAPPDATA%/Programs/VisualVideoTask`，本机设置和日志位于`%LOCALAPPDATA%/VisualVideoTask`。数据根以首次绑定为准，本实验室常用`Desktop/video/data/sourcedata`；源码v3默认使用项目的`data/sourcedata/v3`，强脑 SDK 使用独立的 `v3_brainco` 数据根。全部视频、仅情绪模式和采集设备进度独立，v1/v2/v3之间不能换协议续跑。
 
 新BrainCo记录按CH01→CH32保存32导原生EDF（含CH29=IO），单位µV、范围±375000 µV、高通0.16 Hz、参考FCz、BIAS AFz；低通/陷波未知，不额外施加滤波。原始EDF、事件、行为CSV和`session_state.json`是恢复依据，必须整目录备份；历史NPY与答案不转换。详情见[数据与恢复](docs/operations/EEG_AND_RECOVERY.md)。
 
@@ -127,7 +129,9 @@ v0.3.1发布前完整回归229项通过、5项跳过；真实Qt/PsychoPy窗口�
 
 ## 源码安装与开始运行
 
-以下统一启动器步骤适用于源码v1/v2；源码v3在环境安装完成后双击`run_emotion_v3.bat`。两者使用同一环境，但v3用户入口没有Demo/Dummy选项，详细流程见文首。
+根目录 `main.py` 是实验入口，`python -m src` 委托同一 CLI；使用 `--paradigm v1|v2|v3` 选择范式。旧参数 `--protocol` 仍作为兼容别名。本项目只从源码运行：uv 管理隔离环境中的第三方依赖，不构建或安装本项目。实验运行时固定 Python 3.12；兼容 BAT 为 `run_experiment.bat` 及三个 v3 设备入口 BAT。强脑入口使用默认 BrainCo SDK 配置；已知部分设备返回 `(96, 33)` 布局会被安全拒绝，需先确认实际设备数据布局。不要执行 `pip install -e .`。
+
+统一CLI支持 v1/v2 协议选择及 v3 阶段、设备路由。v3仍没有Demo/Dummy选项，阶段未在命令行指定时打开原控制台。
 
 以下安装、BAT、YAML 路径配置供源码维护者使用；已安装 EXE 的主试直接使用上面的开始菜单入口。后文的实验流程和数据字段适用于对应协议。源码的原目录续跑机制与 EXE 的本机副本迁移方式分别说明，勿交叉操作。
 
@@ -200,20 +204,24 @@ visual-video-task/
   main.py                            模板统一源码入口：选v1/v2、Demo或正式
   config/config.toml                启动默认值；本机覆盖使用*.local.toml
   run_experiment.bat                 保留的v1/v2兼容入口
-  run_emotion_v3.bat                 保留的v3独立入口
+  run_emotion_v3.bat                 v3 EMOTIV入口
+  run_neuracle_v3.bat                v3 博睿康 Collect TCP入口
+  run_brainco_v3.bat                 v3 强脑 SDK入口
   install_lab_env_uv.bat              首次环境安装入口，不是实验入口
   download_materials.bat              下载普通视频母库，不下载情绪库
   README.md                          本完整操作指南
   assets/brand/company_logo.png      公司橙色标志，保留透明背景；README和启动信息页共用
   AGENTS.md                          维护人员/自动化修改代码时的规则
-  pyproject.toml / setup.py           Python项目及本地模块安装信息
-  lab_uv_env.toml / uv.toml           实验室环境依赖与uv设置
+  pyproject.toml / uv.lock            第三方依赖声明和锁定版本；不安装本项目
+  metadata.toml                       素材及归档使用的稳定项目标识
+  lab_uv_env.toml                     现有实验室运行时依赖清单
   requirements-psychopy.txt           安装脚本使用的依赖声明
   THIRD_PARTY_NOTICES.md              第三方组件说明
   .gitignore / .gitattributes         Git排除数据、环境及文件字节处理规则
   video_eeg/                         旧脚本导入兼容层
     config/                          原路径的YAML、固定清单、题库及材料索引，字节不变
-  src/video_eeg/                     范式源码，不能只复制其中一个runner
+  src/                                源码模块和 python -m src 入口
+    video_eeg/                       唯一范式实现，不能只复制其中一个runner
     devices/                         BrainCo、Neuracle、模拟等采集接口
     experiment/                      显示、视频播放、回答、休息和采集管理
     storage/                         连续EEG与事件文件写入
@@ -599,13 +607,13 @@ demo_mode: false
 
 ```powershell
 # 17组Demo，窗口模式；无需正式视频或真实设备
-.\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol v1 --mode demo --windowed
+.\.venv\Scripts\python.exe main.py --paradigm v1 --mode demo --windowed
 
 # v2融合正式版，填写编号与Session后仍按所选YAML设备配置运行
-.\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol v2 --mode formal --subject-id P001 --session-id 1
+.\.venv\Scripts\python.exe main.py --paradigm v2 --mode formal --subject-id P001 --session-id 1
 
 # 只有实际使用Neuracle时才显式覆盖设备；地址/通道仍在对应YAML配置
-.\.venv\Scripts\python.exe scripts/launch_experiment.py --protocol v1 --mode formal --device-type neuracle
+.\.venv\Scripts\python.exe main.py --paradigm v3 --phase acquisition --device neuracle --subject-id P001 --session-id 1
 ```
 
 `--no-dialog`跳过信息填写，`--windowed`窗口模式；`--seed`仅在需要固定复现且已记录种子时使用，会影响运行目录和顺序，不作为每日常规参数。不要绕过正式模式强行开dummy。SDK/LSL/BCIGo切换会影响采集位置和质量可见性，切换后必须重新短测。
@@ -669,7 +677,12 @@ Get-FileHash -LiteralPath 'C:\实际文件夹\neutral_neutral_0833_00000235.mp4'
 
 ```powershell
 # 自动化测试
-.\.venv\Scripts\python.exe -m pytest tests -q
+$env:UV_PROJECT_ENVIRONMENT = Join-Path $PWD '.tmp/source-test-env'
+uv sync --locked --group test
+uv run --no-sync python -m pytest tests -q
+uv run --no-sync python scripts/check_source_environment.py
+uv pip check --python (Join-Path $env:UV_PROJECT_ENVIRONMENT 'Scripts/python.exe')
+Remove-Item Env:UV_PROJECT_ENVIRONMENT
 
 # 实际窗口的V2行为、EEG写盘与续跑测试（模拟设备）
 .\.venv\Scripts\python.exe scripts/validation/smoke_emotion_v2.py
@@ -677,7 +690,7 @@ Get-FileHash -LiteralPath 'C:\实际文件夹\neutral_neutral_0833_00000235.mp4'
 # 视频/评分/休息断流提示与续跑验证（模拟设备）
 .\.venv\Scripts\python.exe scripts/validation/smoke_eeg_disconnect.py
 
-# 打包白名单源码到新空目录，不含data、视频、环境和缓存
+# 打包白名单源码到新空目录，不含记录、视频、环境和缓存
 .\.venv\Scripts\python.exe scripts/maintenance/build_release.py D:/Release/video-source-new
 
 # 构建保留原协议的离线断流补丁，目标必须是新目录

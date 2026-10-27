@@ -287,13 +287,8 @@ class EmotionVideoRunner(base.VideoRunner):
             export_warnings=getattr(self, '_warnings', []), real_hardware_validation='pending'))
 
 def main(argv=None):
-    old_demo, old_default = base.DEMO_CONFIG_FILENAME, base.DEFAULT_CONFIG_FILENAME
-    try:
-        base.DEMO_CONFIG_FILENAME = 'video_emotion_demo_config.yaml'
-        base.DEFAULT_CONFIG_FILENAME = 'video_emotion_config.yaml'
-        return base.main(argv)
-    finally:
-        base.DEMO_CONFIG_FILENAME, base.DEFAULT_CONFIG_FILENAME = old_demo, old_default
+    return base.main(argv, default_config_filename='video_emotion_config.yaml',
+                     demo_config_filename='video_emotion_demo_config.yaml')
 
 if __name__=='__main__':
     raise SystemExit(main())

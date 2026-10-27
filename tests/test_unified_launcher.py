@@ -52,15 +52,11 @@ def test_only_two_public_versions():
 
 def test_offline_legacy_arithmetic_demo_keeps_original_attention(monkeypatch):
     from video_eeg.experiment import video_runner as base
-    original = base.load_config
-    def configured(path):
-        cfg = original(path)
-        cfg['_legacy_attention'] = True
-        return cfg
-    monkeypatch.setattr(base, 'load_config', configured)
     monkeypatch.syspath_prepend(str(ROOT/'scripts'))
-    def run(args):
-        cfg = base.load_config(base.CONFIG_DIR/base.DEMO_CONFIG_FILENAME)
+    def run(args, **options):
+        cfg = base.load_config(base.CONFIG_DIR/options['demo_config_filename'])
+        cfg['_legacy_attention'] = True
+        cfg = options['config_transform'](cfg)
         assert 'question_bank_path' not in cfg['protocol']
         assert cfg['_unified_protocol'] == 'v1'
         assert cfg['protocol']['attention_tasks_per_session'] == 3
@@ -72,10 +68,12 @@ def test_offline_legacy_arithmetic_demo_keeps_original_attention(monkeypatch):
 @pytest.mark.parametrize('mode',['demo','formal'])
 def test_launcher_selects_expected_config_without_editing_yaml(monkeypatch,protocol,mode):
     from video_eeg.experiment import video_runner as base
+    old_default,old_demo=base.DEFAULT_CONFIG_FILENAME,base.DEMO_CONFIG_FILENAME
     before={p:p.read_bytes() for p in (ROOT/'video_eeg/config').glob('*.yaml')}
-    def run(args):
-        filename=base.DEMO_CONFIG_FILENAME if mode=='demo' else base.DEFAULT_CONFIG_FILENAME
+    def run(args, **options):
+        filename=options['demo_config_filename'] if mode=='demo' else options['default_config_filename']
         cfg=base.load_config(base.CONFIG_DIR/filename)
+        cfg=options['config_transform'](cfg)
         assert cfg['_unified_protocol']==protocol
         assert ('--demo' in args)==(mode=='demo')
         if mode=='formal':
@@ -87,4 +85,5 @@ def test_launcher_selects_expected_config_without_editing_yaml(monkeypatch,proto
     import sys
     monkeypatch.syspath_prepend(str(ROOT/'scripts'))
     assert launcher.launch(protocol,mode)==0
+    assert (base.DEFAULT_CONFIG_FILENAME,base.DEMO_CONFIG_FILENAME)==(old_default,old_demo)
     assert all(p.read_bytes()==data for p,data in before.items())

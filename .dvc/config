@@ -1,0 +1,8 @@
+[core]
+    remote = nas
+['remote "nas"']
+    url = s3://oi-task-assets/EMOVID-20261008/dvc
+    endpointurl = http://truenas-s658v2.omni-intel.cn:9000
+    region = us-east-1
+    ssl_verify = true
+    allow_anonymous_login = true

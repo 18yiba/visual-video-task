@@ -21,7 +21,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-"%PYTHON_EXE%" "%~dp0scripts\launch_experiment.py" %*
+"%PYTHON_EXE%" "%~dp0main.py" %*
 set "RESULT=%ERRORLEVEL%"
 if not "%RESULT%"=="0" pause
 exit /b %RESULT%

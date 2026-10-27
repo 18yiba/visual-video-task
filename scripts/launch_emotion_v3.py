@@ -16,6 +16,10 @@ def is_neuracle():
     return os.environ.get('VIDEO_EEG_BACKEND', '').lower() == 'neuracle'
 
 
+def is_brainco():
+    return os.environ.get('VIDEO_EEG_BACKEND', '').lower() == 'brainco'
+
+
 def configuration(emotion_only=False, port=""):
     config_path = Path(os.environ.get('VIDEO_EEG_V3_CONFIG', str(base.CONFIG_DIR / 'video_emotion_v3_config.yaml')))
     cfg = base.load_config(config_path)
@@ -29,6 +33,17 @@ def configuration(emotion_only=False, port=""):
         profile = load_profile(ROOT)
         if port: profile['serial_port'] = port
         configure(cfg, profile)
+    elif is_brainco():
+        cfg['device_type'] = 'brainco'
+        device = dict(cfg.get('device', {}))
+        device['brainco_transport'] = 'sdk'
+        cfg['device'] = device
+        storage = dict(cfg.get('storage', {}))
+        records = Path(storage.get('records_dir', 'data/sourcedata/v3'))
+        if not records.name.endswith('_brainco'):
+            records = records.with_name(records.name + '_brainco')
+        storage['records_dir'] = records.as_posix()
+        cfg['storage'] = storage
     else:
         from video_eeg.utils.emotivpro_recording import configure
         configure(cfg, port)
@@ -36,6 +51,31 @@ def configuration(emotion_only=False, port=""):
         from video_eeg.experiment.emotion_v3_runner import configure_emotion_only
         configure_emotion_only(cfg)
     return cfg
+
+
+def launch_direct(phase, device, extra=None):
+    """Run a selected v3 phase through the same device configuration as the console."""
+    old_backend = os.environ.get('VIDEO_EEG_BACKEND')
+    os.environ['VIDEO_EEG_BACKEND'] = device if device in {'neuracle', 'brainco'} else 'emotivpro'
+    try:
+        import yaml
+        runtime = ROOT / '.tmp'
+        runtime.mkdir(exist_ok=True)
+        cfg = configuration(emotion_only=False)
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', prefix='v3_cli_', dir=runtime,
+                                         encoding='utf-8', delete=False) as stream:
+            yaml.safe_dump(cfg, stream, allow_unicode=True)
+            config_path = stream.name
+        from video_eeg.experiment import emotion_v3_runner
+        stage = 'eeg' if phase == 'acquisition' else 'ratings'
+        return emotion_v3_runner.main(['--config', config_path, '--device-type', device,
+                                       '--emotion-stage', stage, '--real-eeg', *(extra or [])])
+    finally:
+        if old_backend is None:
+            os.environ.pop('VIDEO_EEG_BACKEND', None)
+        else:
+            os.environ['VIDEO_EEG_BACKEND'] = old_backend
 
 
 def make_window():
@@ -116,7 +156,10 @@ def make_window():
             self.materials = W.QPushButton('视频材料位置（本机 / NAS）')
             controls.addWidget(self.materials)
             self.materials.clicked.connect(self.choose_materials)
-            self.detect = W.QPushButton('配置 / 检测脑电与 TRG' if is_neuracle() else '选择 / 检查 Trigger 发送端')
+            self.detect = W.QPushButton(
+                '配置 / 检测脑电与 TRG' if is_neuracle() else
+                '检测强脑 SDK 数据流' if is_brainco() else
+                '选择 / 检查 Trigger 发送端')
             self.refresh = W.QPushButton('刷新进度')
             self.start = W.QPushButton('开始实验')
             self.start.setObjectName('primary')
@@ -201,6 +244,10 @@ def make_window():
                 self.device_status.setText('行为评分无需设备；本阶段不连接或采集 EEG。' if ratings else
                     (f"TCP + TRG 检测通过：{self.connection['channels']} 通道，信号 {self.connection['sfreq']:g} Hz，原始 TRG {self.connection.get('neuracle_forwarding',{}).get('trigger_mapping',{}).get('raw_sampling_rate_hz',self.connection['sfreq']):g} Hz。开始时会重新检测。" if self.connection else '请启动 Collect 数据转发，再检测脑电和同步盒。'))
                 return
+            if is_brainco():
+                self.device_status.setText('行为评分无需设备；本阶段不连接或采集 EEG。' if ratings else
+                    (f"强脑 SDK 检测通过：{self.connection['channels']} 通道，{self.connection['sfreq']:g} Hz，已读取 {self.connection['samples']} 个样本。开始时会重新检测。" if self.connection else '请确认强脑设备与 SDK 网络连接，然后检测数据流。'))
+                return
             self.device_status.setText('行为评分无需设备；本阶段不连接或采集 EEG。' if ratings else
                 ('串口可打开；脑电与接收状态须在 EmotivPRO 核对。' if self.connection else '尚未选择发送端；脑电请在 EmotivPRO 检查。'))
 
@@ -267,6 +314,8 @@ def make_window():
                 except Exception as exc:
                     W.QMessageBox.warning(self, '配置未完成', str(exc)); return
                 self.port = profile['serial_port'] if profile else ''
+            elif is_brainco():
+                self.port = 'brainco-sdk'
             else:
                 from video_eeg.utils.emotivpro_port_dialog import select_port
                 self.port = select_port()
@@ -274,7 +323,9 @@ def make_window():
                 self.changed_stage(); return
             self.probe_output = ''
             self.locked(True)
-            self.device_status.setText('正在核对 TCP 元数据、连续样本及测试码 250/251/252 的 TRG 回传…' if is_neuracle() else '正在检查 EmotivPRO 窗口、USB 接收器和发送端；录制状态仍需主试核对…')
+            self.device_status.setText('正在核对 TCP 元数据、连续样本及测试码 250/251/252 的 TRG 回传…' if is_neuracle() else
+                '正在通过强脑 SDK 检查设备并读取 EEG 样本…' if is_brainco() else
+                '正在检查 EmotivPRO 窗口、USB 接收器和发送端；录制状态仍需主试核对…')
             args = [str(Path(__file__).resolve()), '--probe', '--port', self.port]
             self.probe.setWorkingDirectory(str(ROOT)); self.probe.start(sys.executable, args)
 
@@ -290,6 +341,8 @@ def make_window():
                 self.connection = report['connection']
                 c = self.connection
                 if is_neuracle():
+                    self.changed_stage(); return
+                if is_brainco():
                     self.changed_stage(); return
                 self.device_status.setText(f"环境检查通过：{c['serial_port']}、EmotivPRO 窗口和 USB 接收器。录制、无线脑电及标记接收仍需主试核对。")
             except Exception as exc:
@@ -320,7 +373,10 @@ def make_window():
                 if ratings and r['emotion_eeg_saved'] == r['ratings_completed']:
                     raise ValueError('当前Session没有已保存EEG且尚待评分的情绪视频。')
                 if not ratings and not self.connection:
-                    raise ValueError('请先检测脑电与 TRG。' if is_neuracle() else '请先选择并检查 Trigger 发送端。')
+                    message = ('请先检测脑电与 TRG。' if is_neuracle() else
+                               '请先检测强脑 SDK 数据流。' if is_brainco() else
+                               '请先选择并检查 Trigger 发送端。')
+                    raise ValueError(message)
                 if not ratings and not self.paradigm.text().strip():
                     raise ValueError('请填写当前视频范围在平台上已确认的范式代码。')
                 if not ratings:
@@ -341,6 +397,8 @@ def make_window():
                         yaml.safe_dump(configuration(port=self.port), stream, allow_unicode=True)
                         self.runtime_config = stream.name
                     args += ['--device-type', 'neuracle', '--config', self.runtime_config]
+                elif is_brainco() and not ratings:
+                    args += ['--device-type', 'brainco']
                 elif not ratings:
                     args += ['--device-type', 'emotivpro', '--emotivpro-port', self.port]
                 if not is_neuracle() and os.environ.get('VIDEO_EEG_V3_CONFIG'):
@@ -391,11 +449,11 @@ def make_window():
     return Window()
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--probe', action='store_true')
     parser.add_argument('--port', default='')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.probe:
         try:
             report = dict(ok=True, connection=base.probe_eeg_connection(configuration(port=args.port)))

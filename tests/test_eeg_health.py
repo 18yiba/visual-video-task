@@ -65,6 +65,21 @@ def test_watchdog_counts_not_signal_amplitude():
     assert w.observe(40,116.1)['status']=='ok'
 
 
+def test_session_manager_uses_injected_recording_and_health_services(tmp_path):
+    calls=[]
+    recorder=SessionRecorder(Source('empty'),sfreq=1000,n_channels=2)
+    def factory(acquirer,*,sfreq,n_channels,event_only):
+        calls.append((sfreq,n_channels,event_only))
+        return recorder
+    health=SampleWatchdog(time.monotonic(),timeout=4.,startup_timeout=8.)
+    manager=EegSessionManager(Source('empty'),NoOpMarkerBackend(),sfreq=1000,
+        records_dir=tmp_path,subject_id='test',session_id=1,
+        recorder_factory=factory,health_monitor=health)
+    assert calls==[(1000.,2,False)]
+    assert manager.recorder is recorder
+    assert manager._watchdog is health
+
+
 @pytest.mark.parametrize('mode',['empty','stalled','exception'])
 def test_fault_persisted_and_export_survives(mode,tmp_path):
     m=EegSessionManager(Source(mode),NoOpMarkerBackend(),sfreq=1000,records_dir=tmp_path,

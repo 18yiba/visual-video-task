@@ -1,8 +1,9 @@
-"""Template-style entry for the existing v1/v2 launcher, with offline validation."""
+"""Unified source entry for paradigm, phase and device selection."""
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 import tomllib
@@ -44,17 +45,28 @@ def main(argv=None) -> int:
     parser.add_argument('--config', type=Path, default=Path('config/config.toml'))
     parser.add_argument('--validate', action='store_true', help='Check configuration and source layout without hardware or writes')
     parser.add_argument('--run', action='store_true', help='Run the configured v1/v2 protocol and mode')
-    parser.add_argument('--protocol', choices=('v1', 'v2'))
+    parser.add_argument('--paradigm', '--protocol', dest='paradigm', choices=('v1', 'v2', 'v3'),
+                        help='Select a paradigm (legacy alias: --protocol)')
     parser.add_argument('--mode', choices=('demo', 'formal'))
+    parser.add_argument('--phase', choices=('acquisition', 'behavior-rating'),
+                        help='v3 phase; v1/v2 include their rating steps in the protocol')
+    parser.add_argument('--device', choices=('brainco', 'emotivpro', 'neuracle'),
+                        help='EEG device; v3 accepts emotivpro or neuracle')
     args, extra = parser.parse_known_args(argv)
-    if args.validate and (args.run or extra or args.protocol or args.mode):
+    if args.validate and (args.run or extra or args.paradigm or args.mode or args.phase or args.device):
         parser.error('--validate accepts only --config')
-    if bool(args.protocol) != bool(args.mode):
-        parser.error('--protocol and --mode must be specified together')
+    if args.paradigm in ('v1', 'v2') and bool(args.paradigm) != bool(args.mode):
+        parser.error('--paradigm and --mode must be specified together')
+    if args.paradigm == 'v3' and args.mode:
+        parser.error('--mode applies only to v1/v2')
+    if args.phase and args.paradigm != 'v3':
+        parser.error('--phase is a v3 route option')
+    if args.phase and not args.device:
+        parser.error('--phase requires --device for v3')
     # Configuration selection belongs to this entry point; avoid passing a second
     # configuration or acquisition switch into the protected protocol runner.
     if any(x.split('=', 1)[0] in {'--config', '--demo', '--dummy-eeg', '--real-eeg'} for x in extra):
-        parser.error('Use --protocol and --mode to select protocol and acquisition mode')
+        parser.error('Use --paradigm and --mode to select a paradigm and acquisition mode')
     try:
         path = args.config.expanduser()
         if not path.is_absolute():
@@ -65,15 +77,42 @@ def main(argv=None) -> int:
             print(json.dumps({'config': str(path.resolve()), **report}, ensure_ascii=False))
             return 0
         sys.path.insert(0, str(PROJECT_ROOT/'scripts'))
+        if args.paradigm == 'v3':
+            if args.mode:
+                parser.error('v3 has no Demo/Formal mode')
+            if args.phase and args.device:
+                from launch_emotion_v3 import launch_direct
+                return launch_direct(args.phase, args.device, extra)
+            # Older BAT invocations passed runner flags directly and did not
+            # name a phase. Preserve that contract as v3 EEG acquisition.
+            if extra and args.device:
+                from launch_emotion_v3 import launch_direct
+                return launch_direct('acquisition', args.device, extra)
+            if args.phase:
+                parser.error('Specify --device with --phase for a direct v3 route')
+            from launch_emotion_v3 import main as launch_v3
+            if args.device:
+                old_backend = os.environ.get('VIDEO_EEG_BACKEND')
+                os.environ['VIDEO_EEG_BACKEND'] = args.device
+                try:
+                    return launch_v3([])
+                finally:
+                    if old_backend is None:
+                        os.environ.pop('VIDEO_EEG_BACKEND', None)
+                    else:
+                        os.environ['VIDEO_EEG_BACKEND'] = old_backend
+            return launch_v3([])
         from launch_experiment import choose, launch
-        if args.protocol:
-            selected = (args.protocol, args.mode)
+        if args.paradigm:
+            selected = (args.paradigm, args.mode)
         elif args.run:
             selected = (config['launcher']['protocol'], config['launcher']['mode'])
         else:
             if extra:
-                parser.error('Runner arguments require --run or --protocol with --mode')
+                parser.error('Runner arguments require --run or --paradigm with --mode')
             selected = choose(default_protocol=config['launcher']['protocol'], default_mode=config['launcher']['mode'])
+        if args.device:
+            extra = ['--device-type', args.device, *extra]
         return launch(*selected, extra) if selected else 0
     except KeyboardInterrupt:
         return 130

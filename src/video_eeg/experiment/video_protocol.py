@@ -12,9 +12,18 @@ from typing import Any, Callable
 from video_eeg.devices.base import AbstractAcquirer
 from video_eeg.experiment.eeg_health import EegAcquisitionError, SampleWatchdog
 from video_eeg.storage.session_recorder import SessionRecorder
+from video_eeg.experiment.recording_contracts import EegRecorder, HealthMonitor, RecorderFactory
 from video_eeg.utils.markers import LOCAL_ONLY_EVENT_NAMES, PROTOCOL_EVENT_CODES, MarkerBackend
 
 Heartbeat = Callable[[], None] | None
+
+
+def _default_recorder_factory(acquirer, *, sfreq, n_channels, event_only):
+    recorder_class = SessionRecorder
+    if not event_only and getattr(acquirer, 'verified_neuracle', False):
+        from video_eeg.storage.neuracle_recorder import NeuracleSessionRecorder
+        recorder_class = NeuracleSessionRecorder
+    return recorder_class(acquirer, sfreq=sfreq, n_channels=n_channels, event_only=event_only)
 
 
 class EegSessionManager:
@@ -32,6 +41,8 @@ class EegSessionManager:
         record_local_eeg: bool = True,
         no_sample_timeout_sec: float = 5.0,
         startup_timeout_sec: float = 10.0,
+        recorder_factory: RecorderFactory | None = None,
+        health_monitor: HealthMonitor | None = None,
     ) -> None:
         self._acquirer = acquirer
         self._marker_backend = marker_backend
@@ -48,16 +59,9 @@ class EegSessionManager:
         self._subject_id = subject_id
         self._session_id = int(session_id)
         self._record_local_eeg = bool(record_local_eeg)
-        recorder_class = SessionRecorder
-        if record_local_eeg and getattr(acquirer, 'verified_neuracle', False):
-            from video_eeg.storage.neuracle_recorder import NeuracleSessionRecorder
-            recorder_class = NeuracleSessionRecorder
-        self._recorder = recorder_class(
-            acquirer,
-            sfreq=self._sfreq,
-            n_channels=int(acquirer.metadata.n_channels),
-            event_only=not self._record_local_eeg,
-        )
+        self._recorder: EegRecorder = (recorder_factory or _default_recorder_factory)(
+            acquirer, sfreq=self._sfreq, n_channels=int(acquirer.metadata.n_channels),
+            event_only=not self._record_local_eeg)
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
         self._session_stamp = ""
@@ -65,8 +69,8 @@ class EegSessionManager:
         self._running = False
         self._start_metadata: dict[str, Any] = {}
         self._background_error: BaseException | None = None
-        self._watchdog = SampleWatchdog(time.monotonic(), timeout=no_sample_timeout_sec,
-                                       startup_timeout=startup_timeout_sec)
+        self._watchdog: HealthMonitor = health_monitor or SampleWatchdog(
+            time.monotonic(), timeout=no_sample_timeout_sec, startup_timeout=startup_timeout_sec)
         self._health_thread = None
         self._fault_lock = threading.Lock()
         self._health_file = None
@@ -82,7 +86,7 @@ class EegSessionManager:
         return self._session_dir
 
     @property
-    def recorder(self) -> SessionRecorder:
+    def recorder(self) -> EegRecorder:
         return self._recorder
 
     @property

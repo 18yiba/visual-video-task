@@ -34,8 +34,11 @@ try {
     if ((Test-Path -LiteralPath $pythonExe) -and -not $ForceRepair) {
         & $pythonExe -c 'import sys; assert sys.version_info[:2] == (3,12)'
         if ($LASTEXITCODE -eq 0) {
-            & $pythonExe $checker --quiet
-            $healthy = ($LASTEXITCODE -eq 0)
+            & $pythonExe (Join-Path $PSScriptRoot 'check_source_environment.py')
+            if ($LASTEXITCODE -eq 0) {
+                & $pythonExe $checker --quiet
+                $healthy = ($LASTEXITCODE -eq 0)
+            }
         }
     }
     if (-not $healthy) {
@@ -85,6 +88,7 @@ try {
         Write-Host 'Existing Python 3.12 environment passed checks; reusing it.'
     }
     Run-Checked $pythonExe @((Join-Path $PSScriptRoot 'patch_pyglet_win32.py'))
+    Run-Checked $pythonExe @((Join-Path $PSScriptRoot 'check_source_environment.py'))
     Run-Checked $pythonExe @($checker)
     Run-Checked $pythonExe @((Join-Path $PSScriptRoot 'prepare_demo_materials.py'))
     Write-Host 'Environment ready. No data or materials were deleted.' -ForegroundColor Green
