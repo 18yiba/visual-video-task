@@ -5,7 +5,7 @@
 | 路径 | 当前职责 |
 |---|---|
 | `main.py` / `python -m src` / `config/` | 同一 CLI 的实验入口；`--paradigm`选择范式，TOML提供严格校验的启动默认值与私有覆盖 |
-| `run_experiment.bat` / `run_emotion_v3.bat` / `run_neuracle_v3.bat` / `run_brainco_v3.bat` / `rating_emotion_v3.bat` | 兼容BAT入口统一转发至CLI；提供v1/v2选择页、各设备v3控制台及独立评分启动入口 |
+| `RUNME.bat` / `run_experiment.bat` / `run_emotion_v3.bat` / `run_neuracle_v3.bat` / `run_brainco_v3.bat` / `rating_emotion_v3.bat` | `RUNME.bat` 是模板要求的兼容别名，只转发到 `run_experiment.bat`；其余入口提供v1/v2选择页、各设备v3控制台及独立评分启动入口 |
 | `src/video_eeg/` | 实验执行器、共享设备/Trigger 组装、EEG记录服务契约、适配器和 CLI 的唯一实现 |
 | `src/video_eeg/config/` / `video_eeg.py` | 协议资源和唯一配置副本归入源码包；根目录单文件 shim 兼容旧脚本导入，不保留根 `video_eeg/` 目录 |
 | `assets/` / `stimuli/` / `data/` | 品牌资源、已有刺激路径、私有原始记录；视频与数据不移动、不进入源码包 |
@@ -13,9 +13,9 @@
 
 Windows安装器构建源码单独维护在仓库外的`visual-video-package/`目录；范式仓库只保留调用构建流程的维护脚本，不包含Inno Setup定义、桌面启动器或安装器图标。默认构建产物放在外置目录的`artifacts/`子目录，避免打包文件混入源码发行。
 
-模板改为 source-only：`uv sync` 只安装第三方依赖，不安装本项目或生成 CLI 别名。入口统一转发到既有 `src/video_eeg.cli`。根目录 `video_eeg.py` 只承担旧导入兼容，全部实现和配置资源位于 `src/video_eeg/`，不创建第二套执行器。固定 Session、恢复状态、协议 YAML 和原始数据格式不变；TOML 只负责启动选项。
+模板改为 source-only：`uv sync` 只安装第三方依赖，不安装本项目或生成 CLI 别名。入口统一转发到既有 `src/video_eeg.cli`。根目录 `video_eeg.py` 只承担旧导入兼容，全部实现和配置资源位于 `src/video_eeg/`，不创建第二套执行器。`config/config.toml` 必须包含模板要求的 `[experiment]`、`[device]`、`[storage]` 和现有 `[launcher]`；前三个段仅记录项目身份及部署默认值，启动路由仍只读取 `[launcher]`。固定 Session、恢复状态、协议 YAML 和原始数据格式不变。
 
-`pyproject.toml` 设置 `[tool.uv] package = false`。`main.py`、`python -m src` 和既有 BAT 直接运行源码；不额外创建通用 `RUNME.bat`。项目 distribution、editable `.pth` 和控制台命令不作为运行依赖。Windows EXE 自带第三方环境与源码，不从 site-packages 复制本项目。现有 `.venv` 和 `runtime/python312` 在锁定运行环境完成验收前继续保留。
+`pyproject.toml` 设置 `[tool.uv] package = false`。`main.py`、`python -m src` 和既有 BAT 直接运行源码；模板要求的 `RUNME.bat` 仅作为 `run_experiment.bat` 的转发别名，不增加运行逻辑。项目 distribution、editable `.pth` 和控制台命令不作为运行依赖。Windows EXE 自带第三方环境与源码，不从 site-packages 复制本项目。现有 `.venv` 和 `runtime/python312` 在锁定运行环境完成验收前继续保留。
 
 安装器检查旧项目 distribution、入口别名及专属 `.pth/.egg-link`；若存在则保留旧 `.venv` 备份后重建。Windows 打包器在复制第三方 site-packages 前执行同类检查，发现旧别名即停止，避免将开发机安装路径带入可搬迁包。源码发行包由显式白名单构建，并按 `repository_layout.json` 校验必需入口和文件；DVC 本机凭据不进入发行包。
 

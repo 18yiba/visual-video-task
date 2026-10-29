@@ -34,6 +34,7 @@ class TemplateLayoutTests(unittest.TestCase):
         self.assertEqual(json.loads(module_result.stdout)['public_versions'], ['v1', 'v2'])
 
     def test_config_rejects_unknown_keys_and_unsupported_values(self):
+        valid_sections = '\n[experiment]\nproject="visual-video-task"\nidentity="EMOVID-20261008"\n[device]\nsupported=["emotivpro"]\n[storage]\nparticipant_data_root="data/sourcedata"\nmaterials="NAS"\n'
         cases = [
             'schema_version=1\n[launcher]\nprotocol="v2"\nmode="demo"\ntypo=true',
             'schema_version=1\n[launcher]\nprotocol="v3"\nmode="demo"',
@@ -43,11 +44,27 @@ class TemplateLayoutTests(unittest.TestCase):
         ]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'test.toml'
+            path.write_text('schema_version=1\n[launcher]\nprotocol="v2"\nmode="demo"' + valid_sections, encoding='utf-8')
+            self.assertEqual(cli.load_settings(path)['experiment']['identity'], 'EMOVID-20261008')
             for content in cases:
                 with self.subTest(content=content):
-                    path.write_text(content, encoding='utf-8')
+                    path.write_text(content + valid_sections, encoding='utf-8')
                     with self.assertRaises(ValueError):
                         cli.load_settings(path)
+
+    def test_config_requires_nonempty_template_sections_and_rejects_unknown_fields(self):
+        content = ('schema_version=1\n[launcher]\nprotocol="v2"\nmode="demo"\n'
+                   '[experiment]\nproject="visual-video-task"\nidentity="EMOVID-20261008"\n'
+                   '[device]\nsupported=["neuracle"]\n'
+                   '[storage]\nparticipant_data_root="data/sourcedata"\nmaterials="NAS"\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'test.toml'
+            for malformed in (content.replace('[device]\nsupported=["neuracle"]', '[device]'),
+                              content.replace('identity="EMOVID-20261008"', 'identity="AVEEG-20260923"'),
+                              content + '\n[storage.extra]\nvalue="x"'):
+                path.write_text(malformed, encoding='utf-8')
+                with self.assertRaises(ValueError):
+                    cli.load_settings(path)
 
     def test_default_launch_is_demo_and_preserves_runner_arguments(self):
         calls = []
@@ -113,7 +130,7 @@ class TemplateLayoutTests(unittest.TestCase):
         module.launch = lambda *args: calls.append(args) or 0
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'experiment.local.toml'
-            path.write_text('schema_version=1\n[launcher]\nprotocol="v1"\nmode="formal"', encoding='utf-8')
+            path.write_text((PROJECT_ROOT/'config/config.toml').read_text(encoding='utf-8').replace('protocol = "v2"', 'protocol = "v1"').replace('mode = "demo"', 'mode = "formal"'), encoding='utf-8')
             before = path.read_bytes()
             with patch.dict(sys.modules, {'launch_experiment': module}):
                 self.assertEqual(cli.main(['--config', str(path), '--run']), 0)

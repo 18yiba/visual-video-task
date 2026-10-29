@@ -4,3 +4,15 @@ schema_version = 1
 [launcher]
 protocol = "v2"
 mode = "demo"
+
+# Template-required deployment metadata; these values do not change protocol execution.
+[experiment]
+project = "visual-video-task"
+identity = "EMOVID-20261008"
+
+[device]
+supported = ["emotivpro", "neuracle", "brainco"]
+
+[storage]
+participant_data_root = "data/sourcedata"
+materials = "assets-or-configured-NAS"

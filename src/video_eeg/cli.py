@@ -14,8 +14,9 @@ from video_eeg.paths import PROJECT_ROOT
 def load_settings(path: Path) -> dict:
     with path.open('rb') as handle:
         config = tomllib.load(handle)
-    if set(config) != {'schema_version', 'launcher'}:
-        raise ValueError('TOML requires only schema_version and [launcher]')
+    required_sections = {'schema_version', 'launcher', 'experiment', 'device', 'storage'}
+    if set(config) != required_sections:
+        raise ValueError('TOML requires schema_version, [launcher], [experiment], [device] and [storage] only')
     if type(config['schema_version']) is not int or config['schema_version'] != 1:
         raise ValueError('Unsupported launcher schema_version; expected integer 1')
     settings = config['launcher']
@@ -25,6 +26,23 @@ def load_settings(path: Path) -> dict:
         raise ValueError('launcher.protocol must be v1 or v2')
     if settings['mode'] not in ('demo', 'formal'):
         raise ValueError('launcher.mode must be demo or formal')
+    section_fields = {
+        'experiment': {'project', 'identity'},
+        'device': {'supported'},
+        'storage': {'participant_data_root', 'materials'},
+    }
+    for section, fields in section_fields.items():
+        values = config[section]
+        if not isinstance(values, dict) or set(values) != fields:
+            raise ValueError(f'[{section}] requires only: {", ".join(sorted(fields))}')
+        if not all(isinstance(value, (str, list)) and value for value in values.values()):
+            raise ValueError(f'[{section}] values must be non-empty strings or lists')
+    if config['experiment']['identity'] != 'EMOVID-20261008':
+        raise ValueError('experiment.identity must be EMOVID-20261008')
+    if not isinstance(config['device']['supported'], list) or not all(
+        isinstance(device, str) for device in config['device']['supported']
+    ):
+        raise ValueError('device.supported must be a list of device names')
     return config
 
 
