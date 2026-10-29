@@ -296,7 +296,7 @@ def export_recording(directory, output, *, protocol, settings, validate=False):
                         raise b.BidsExportError('磁盘空间不足。')
                     if m.get('eeg_format') == 'EDF':
                         shutil.copyfile(eeg_path, eeg_dir/(prefix+'_eeg.edf'))
-                        step = m['edf_quantization_step_uv']
+                        step = m.get('edf_quantization_step_uv')
                     else:
                         step = write_edf(eeg_dir/(prefix+'_eeg.edf'), data, sf, profile, start, participant)
                     b.write_json(stage/'dataset_description.json', {'Name': 'Video EEG '+protocol+' recording '+rid,
@@ -328,15 +328,19 @@ def export_recording(directory, output, *, protocol, settings, validate=False):
                         trigger_value={'Description': 'Actually sent marker code only on confirmed successful external send; otherwise n/a.'},
                         source_details={'Description': 'Original event payload or behavior row, including source clocks and trigger send times.'})
                     b.write_json(eeg_dir/(prefix+'_events.json'), descriptions)
-                    b.write_tsv(eeg_dir/(prefix+'_channels.tsv'), [{'name': n, 'type': 'EEG', 'units': 'uV', 'sampling_frequency': sf} for n in profile['channel_names']], ('name', 'type', 'units', 'sampling_frequency'))
-                    b.write_json(eeg_dir/(prefix+'_eeg.json'), dict(TaskName='video'+protocol, SamplingFrequency=sf,
+                    b.write_tsv(eeg_dir/(prefix+'_channels.tsv'), b.channel_rows(profile, sf), ('name', 'type', 'units', 'sampling_frequency'))
+                    eeg_sidecar = dict(TaskName='video'+protocol, SamplingFrequency=sf,
                         PowerLineFrequency=profile['power_line_frequency'], EEGReference=profile['reference'],
                         SoftwareFilters=profile['software_filters'], Manufacturer=profile['manufacturer'],
-                        ManufacturersModelName=profile['model'], EEGChannelCount=len(profile['channel_names']),
-                        EOGChannelCount=0, ECGChannelCount=0, EMGChannelCount=0, MiscChannelCount=0, TriggerChannelCount=0,
+                        ManufacturersModelName=profile['model'], **b.channel_type_counts(profile),
                         RecordingType='continuous', RecordingDuration=data.shape[1]/sf, HardwareClockCalibrated=False,
-                        EDFQuantizationStepMicrovolts=step, SourceSampleCounterRow=profile.get('sample_counter_row'), SourceClockBasis=clock,
-                        SourceProfileConfirmation=profile['confirmation']))
+                        SourceSampleCounterRow=profile.get('sample_counter_row'), SourceClockBasis=clock,
+                        SourceProfileConfirmation=profile['confirmation'])
+                    if step is not None:
+                        eeg_sidecar['EDFQuantizationStepMicrovolts'] = step
+                    if m.get('edf_quantization_details'):
+                        eeg_sidecar['SourceEDFQuantizationDetails'] = m['edf_quantization_details']
+                    b.write_json(eeg_dir/(prefix+'_eeg.json'), eeg_sidecar)
                     (stage/'README').write_text('One continuous recording per package. Native NPY, event JSON and recovery state remain outside this package.\nEDF uses 16-bit quantization at the confirmed physical ranges; no resampling, padding or clipping.\nNo EEG quality pass, usable duration or platform import success is asserted.\nSelect the correct paradigm manually in EEGQC; paradigm_code auto-detection is not yet supported by the specified client.\nSpecification: '+SPEC_URL+'\n', encoding='utf-8')
                     if any(b.digest(p) != hashes[p.name] for p in (meta_path, eeg_path, event_path)) or selected_tables(directory, m, events, part, protocol) != tables:
                         raise b.BidsExportError('导出期间原记录发生变化，未封存。')

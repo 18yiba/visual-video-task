@@ -106,8 +106,17 @@ def safe_details(row):
 
 def profile_for(metadata, source_rows, profile=None):
     if metadata.get('eeg_format') == 'EDF':
-        from video_eeg.storage.native_edf import REVISION, CHANNEL_NAMES
         native = metadata.get('native_edf_profile', {})
+        if (metadata.get('device_type') == 'neuracle' and
+                native.get('revision') == 'neuracle-forwarded-edf-v1'):
+            names = native.get('channel_names') or []
+            types = native.get('channel_types') or []
+            units = native.get('channel_units') or []
+            if (len(names) != source_rows or len(types) != source_rows or len(units) != source_rows or
+                    len(set(names)) != source_rows or not native.get('trigger_channel_index') == source_rows-1):
+                raise BidsExportError('Neuracle EDF channel contract is incomplete or inconsistent.')
+            return dict(native, sample_counter_row=None, unit='n/a', model=native.get('model') or 'unknown')
+        from video_eeg.storage.native_edf import REVISION, CHANNEL_NAMES
         if (metadata.get('device_type') not in {'brainco', 'brainco_lsl'} or source_rows != 32 or
                 native.get('revision') != REVISION or native.get('channel_names') != list(CHANNEL_NAMES)):
             raise BidsExportError('Native EDF device/channel contract mismatch.')
@@ -126,10 +135,40 @@ def profile_for(metadata, source_rows, profile=None):
     return profile
 
 
+def channel_rows(profile, sfreq):
+    names = profile['channel_names']
+    types = list(profile.get('channel_types') or ['EEG'] * len(names))
+    units = list(profile.get('channel_units') or [profile.get('unit', 'uV')] * len(names))
+    rates = list(profile.get('channel_sampling_rates_hz') or [sfreq] * len(names))
+    if not (len(types) == len(units) == len(rates) == len(names)):
+        raise BidsExportError('通道类型、单位或采样率与EDF通道数不匹配。')
+    known_types = {'EEG', 'EOG', 'ECG', 'EMG', 'TRIG', 'MISC', 'RESP', 'SEEG', 'ECOG', 'DBS', 'BIO', 'MEG'}
+    rows = []
+    trigger_index = profile.get('trigger_channel_index')
+    for index, (name, kind, unit, rate) in enumerate(zip(names, types, units, rates)):
+        if index == trigger_index:
+            kind = 'TRIG'
+        kind = str(kind).upper()
+        rows.append(dict(name=name, type=kind if kind in known_types else 'MISC',
+                         units=unit or 'n/a', sampling_frequency=rate or sfreq))
+    return rows
+
+
+def channel_type_counts(profile):
+    rows = channel_rows(profile, 1)
+    types = [row['type'] for row in rows]
+    return dict(EEGChannelCount=types.count('EEG'), EOGChannelCount=types.count('EOG'),
+                ECGChannelCount=types.count('ECG'), EMGChannelCount=types.count('EMG'),
+                MiscChannelCount=types.count('MISC'), TriggerChannelCount=types.count('TRIG'))
+
+
 def load_signal(path, metadata):
     if metadata.get('eeg_format') == 'EDF':
         if path.suffix.lower() != '.edf':
             raise BidsExportError('EDF metadata requires an EDF source file.')
+        if metadata.get('device_type') == 'neuracle':
+            from video_eeg.storage.neuracle_edf import read_edf
+            return read_edf(path, metadata)
         from video_eeg.storage.native_edf import read_edf
         return read_edf(path, metadata)
     return np.load(path, mmap_mode='r', allow_pickle=False)
@@ -476,11 +515,11 @@ def export_recording(directory, output, *, protocol, profile=None):
                                         source_table={'Description': 'events.json or original behavior CSV name; summary rows can be redundant views, not additional trials.'},
                                         trial_type={'Description': 'Original event name; behavior_summary marks a source behavior row.'})
                     write_json(stage/(prefix+'_events.json'), descriptions)
-                    write_tsv(stage/(prefix+'_channels.tsv'), [{'name': name, 'type': 'EEG', 'units': 'uV', 'sampling_frequency': sf} for name in p['channel_names']], ('name','type','units','sampling_frequency'))
+                    write_tsv(stage/(prefix+'_channels.tsv'), channel_rows(p, sf), ('name','type','units','sampling_frequency'))
                     write_json(stage/(prefix+'_eeg.json'), {'TaskName': 'video'+protocol, 'SamplingFrequency': sf,
                         'PowerLineFrequency': p['power_line_frequency'], 'EEGReference': p['reference'],
                         'SoftwareFilters': p.get('software_filters', 'n/a'), 'Manufacturer': p['manufacturer'],
-                        'EEGChannelCount': len(p['channel_names']), 'RecordingType': 'continuous',
+                        **channel_type_counts(p), 'RecordingType': 'continuous',
                         'RecordingDuration': data.shape[1]/sf, 'SourceSampleCounterRow': p.get('sample_counter_row'),
                         'SourceProtocol': m.get('protocol_version') or protocol, 'SourceSessionNumber': session,
                         'SourceTerminationReason': m.get('termination_reason', 'n/a'),

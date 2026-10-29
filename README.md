@@ -2,9 +2,9 @@
 
 # visual-video-task：视频EEG采集与情绪评分
 
-最新源码版本为 **v0.3.5**，分支名为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)。该分支包含模板约束对齐和 v3 强脑 SDK 源码入口；目前尚未发布对应的 Windows 安装包。已发布的 Windows 安装包仍为 v0.3.4。
+最新源码版本为 **v0.3.6**，分支名为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)。该分支包含模板约束对齐、Neuracle 原生 EDF 保存、v3 强脑 SDK 与独立行为评分图形入口。已发布的 Windows 安装包仍为 v0.3.4；v0.3.6 安装包构建完成后再单独发布。
 
-源码现提供三种 v3 BAT 入口：`run_emotion_v3.bat`（EMOTIV）、`run_neuracle_v3.bat`（博睿康 Collect TCP）和 `run_brainco_v3.bat`（强脑 SDK）。Windows v0.3.4 EXE仍保留原有两个开始菜单入口。
+源码现提供三种设备 v3 BAT 入口：`run_emotion_v3.bat`（EMOTIV）、`run_neuracle_v3.bat`（博睿康 Collect TCP）和 `run_brainco_v3.bat`（强脑 SDK），另有独立评分入口 `rating_emotion_v3.bat`。评分图形窗口在同一页选择采集设备、视频范围、被试和Session，并显示可评分进度；评分时不连接 EEG。Windows v0.3.6 安装版为 EMOTIV 和博睿康各提供行为评分开始菜单入口。
 
 Windows v0.3.4修复首次设置时桌面位于D盘、用户目录位于C盘的启动错误；数据可保存在任一本机固定磁盘，NAS仅用于读取材料。已有安装版保存退出后覆盖安装，无需移动桌面或删除数据。
 
@@ -25,6 +25,8 @@ NAS材料设置：在设备控制台点击“视频材料位置（本机 / NAS�
 已知设备问题：部分真实设备返回`Unexpected BrainCo channel layout: (96, 33)`。这表示SDK已返回数据，但当前程序不接受该33列布局，不等同于Wi-Fi完全未连接。额外字段的位置及含义尚未确认，**v0.3.4仍未修复此问题**；不能直接删除一列或改成33个EEG通道后正式采集。请先完成下方诊断与真实设备验收。
 
 ## v0.3.4安装版与源码：情绪视频面部录像
+
+源码 v3 控制台除 EEG 阶段选择外，另有独立的“开始行为评分”按钮。评分不需要检测设备；控制台仍会检查该被试、Session和视频范围下已保存的EEG及待评分内容。
 
 先按[源码安装](#源码安装与开始运行)准备实验环境，再双击 `run_emotion_v3.bat`。连接名称为 `UGREEN Camera 4K` 的摄像头，在 Windows 隐私设置中允许桌面应用访问摄像头，并关闭占用该设备的其他程序；选择“EEG采集”后，情绪视频会自动录像，无需单独开启录制。v3“全部视频”和“仅情绪视频”均支持；普通视频、独立行为评分重播及 v1/v2 不录制。
 
@@ -62,7 +64,7 @@ NAS材料设置：在设备控制台点击“视频材料位置（本机 / NAS�
 
 安装版程序默认安装到`%LOCALAPPDATA%/Programs/VisualVideoTask`，本机设置和日志位于`%LOCALAPPDATA%/VisualVideoTask`。数据根以首次绑定为准，本实验室常用`Desktop/video/data/sourcedata`；源码v3默认使用项目的`data/sourcedata/v3`，强脑 SDK 使用独立的 `v3_brainco` 数据根。全部视频、仅情绪模式和采集设备进度独立，v1/v2/v3之间不能换协议续跑。
 
-新BrainCo记录按CH01→CH32保存32导原生EDF（含CH29=IO），单位µV、范围±375000 µV、高通0.16 Hz、参考FCz、BIAS AFz；低通/陷波未知，不额外施加滤波。原始EDF、事件、行为CSV和`session_state.json`是恢复依据，必须整目录备份；历史NPY与答案不转换。详情见[数据与恢复](docs/operations/EEG_AND_RECOVERY.md)。
+新BrainCo记录按CH01→CH32保存32导原生EDF（含CH29=IO），单位µV、范围±375000 µV、高通0.16 Hz、参考FCz、BIAS AFz；低通/陷波未知，不额外施加滤波。Neuracle新记录也保存EDF，保留SDK转发通道顺序和TRG；未核实的单位/参考/滤波不作推断。原始EEG、事件、行为CSV和`session_state.json`是恢复依据，必须整目录备份；历史NPY与答案不转换。详情见[数据与恢复](docs/operations/EEG_AND_RECOVERY.md)。
 
 原始保存完成后另建EEGQC单记录EDF/BIDS副本，使用稳定UUID和官方离线Deno校验；失败可重试，不替代原始记录。行为评分不修改此前封存的EEG包，人工评分、上传及入库由EEGQC完成。详见[交接操作](docs/operations/EEGQC_HANDOFF.md)与[BIDS边界](docs/operations/BIDS_EXPORT.md)。
 
@@ -207,6 +209,7 @@ visual-video-task/
   run_emotion_v3.bat                 v3 EMOTIV入口
   run_neuracle_v3.bat                v3 博睿康 Collect TCP入口
   run_brainco_v3.bat                 v3 强脑 SDK入口
+  rating_emotion_v3.bat              v3 独立行为评分入口
   install_lab_env_uv.bat              首次环境安装入口，不是实验入口
   download_materials.bat              下载普通视频母库，不下载情绪库
   README.md                          本完整操作指南
@@ -363,7 +366,7 @@ storage:
 | emotion_rating_log.csv | 情绪效价和唤醒，保留协议及量尺上下限 |
 | rest_log.csv | 休息的开始、选择和时长 |
 | YYYYMMDD_HHMMSS/ | 一次EEG采集的启动时间目录，不是结束时间 |
-| continuous_eeg.edf / continuous_eeg.npy | 当前源码BrainCo新记录为32导EDF；历史NPY保持原样；分段名称带part编号 |
+| continuous_eeg.edf / continuous_eeg.npy | 当前源码BrainCo及Neuracle新记录为EDF；历史NPY保持原样；分段名称带part编号 |
 | events.json | 事件时间、样本索引、marker发送状态 |
 | metadata.json / eeg_segments.json | 采集设备、采样率、分段、退出原因 |
 | eeg_health_part_001.jsonl | 约每秒的样本增长与无数据时长记录 |
@@ -627,7 +630,7 @@ demo_mode: false
 
 | 你看到的情况 | 现在按什么顺序做 | 什么时候可以继续 |
 |---|---|---|
-| 原始数据已保存，但提示 **BIDS导出未完成** | ①不要删除数据或重做实验。②记下原因。③确认本机空间足够，打开开始菜单“视频EEG导出与检查BIDS”，选原协议与已保存的被试/Session重试。详见[BIDS故障表](docs/operations/BIDS_EXPORT.md#检查结果怎么处理) | 原始NPY、行为表和续跑进度照常保留；BIDS失败不等于采集没保存 |
+| 原始数据已保存，但提示 **BIDS导出未完成** | ①不要删除数据或重做实验。②记下原因。③确认本机空间足够，打开开始菜单“视频EEG导出与检查BIDS”，选原协议与已保存的被试/Session重试。详见[BIDS故障表](docs/operations/BIDS_EXPORT.md#检查结果怎么处理) | 原始EEG（EDF或历史NPY）、行为表和续跑进度照常保留；BIDS失败不等于采集没保存 |
 | BIDS校验 **0个错误、有警告** | ①打开BIDS目录的code/validation_report.json。②作者、许可、设备型号/电极位置等推荐项据实补充。③查看code/exports中的质量标记，不能忽略断流 | 格式通过与信号质量是两件事，不以转换成功判断所有数据有效 |
 | **视频看完后报“视频未能完整解码”**，尤其Session3的neutral_neutral_0833_00000235.mp4 | ①按空格退出，等“数据已保存”后关闭。②备份整个被试目录。③把**1.0.3安装包复制到电脑本机**后更新，不用卸载/重迁移。④原编号、v2、原Session续跑。具体已修文件见[片尾清单](docs/operations/VIDEO_EOF_AUDIT.md) | 主试先独立测试能正常到评分页，再恢复被试采集；不要反复用被试排查 |
 | **Session20/24/33提示材料已知不完整**，文件分别为6076/2693/6241.mp4 | ①保存退出并确认备份。②关闭程序后安装1.0.3。③原编号、v2、原Session续跑。新版自动排除三条；不用手删MP4或进度，不用重下旧材料包 | 主试独立验证后恢复；若1.0.3仍提示这三条，核对EXE版本并保留日志 |

@@ -22,6 +22,7 @@
 
 - Native recording/behavior/state remain the recovery contract. BIDS is an independent post-save copy; never substitute it for session_state or overwrite source records.
 - Exporter src/video_eeg/utils/bids_export.py (formerly video_eeg/utils/bids_export.py) uses the lab-confirmed BrainCo 31 EEG + first counter row, uV, IO profile; do not reuse device assumptions for another device. Preserve protocol/part identity, behavior fields and missing-EEG timing flags.
+- New local Neuracle recordings are EDF, retaining the forwarded channel order and TRG row; mark unverified units/reference/filter metadata as unknown. Historical Neuracle NPY remains readable and untouched.
 - Offline official validator must be bundled with Deno; validate all TSV rows, without network. Passing BIDS structure validation does not certify signal quality or real hardware.
 - README and docs/operations/BIDS_EXPORT.md describe automatic export, manual retry, old records and source/BIDS directory boundaries.
 

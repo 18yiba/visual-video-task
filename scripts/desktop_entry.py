@@ -175,7 +175,7 @@ def export_eegqc_dialog(settings):
     else:W.QMessageBox.information(None,'EEGQC交接包导出完成',message)
     return 1 if errors else 0
 
-def launch_v3(settings=None, *, smoke=False):
+def launch_v3(settings=None, *, smoke=False, rating_only=False):
     import launch_emotion_v3 as front
     if settings is not None:
         import yaml
@@ -195,6 +195,9 @@ def launch_v3(settings=None, *, smoke=False):
         os.environ['VIDEO_EEG_V3_CONFIG']=str(config_path)
     else:
         os.environ.pop('VIDEO_EEG_V3_CONFIG',None)
+    if rating_only:
+        from rating_emotion_v3 import main as launch_rating
+        return launch_rating()
     window=front.make_window()
     if smoke:
         from importlib import import_module
@@ -214,7 +217,7 @@ def launch_v3(settings=None, *, smoke=False):
     return window.exec()
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--self-test',action='store_true');p.add_argument('--smoke',choices=['v1','v2','disconnect']);p.add_argument('--settings',action='store_true')
+    p=argparse.ArgumentParser();p.add_argument('--self-test',action='store_true');p.add_argument('--smoke',choices=['v1','v2','disconnect']);p.add_argument('--settings',action='store_true');p.add_argument('--ratings',action='store_true',help='Open the v3 behavior-rating entry without EEG')
     p.add_argument('--eegqc-export',action='store_true');p.add_argument('--bids-export',dest='eegqc_export',action='store_true');p.add_argument('--audit',action='store_true');p.add_argument('--archive-caches',action='store_true');p.add_argument('--drive-report',nargs='?',const='ASK')
     p.add_argument('--legacy',action='store_true',help='Open the preserved v1/v2 launcher')
     p.add_argument('--device',choices=['emotivpro','neuracle'],default='emotivpro',help='Select the v3 device entry')
@@ -272,7 +275,7 @@ def main():
         report=dependency_report(settings,USER,ROOT)
         qt().QMessageBox.information(None,'文件盘点',message+'\n'+str(report));os.startfile(report);return 0
     if not args.legacy:
-        return launch_v3(settings)
+        return launch_v3(settings,rating_only=args.ratings)
     selected=launcher.choose(default_protocol='v1' if settings.get('legacy_snapshot') else 'v2',paths_hint='普通视频：'+settings['ordinary_root']+'\n新数据根目录：'+settings['data_root'])
     if not selected:return 0
     protocol,mode=selected

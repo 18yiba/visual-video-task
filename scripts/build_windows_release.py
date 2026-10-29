@@ -100,7 +100,7 @@ def main():
         if tracked.returncode or hashlib.sha256(tracked.stdout).hexdigest()!=row['sha256']:
             raise RuntimeError('Source differs from committed release: '+relative)
     (target/'BUNDLE_MANIFEST.json').write_text(json.dumps({'version':version,'source_commit':commit,
-        'device_entries':['emotivpro','neuracle'],'files':files},indent=2),encoding='utf-8')
+        'device_entries':['emotivpro','neuracle'],'rating_entries':['emotivpro','neuracle'],'files':files},indent=2),encoding='utf-8')
     import os
     check_env=os.environ.copy();check_env['VIDEO_EEG_USER_DIR']=str(output/'verification/user')
     subprocess.run([str(target/'VisualVideoTask.exe'),'--self-test'],check=True,env=check_env)

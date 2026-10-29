@@ -15,7 +15,7 @@ FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'lab_uv_env.toml',
          'requirements-psychopy.txt', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md',
          'assets/brand/company_logo.png', 'main.py', 'video_eeg.py', 'data/README.md')
 PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/sourcedata/.gitkeep')
-ROOT_BATS = ('run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat', 'run_experiment.bat',
+ROOT_BATS = ('run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat', 'rating_emotion_v3.bat', 'run_experiment.bat',
              'install_lab_env_uv.bat', 'download_materials.bat', 'setup_virtual_serial.bat', 'check_virtual_serial.bat')
 # Superseded deployment/history documents remain local; the current operator manual replaces them.
 EXCLUDED = {'docs/CHANGELOG_LAB_ENV.md', 'docs/ENVIRONMENT_SETUP.md',

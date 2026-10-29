@@ -96,6 +96,28 @@ class SessionRecorder:
         return self._metadata_filename
 
     @property
+    def _uses_edf(self) -> bool:
+        return self._native_edf
+
+    def _edf_identity_metadata(self) -> dict[str, Any]:
+        if not self._native_edf:
+            return {}
+        from video_eeg.storage.native_edf import profile
+        return dict(eeg_format='EDF', native_edf_profile=profile(), sfreq=self._sfreq,
+                    n_channels=self._n_channels, simulated_eeg=self._source_name == 'dummy')
+
+    def _write_edf(self, path: Path, data: np.ndarray) -> dict[str, Any]:
+        from video_eeg.storage.native_edf import write_edf
+        return write_edf(path, data, self._sfreq, self._recording_started_at,
+                         simulated=self._source_name == 'dummy')
+
+    def _edf_export_metadata(self, quantization: dict[str, Any]) -> dict[str, Any]:
+        from video_eeg.storage.native_edf import profile
+        return dict(eeg_format='EDF', native_edf_profile=profile(),
+                    edf_quantization_step_uv=quantization,
+                    simulated_eeg=self._source_name == 'dummy')
+
+    @property
     def elapsed_sec(self) -> float:
         """Monotonic seconds since this recording part/session started."""
 
@@ -139,17 +161,14 @@ class SessionRecorder:
         self._eeg_filename, self._events_filename, self._metadata_filename = self._part_filenames(
             self._part_index
         )
-        if self._native_edf:
+        if self._uses_edf:
             import edfio  # Fail before recording if the required writer is unavailable.
             self._eeg_filename = self._eeg_filename.replace('.npy', '.edf')
         self._recording_started_at = datetime.now().astimezone().isoformat()
         identity = output_dir / f"recording_identity_part_{self._part_index:03d}.json"
         identity_metadata = {}
-        if self._native_edf:
-            from video_eeg.storage.native_edf import profile
-            identity_metadata = dict(eeg_format='EDF', native_edf_profile=profile(),
-                                     sfreq=self._sfreq, n_channels=self._n_channels,
-                                     simulated_eeg=self._source_name == 'dummy')
+        if self._uses_edf:
+            identity_metadata = self._edf_identity_metadata()
         with identity.open("x", encoding="utf-8") as handle:
             json.dump({"recording_uuid": self._recording_uuid,
                        "recording_started_at": self._recording_started_at,
@@ -205,14 +224,13 @@ class SessionRecorder:
         quantization = None
         if self._event_only:
             pass
-        elif self._native_edf and self._sample_count == 0:
+        elif self._uses_edf and self._sample_count == 0:
             # No fake signal or padded EDF on a startup failure.
             self._eeg_filename = ''
             quantization = {}
             if self._spool_path is not None:
                 self._spool_path.unlink(missing_ok=True)
-        elif self._native_edf:
-            from video_eeg.storage.native_edf import write_edf
+        elif self._uses_edf:
             raw = None
             if self._spool_path is not None and self._spool_path.exists() and self._sample_count:
                 raw = np.memmap(self._spool_path, dtype=np.float32, mode='r',
@@ -223,8 +241,7 @@ class SessionRecorder:
                         np.empty((self._n_channels, 0), dtype=np.float32))
             writing_path = output_dir / f'.{self._eeg_filename}.{uuid4().hex}.writing'
             try:
-                quantization = write_edf(writing_path, data, self._sfreq, self._recording_started_at,
-                                        simulated=self._source_name == 'dummy')
+                quantization = self._write_edf(writing_path, data)
                 if eeg_path.exists():
                     raise FileExistsError(f'Refusing to overwrite existing EEG file: {eeg_path}')
                 os.rename(writing_path, eeg_path)
@@ -270,11 +287,8 @@ class SessionRecorder:
         with (output_dir / self._events_filename).open("x", encoding="utf-8") as handle:
             json.dump([asdict(event) for event in self._events], handle, ensure_ascii=False, indent=2)
         segment_metadata = dict(metadata)
-        if self._native_edf:
-            from video_eeg.storage.native_edf import profile
-            segment_metadata.update(eeg_format='EDF', native_edf_profile=profile(),
-                                    edf_quantization_step_uv=quantization,
-                                    simulated_eeg=self._source_name == 'dummy')
+        if self._uses_edf:
+            segment_metadata.update(self._edf_export_metadata(quantization))
         from video_eeg.paths import PROJECT_ROOT
         project_file = PROJECT_ROOT/'pyproject.toml'
         software_version = 'unknown'
