@@ -125,7 +125,7 @@ def test_fault_saves_part_and_stops_all_subsequent_markers(tmp_path):
     manager.emit('video_off', completed=False)
     assert port.read(10) == bytes([101, 132])
     manager.stop_and_export()
-    meta = json.loads((tmp_path/'metadata.json').read_text())
+    meta = json.loads((tmp_path/'metadata.json').read_text(encoding='utf-8'))
     assert meta['background_error']
     assert meta['external_environment_guard']['error']['code'] == 'receiver_missing'
     assert meta['local_eeg_recorded'] is False

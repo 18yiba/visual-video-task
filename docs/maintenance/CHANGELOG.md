@@ -1,3 +1,9 @@
+## 2026-10-29 / v0.3.7：模板校验兼容修正
+
+- 新增模板要求的`RUNME.bat`兼容别名（仅转发至既有`run_experiment.bat`），并在TOML补齐`[experiment]`、`[device]`、`[storage]`部署说明段；CLI继续仅按`[launcher]`路由。
+- 同步模板必需文件清单、源码发行白名单、README及部署维护说明；为Windows测试显式使用UTF-8读取程序生成的JSON。
+- 验证：完整tests/回归348 passed、5 skipped、12 subtests passed；`uv lock --check`通过。未改实验运行逻辑、协议标识、素材或记录。
+
 ## 2026-10-29 / v0.3.6：Neuracle EDF与v3独立评分入口
 
 - Neuracle新采集段保存为原生EDF，保留转发通道顺序和TRG并回读核验；历史NPY不转换。BIDS/EEGQC可读取EDF，未知单位、参考和滤波保持未核实状态。
@@ -51,7 +57,7 @@
 - 安装器和 Windows 打包器检查旧项目 distribution、console entry point 及专属 `.pth/.egg-link`；安装器沿用备份后修复，打包器拒绝复制旧别名。源码发行清单、必需文件、DVC 与维护文档同步更新。
 - 验证：完整pytest 329项通过、5项跳过、12个子测试通过；source-only入口、235文件发行包、锁文件及隔离test依赖检查通过。v1/v2真实PsychoPy窗口模拟EEG均完成并写盘。现有实验`.venv`的`pip check`仍报告6项PsychoPy元数据版本约束差异，因此没有在其上执行uv sync；模拟不代表真实设备验收。
 - 96个受保护协议配置、运行源码及历史`session_state.json`哈希无变化；未重建实验环境或改动历史记录。
-- 按维护者确认，不新增通用`RUNME.bat`；源码发行与结构清单沿用现有`run_emotion_v3.bat`、`run_neuracle_v3.bat`设备入口，并保留v1/v2入口。
+- 按当前模板校验要求新增`RUNME.bat`兼容别名，仅转发至既有`run_experiment.bat`；补齐启动TOML模板必需的`[experiment]`、`[device]`、`[storage]`段，实验路由仍只读取`[launcher]`。
 - 统一CLI显式支持v1/v2协议与Demo/正式模式、EEG设备选择，以及v3采集/行为评分阶段和EMOTIVPRO/Neuracle设备路由；v3直达路由复用原控制台的设备配置。现有三个BAT文件保留并转发到`main.py`，v3旧式运行参数继续默认进入采集阶段。
 - 将采集设备与Trigger构造抽到共享 `experiment/acquisition.py`；通过 `recording_contracts.py` 为EEG记录、健康监测与导出封存定义可注入接口，EegSessionManager继续统一负责运行时记录。runner 的默认/Demo配置和配置变换改为显式参数，各版本入口不再临时替换执行器全局配置。协议流程、数据与封存文件格式未改。
 - 架构回归：pytest 333项通过、5项跳过、12个子测试通过；v1/v2真实PsychoPy窗口中的Dummy EEG均写盘并完成状态保存；236文件source-only发行包及隔离包入口校验通过。没有进行真实EEG硬件验收。

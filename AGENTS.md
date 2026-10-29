@@ -29,7 +29,7 @@
 ## Template source layout
 
 - Runtime implementation and protocol resources live in src/video_eeg, including src/video_eeg/config. Root video_eeg.py is a compatibility package shim for existing source imports; do not recreate a root video_eeg/ directory. Keep configuration resource bytes unchanged. Persisted video_eeg/config/... references remain valid through resolve_project_path; new source/documentation paths use src/video_eeg/config/.
-- main.py uses config/config.toml for launcher defaults only. Reject unknown TOML fields. Keep local overrides out of Git and source releases; retain v3 and device-specific independent entries.
+- main.py uses config/config.toml for launcher defaults only. Require the template's [experiment], [device] and [storage] metadata sections, but do not use them to change runtime routing. Reject unknown TOML fields. Keep local overrides out of Git and source releases; retain v3 and device-specific independent entries. RUNME.bat is a required compatibility alias that only forwards to run_experiment.bat.
 - docs/README.md, docs/deploy.md, docs/data-format.md and data/README.md explain deployment and data boundaries. data/README.md is source documentation, not an output placeholder.
 - The project is source-only: keep `pyproject.toml` at `package = false`; do not build/install this project, create console aliases, or restore editable-install instructions. `uv.lock` locks tooling and candidate dependency groups; do not sync the existing lab environment until the runtime set passes dependency and real-window acceptance.
 - `metadata.toml` identifies this project as `EMOVID-20261008` for assets and archive prefixes only. Never rewrite persisted protocol identifiers, snapshots, or subject data paths to match it.

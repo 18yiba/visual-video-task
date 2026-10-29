@@ -36,7 +36,7 @@ def test_serial_failure_is_sticky_and_not_claimed_received(tmp_path):
     with pytest.raises(RuntimeError):
         b.send_event('video_off')
     b.close()
-    rows = [json.loads(x) for x in (tmp_path/b.receipt_filename).read_text().splitlines()]
+    rows = [json.loads(x) for x in (tmp_path/b.receipt_filename).read_text(encoding='utf-8').splitlines()]
     assert len(rows) == 1 and rows[0]['status'] == 'failed'
     assert rows[0]['emotivpro_received'] is None
     assert b.recording_metadata()['serial_write_error']
@@ -119,7 +119,7 @@ def test_first_marker_failure_saves_external_metadata(tmp_path):
         subject_id='TEST', session_id=3, record_local_eeg=False)
     with pytest.raises(RuntimeError):
         m.start(output_dir=tmp_path, metadata={'operator_confirmed_recording':True})
-    metadata = json.loads((tmp_path/'metadata.json').read_text())
+    metadata = json.loads((tmp_path/'metadata.json').read_text(encoding='utf-8'))
     assert metadata['sfreq'] is None
     assert metadata['n_channels'] is None
     assert metadata['eeg_recording_mode'] == 'emotivpro_external'
@@ -206,7 +206,7 @@ def test_disconnected_serial_is_detected_without_sending_a_marker(tmp_path):
     with pytest.raises(RuntimeError, match='串口'):
         m.raise_if_background_failed()
     m.stop_and_export()
-    assert json.loads((tmp_path/'metadata.json').read_text())['serial_write_error']
+    assert json.loads((tmp_path/'metadata.json').read_text(encoding='utf-8'))['serial_write_error']
 
 
 def test_driver_removal_latches_error_without_writing():

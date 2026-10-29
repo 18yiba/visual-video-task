@@ -75,7 +75,7 @@ def test_interruption_timestamps_and_clock_mapping(tmp_path):
     lines = r.path.with_suffix('.timestamps.csv').read_text().splitlines()
     assert len(lines) == 92
     assert lines[1].endswith(',-0.5')
-    log = json.loads((tmp_path/'facial_recording_log.jsonl').read_text())
+    log = json.loads((tmp_path/'facial_recording_log.jsonl').read_text(encoding='utf-8'))
     assert log['status'] == 'interrupted'
     assert log['events']['video_on']['sample_index'] == 100
     assert set(log['clock_mapping']) == {'monotonic_sec', 'timestamp_unix_sec'}
@@ -133,5 +133,5 @@ def test_failed_length_keeps_video_and_timestamps(tmp_path):
         r.finish(complete=True, material_duration=4)
     assert r.path.read_bytes() == b'preserved recording'
     assert r.path.with_suffix('.timestamps.csv').is_file()
-    row = json.loads((tmp_path/'facial_recording_log.jsonl').read_text())
+    row = json.loads((tmp_path/'facial_recording_log.jsonl').read_text(encoding='utf-8'))
     assert row['status'] == 'failed'

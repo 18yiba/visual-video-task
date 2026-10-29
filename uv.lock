@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = "==3.12.*"
 resolution-markers = [
     "sys_platform == 'win32'",
@@ -1893,7 +1893,6 @@ dependencies = [
     { name = "arabic-reshaper" },
     { name = "astunparse" },
     { name = "beautifulsoup4" },
-    { name = "distro", marker = "python_version < '0'" },
     { name = "esprima" },
     { name = "ffpyplayer" },
     { name = "freetype-py" },
@@ -1935,7 +1934,6 @@ dependencies = [
     { name = "ujson" },
     { name = "websockets" },
     { name = "xmlschema" },
-    { name = "zeroconf", marker = "python_version < '0'" },
     { name = "zope-event" },
     { name = "zope-interface" },
 ]
@@ -2716,7 +2714,7 @@ wheels = [
 
 [[package]]
 name = "video-eeg"
-version = "0.3.6"
+version = "0.3.7"
 source = { virtual = "." }
 
 [package.dev-dependencies]

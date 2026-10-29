@@ -33,7 +33,7 @@ v3 控制台提供独立的“开始行为评分”按钮；也可双击 `rating
 
 ## 本机启动配置
 
-复制 `config/config.toml` 为 `config/experiment.local.toml`，修改 `launcher.protocol` 和 `launcher.mode`。使用 `python main.py --config config/experiment.local.toml --validate` 校验。去掉 `--validate` 打开选择页，加 `--run` 按该配置直接启动。相对配置路径从项目根解析；本机文件不进入 Git 或源码发行包。
+复制 `config/config.toml` 为 `config/experiment.local.toml`，仅修改 `launcher.protocol` 和 `launcher.mode`。`[experiment]`、`[device]`、`[storage]` 是模板要求的部署元数据，不能替代启动路由设置。使用 `python main.py --config config/experiment.local.toml --validate` 校验。去掉 `--validate` 打开选择页，加 `--run` 按该配置直接启动。相对配置路径从项目根解析；本机文件不进入 Git 或源码发行包。
 
 已有实验参数仍由原 YAML 管理；不要将固定清单、题库或历史快照改写成模板示例。默认启动模式为 Demo；正式采集需选择正式模式、准备真实材料并完成设备验收。
 

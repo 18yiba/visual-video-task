@@ -149,6 +149,7 @@
       "pyproject.toml",
       "uv.lock",
       "main.py",
+      "RUNME.bat",
       "run_emotion_v3.bat",
       "run_neuracle_v3.bat",
       "run_brainco_v3.bat",
