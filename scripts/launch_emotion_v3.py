@@ -78,6 +78,12 @@ def launch_direct(phase, device, extra=None):
             os.environ['VIDEO_EEG_BACKEND'] = old_backend
 
 
+def launch_behavior_rating(window):
+    """Expose ratings as a direct console action while reusing the validated route."""
+    window.stage.setCurrentIndex(1)
+    window.launch()
+
+
 def make_window():
     from psychopy.gui import qtgui
     qtgui.ensureQtApp()
@@ -163,6 +169,8 @@ def make_window():
             self.refresh = W.QPushButton('刷新进度')
             self.start = W.QPushButton('开始实验')
             self.start.setObjectName('primary')
+            self.rate = W.QPushButton('开始行为评分')
+            self.rate.setToolTip('直接进入独立行为评分；不连接或采集 EEG。')
             controls.addWidget(self.detect)
             self.register_eeg = W.QPushButton('登记已导出的 EmotivPRO EEG')
             controls.addWidget(self.register_eeg)
@@ -170,7 +178,7 @@ def make_window():
             self.register_eeg.clicked.connect(self.confirm_external_eeg)
             self.device_status = W.QLabel('尚未选择发送端；脑电请在 EmotivPRO 检查。'); self.device_status.setWordWrap(True)
             self.device_status.setObjectName('device'); controls.addWidget(self.device_status)
-            controls.addStretch(); controls.addWidget(self.start)
+            controls.addStretch(); controls.addWidget(self.start); controls.addWidget(self.rate)
             body.addWidget(setup)
             progress_card = W.QFrame(); progress_card.setObjectName('card')
             progress_layout = W.QVBoxLayout(progress_card); progress_layout.setContentsMargins(22, 22, 22, 18); progress_layout.setSpacing(14)
@@ -216,6 +224,7 @@ def make_window():
             self.detect.clicked.connect(self.check_connection)
             self.refresh.clicked.connect(self.check_progress)
             self.start.clicked.connect(self.launch)
+            self.rate.clicked.connect(lambda: launch_behavior_rating(self))
             self.stage.currentIndexChanged.connect(self.changed_stage)
             self.scope.currentIndexChanged.connect(self.check_progress)
             self.subject.editingFinished.connect(self.check_progress)
@@ -225,7 +234,7 @@ def make_window():
 
         def locked(self, value):
             self.materials.setEnabled(not value)
-            for widget in (self.stage, self.scope, self.subject, self.session, self.paradigm, self.fullscreen, self.detect, self.register_eeg, self.refresh, self.start, self.table):
+            for widget in (self.stage, self.scope, self.subject, self.session, self.paradigm, self.fullscreen, self.detect, self.register_eeg, self.refresh, self.start, self.rate, self.table):
                 widget.setEnabled(not value)
             if not value:
                 self.changed_stage()

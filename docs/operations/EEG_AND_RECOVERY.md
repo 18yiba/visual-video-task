@@ -1,6 +1,6 @@
 ## Windows 1.0.4：BIDS副本
 
-当前源码BrainCo新采集原生保存32导EDF，按CH01→CH32含IO；历史NPY不转换。量程±375000 µV，高通0.16 Hz，低通/陷波未知。尚未发布EXE；UUID身份、事件日志、行为与session_state继续保留，交接副本不得覆盖原件。详见[EEGQC 单记录 EDF 包](EEGQC_HANDOFF.md)。
+当前源码BrainCo新采集原生保存32导EDF，按CH01→CH32含IO；Neuracle新采集原生保存EDF，保留转发通道顺序和TRG行，单位/参考/滤波未核实就标为n/a。历史NPY不转换。BrainCo量程±375000 µV、高通0.16 Hz，低通/陷波未知。尚未发布EXE；UUID身份、事件日志、行为与session_state继续保留，交接副本不得覆盖原件。详见[EEGQC 单记录 EDF 包](EEGQC_HANDOFF.md)。
 
 原始采集和恢复机制维持；正式保存后另生成BIDS，旧记录使用开始菜单导出入口。[完整操作和数据边界](BIDS_EXPORT.md)。下文sourcedata是原始记录层，不能替代BIDS根目录。
 
@@ -34,7 +34,7 @@
 | 编码_facial.mp4 / 编码_facial_02.mp4 等 | v3源码情绪采集的面部录像，Session同目录递增保存；已有文件和中断片段保留 |
 | 编码_facial.timestamps.csv / facial_recording_log.jsonl | 逐帧软件时间、媒体PTS、EEG事件关联及录像验证结果；不替代session_state或EEG |
 | YYYYMMDD_HHMMSS/ | 一次EEG采集启动时刻命名的子目录，不是结束时刻 |
-| continuous_eeg.edf / continuous_eeg.npy | 新BrainCo采集为32导EDF，历史NPY保持原样；不跨采集段拼接 |
+| continuous_eeg.edf / continuous_eeg.npy | 新BrainCo和Neuracle采集为EDF，历史NPY保持原样；不跨采集段拼接 |
 | events.json | 事件、相对时间、样本索引和marker信息；重复样本索引可能提示断流 |
 | metadata.json / eeg_segments.json | 设备、采样率、分段、退出原因及文件对应 |
 | crash_report.txt | Python调用栈，区分文件保存、播放与采集异常 |

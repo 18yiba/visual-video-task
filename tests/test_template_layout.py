@@ -133,7 +133,7 @@ class TemplateLayoutTests(unittest.TestCase):
             self.assertNotIn('.dvc/config.local', names)
             self.assertFalse(any(path.startswith('assets/stimuli/') for path in names))
             self.assertIn('src/video_eeg/experiment/video_runner.py', names)
-            for entry in ('run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat'):
+            for entry in ('run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat', 'rating_emotion_v3.bat'):
                 self.assertIn(entry, names)
                 self.assertEqual((target/entry).read_bytes(), (PROJECT_ROOT/entry).read_bytes())
             self.assertNotIn('video_eeg/experiment/video_runner.py', names)

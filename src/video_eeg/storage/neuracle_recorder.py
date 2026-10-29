@@ -34,13 +34,39 @@ class NeuracleSessionRecorder(SessionRecorder):
         self._raw_ratio = 1
         self._raw_saved_count = 0
         self._raw_path = None
+        self._forwarding = {}
+
+    @property
+    def _uses_edf(self):
+        return True
+
+    def _edf_identity_metadata(self):
+        from video_eeg.storage.neuracle_edf import profile
+        return dict(eeg_format='EDF', native_edf_profile=profile(self._forwarding),
+                    sfreq=self._sfreq, n_channels=self._n_channels,
+                    simulated_eeg=False, sample_values='forwarded values without scaling',
+                    units_verified=False)
+
+    def _write_edf(self, path, data):
+        from video_eeg.storage.neuracle_edf import write_edf
+        return write_edf(path, data, self._sfreq, self._recording_started_at,
+                         self._edf_identity_metadata()['native_edf_profile'])
+
+    def _edf_export_metadata(self, quantization):
+        from video_eeg.storage.neuracle_edf import profile
+        return dict(eeg_format='EDF', native_edf_profile=profile(self._forwarding),
+                    edf_quantization_details=quantization,
+                    sample_values='forwarded values without scaling', units_verified=False,
+                    simulated_eeg=False)
 
     def start_spooling(self, output_dir):
+        recording_metadata = self._acquirer.recording_metadata()
+        self._forwarding = recording_metadata.get('neuracle_forwarding', {})
+        self._mapping = self._forwarding.get('trigger_mapping', {})
+        self._raw_ratio = self._mapping.get('ratio', 1)
         super().start_spooling(output_dir)
         self._directory = output_dir
         try:
-            self._mapping=self._acquirer.recording_metadata().get('neuracle_forwarding',{}).get('trigger_mapping',{})
-            self._raw_ratio=self._mapping.get('ratio',1)
             if self._raw_ratio>1:
                 self._raw_path=output_dir/f'trg_raw_part_{self.part_index:03d}.f32'
                 self._raw_handle=self._raw_path.open('xb')
@@ -212,7 +238,8 @@ class NeuracleSessionRecorder(SessionRecorder):
             result = verify_saved_triggers(output_dir/self.eeg_filename,
                 output_dir/f'trg_receipts_part_{self.part_index:03d}.jsonl',
                 n_channels=self._n_channels, sample_count=self._sample_count,
-                trigger=metadata.get('neuracle_trigger', {}),raw_trigger=metadata.get('neuracle_raw_trigger'))
+                trigger=metadata.get('neuracle_trigger', {}),raw_trigger=metadata.get('neuracle_raw_trigger'),
+                eeg_format=metadata.get('eeg_format'), eeg_metadata=metadata)
         except Exception as exc:
             self._save_error(exc)
             result = dict(status='failed', error=str(exc), sample_index_base=0)

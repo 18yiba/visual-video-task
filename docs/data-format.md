@@ -6,7 +6,7 @@
 |---|---|---|
 | 原始实验 | `data/sourcedata/v1`、`v2`；已有被试沿原根目录 | 原始数据与恢复依据；Demo 独立存储 |
 | Session 状态 | `session_state.json`、题库快照、行为 CSV | 固定队列、回答、attempt 和完成状态；保留原协议哈希 |
-| 连续采集 | Session 内时间戳目录中的 EDF、events、metadata、health 日志 | 保存真实采集段与时间依据；历史 NPY 原样保留 |
+| 连续采集 | Session 内时间戳目录中的 EDF、events、metadata、health 日志 | BrainCo 与新 Neuracle 记录为 EDF；历史 NPY 原样保留 |
 | BIDS / EEGQC 副本 | 按导出设置生成的独立目录 | 保存完成后单独生成，失败可重试，不覆盖原始数据 |
 | 质检与上传 | EEGQC 报告和入库回执 | 由 EEGQC 处理，不把结构校验通过当成信号质量通过 |
 

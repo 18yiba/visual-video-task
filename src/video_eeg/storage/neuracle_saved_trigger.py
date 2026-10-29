@@ -1,16 +1,21 @@
-"""Independent readback of final NPY TRG values, using zero-based sample indices."""
+"""Independent readback of final NPY/EDF TRG values using zero-based sample indices."""
 import json
 from pathlib import Path
 
 import numpy as np
 
 
-def verify_saved_triggers(path, receipt_path, *, n_channels, sample_count, trigger, raw_trigger=None):
-    data = np.load(path, mmap_mode='r', allow_pickle=False)
+def verify_saved_triggers(path, receipt_path, *, n_channels, sample_count, trigger,
+                          raw_trigger=None, eeg_format='NPY', eeg_metadata=None):
+    if eeg_format == 'EDF':
+        from video_eeg.storage.neuracle_edf import read_edf
+        data = read_edf(path, eeg_metadata or {})
+    else:
+        data = np.load(path, mmap_mode='r', allow_pickle=False)
     try:
-        if data.dtype != np.float32 or data.shape != (n_channels, sample_count):
+        if data.shape != (n_channels, sample_count) or (eeg_format != 'EDF' and data.dtype != np.float32):
             raise RuntimeError('Saved EEG shape/dtype does not match the received stream')
-        if Path(path).stat().st_size != data.offset + data.nbytes:
+        if eeg_format != 'EDF' and Path(path).stat().st_size != data.offset + data.nbytes:
             raise RuntimeError('Saved EEG file size does not match NPY header')
         receipts = [json.loads(line) for line in Path(receipt_path).read_text(encoding='utf-8').splitlines() if line.strip()]
         if trigger.get('error') or trigger.get('pending_codes'):
@@ -48,7 +53,8 @@ def verify_saved_triggers(path, receipt_path, *, n_channels, sample_count, trigg
             raw_result=verify_raw_trigger(Path(path).parent,raw_trigger,data,receipts,sample_count)
         return dict(**raw_result,status='passed', verified_count=len(receipts), sample_index_base=0,
                     eeg_file=Path(path).name, receipt_file=Path(receipt_path).name,
-                    evidence='final NPY TRG channel values and all nonzero edges')
+                    evidence=('final EDF TRG channel values and all nonzero edges' if eeg_format == 'EDF'
+                              else 'final NPY TRG channel values and all nonzero edges'))
     finally:
         if hasattr(data, '_mmap'): data._mmap.close()
 

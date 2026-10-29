@@ -1,6 +1,6 @@
 # BIDS 数据保存与实验室更新（Windows 1.0.4）
 
-当前源码BrainCo新采集保存32导EDF（CH01→CH32，含IO，FCz参考），BIDS与[EEGQC交接](EEGQC_HANDOFF.md)直接复制该EDF，不二次量化。旧NPY仍按原“计数＋31导、IO参考”合同导出，不套用新映射。该修改尚未发布安装包；下文描述已发布1.0.4的BrainVision导出。
+当前源码BrainCo新采集保存32导EDF（CH01→CH32，含IO，FCz参考）；Neuracle新采集也保存EDF，保留转发通道顺序及TRG行，单位、参考和滤波未知时以 `n/a` 记录，不猜测或重标为 µV。BIDS与[EEGQC交接](EEGQC_HANDOFF.md)直接复制已保存EDF，不二次量化。历史NPY保持原格式并按对应旧合同导出。Neuracle EDF源码功能尚未发布到安装包。
 
 ## 主试现在怎么操作
 

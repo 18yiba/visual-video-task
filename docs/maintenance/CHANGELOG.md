@@ -1,3 +1,15 @@
+## 2026-10-29 / v0.3.6：Neuracle EDF与v3独立评分入口
+
+- Neuracle新采集段保存为原生EDF，保留转发通道顺序和TRG并回读核验；历史NPY不转换。BIDS/EEGQC可读取EDF，未知单位、参考和滤波保持未核实状态。
+- 新增根目录`rating_emotion_v3.bat`图形评分入口，并为安装版EMOTIV/博睿康增加评分快捷方式；同页选择原采集设备、视频范围、被试和Session，显示待评分进度，不连接EEG。
+- 验证：全套pytest（排除外部官方Deno校验）342 passed、5 skipped、5 deselected，12个子测试通过；源码入口、metadata、Python语法和模板源码发行校验通过。评分题目、数据合同和实验流程不变；真实EEG设备仍须现场验收。
+
+## 2026-10-28 / Neuracle原生采集改为EDF
+
+- Neuracle新采集段以原生EDF保存，保留SDK转发通道顺序及末尾TRG行；TRG值写盘后逐边回读核验。保留事件、metadata、异步写盘监测、恢复分段和旧NPY兼容。
+- EDF通道使用转发标签；未核实单位/参考/滤波明确记录为n/a，不按BrainCo配置套用。BIDS/EEGQC副本可直接读取EDF，并按实际通道类型与未知单位写入通道表。
+- 增加EDF写盘、TRG精确回读、历史NPY续跑和BIDS通道描述回归；本次全套 pytest（排除依赖外部官方 Deno 验证器的测试）337 passed、5 skipped、5 deselected，入口校验通过。真实Neuracle硬件仍须现场验收。
+
 ## 2026-10-27 / 移除根 video_eeg 目录
 
 - 将协议资源移动到 `src/video_eeg/config/`，原配置文件内容逐字节保留；根目录只留 `video_eeg.py` 导入兼容模块，源码包不再包含根 `video_eeg/`。
