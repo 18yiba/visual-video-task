@@ -184,6 +184,8 @@
       "scripts/prepare_demo_materials.py",
       "scripts/check_source_environment.py",
       "scripts/configure_assets.py",
+      "scripts/maintenance/migrate_records.py",
+      "docs/operations/MIGRATE_RECORDS.md",
       "assets/README.md",
       "assets/.gitignore"
     ]

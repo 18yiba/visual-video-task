@@ -1,3 +1,8 @@
+## 2026-10-30 / 源码项目记录迁移
+
+- 新增标准库脚本 `scripts/maintenance/migrate_records.py`：默认只预览，按已知数据布局识别被试，复制全部被试文件，暂存及提交后 SHA256 核验，保留原件和私有迁移回执。
+- 冲突、未知状态目录、链接/junction 或源文件变化时停止；不转换协议、不改实验入口、配置资源、被试状态或设备合同。使用与失败处理见 `docs/operations/MIGRATE_RECORDS.md`。
+
 ## 2026-10-29 / v0.3.7：模板校验兼容修正
 
 - 新增模板要求的`RUNME.bat`兼容别名（仅转发至既有`run_experiment.bat`），并在TOML补齐`[experiment]`、`[device]`、`[storage]`部署说明段；CLI继续仅按`[launcher]`路由。
