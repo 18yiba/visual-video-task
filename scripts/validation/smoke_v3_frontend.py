@@ -14,6 +14,8 @@ def main():
     w.subject.setText('00000002'); w.check_progress()
     w.show(); qtgui.QtWidgets.QApplication.instance().processEvents()
     assert not hasattr(w, 'mode') and w.table.rowCount() == 45
+    assert w.table.columnCount() == 3
+    assert [w.table.horizontalHeaderItem(i).text() for i in range(3)] == ['Session', '采集视频', '行为评分']
     assert sum(r['videos_total'] for r in w.progress) == 11084
     w.grab().save(str(ROOT / 'logs/v3_frontend.png'))
     launched = []

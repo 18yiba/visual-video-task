@@ -193,8 +193,8 @@ def make_window():
                 column = W.QVBoxLayout(); column.setSpacing(7)
                 column.addWidget(W.QLabel(text)); column.addWidget(bar); bars.addLayout(column)
             progress_layout.addLayout(bars)
-            self.table = W.QTableWidget(0, 5)
-            self.table.setHorizontalHeaderLabels(['Session', '采集视频', '情绪 EEG', '行为评分', '状态'])
+            self.table = W.QTableWidget(0, 3)
+            self.table.setHorizontalHeaderLabels(['Session', '采集视频', '行为评分'])
             self.table.setEditTriggers(W.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.table.horizontalHeader().setSectionResizeMode(W.QHeaderView.ResizeMode.Stretch)
             self.table.verticalHeader().hide(); self.table.verticalHeader().setDefaultSectionSize(40)
@@ -283,15 +283,10 @@ def make_window():
                 self.progress = inspect_progress(configuration(self.scope.currentIndex() == 1), self.subject.text(), ROOT)
                 self.table.setRowCount(len(self.progress))
                 for i, r in enumerate(self.progress):
-                    status = '全部完成' if r['eeg_complete'] and r['ratings_complete'] else '观看完成，EEG待登记' if r['eeg_complete'] and r['emotion_eeg_saved'] < r['emotion_total'] else 'EEG已登记，评分待完成' if r['eeg_complete'] else '采集未完成'
                     values = [str(r['session']), f"{r['videos_completed']}/{r['videos_total']}",
-                        f"{r['emotion_eeg_saved']}/{r['emotion_total']}", f"{r['ratings_completed']}/{r['emotion_total']}", status]
+                        f"{r['ratings_completed']}/{r['emotion_total']}"]
                     for j, text in enumerate(values):
                         self.table.setItem(i, j, W.QTableWidgetItem(text))
-                if is_neuracle():
-                    for i, r in enumerate(self.progress):
-                        status = '全部完成' if r['eeg_complete'] and r['ratings_complete'] else '采集与 TRG 已保存，待评分' if r['eeg_complete'] and r['emotion_eeg_saved'] == r['emotion_total'] else '需核对采集故障记录' if r['eeg_complete'] else '采集未完成'
-                        self.table.setItem(i, 4, W.QTableWidgetItem(status))
                 self.show_selected()
                 return True
             except Exception as exc:
@@ -307,7 +302,7 @@ def make_window():
             eeg_done = sum(x['eeg_complete'] and x['emotion_eeg_saved'] == x['emotion_total'] for x in self.progress)
             rating_done = sum(x['ratings_complete'] for x in self.progress)
             self.overview.setText(f"被试总进度：EEG完成 {eeg_done}/{len(self.progress)} 个Session；评分完成 {rating_done}/{len(self.progress)} 个Session。\n"
-                f"当前Session可继续评分 {r['emotion_eeg_saved'] - r['ratings_completed']} 段；尚未登记情绪EEG {r['emotion_total'] - r['emotion_eeg_saved']} 段。")
+                f"当前Session可继续评分 {r['emotion_eeg_saved'] - r['ratings_completed']} 段；尚未确认对应EEG文件的情绪视频 {r['emotion_total'] - r['emotion_eeg_saved']} 段。")
             self.location.setText(r['path']); self.location.setCursorPosition(0); self.location.setToolTip(r['path'])
             self.eeg_bar.setRange(0, max(1, r['videos_total'])); self.eeg_bar.setValue(r['videos_completed'])
             self.eeg_bar.setFormat('%v / %m · %p%')
