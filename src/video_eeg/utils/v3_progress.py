@@ -2,6 +2,7 @@
 import csv
 import hashlib
 from pathlib import Path
+from video_eeg.paths import resolve_project_path
 
 from video_eeg.experiment.emotion_v3_runner import eeg_saved
 from video_eeg.utils.session_protocol import load_state
@@ -27,7 +28,7 @@ def inspect_progress(config, subject, project_dir, *, seed=20260912):
         records /= f'run_{seed}'
         groups = {1: [dict(video_id=f'practice:{i}', trial_type='ordinary' if i == 0 else 'emotion') for i in range(4)]}
     else:
-        manifest = root / config['protocol']['session_manifest']
+        manifest = resolve_project_path(config['protocol']['session_manifest'], project_root=root)
         with manifest.open(encoding='utf-8-sig', newline='') as handle:
             rows = list(csv.DictReader(handle))
         excluded = set(exclusion_ids(config, rows, hashlib.sha256(manifest.read_bytes()).hexdigest()))

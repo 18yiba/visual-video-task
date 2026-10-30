@@ -6,6 +6,24 @@ from video_eeg.utils.v3_progress import inspect_progress, valid_subject
 from video_eeg.utils.session_protocol import SessionState, save_state_atomic
 
 
+@pytest.mark.parametrize('layout', ['src/video_eeg/config', 'video_eeg/config'])
+def test_formal_progress_resolves_saved_manifest_path(tmp_path, layout):
+    manifest = tmp_path / layout / 'session_manifest_emotion_v1.csv'
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('session_id,video_id,trial_type\n1,original:one,ordinary\n', encoding='utf-8')
+    path = tmp_path / 'data/sourcedata/v3_neuracle/13467638/session_01/session_state.json'
+    state = SessionState(subject_id='13467638', session_id=1, manifest_version='test', manifest_hash='test',
+        video_ids=['original:one'], completed_video_ids=['original:one'], queue_video_ids=[],
+        session_completed=True, attention_task_type='emotion_v3_separate_eeg_ratings_7')
+    save_state_atomic(path, state)
+    before = path.read_bytes()
+    cfg = dict(storage=dict(records_dir='data/sourcedata/v3_neuracle'),
+               protocol=dict(session_manifest='video_eeg/config/session_manifest_emotion_v1.csv', num_sessions=1))
+    result = inspect_progress(cfg, '13467638', tmp_path)
+    assert result[0]['videos_completed'] == 1 and result[0]['eeg_complete']
+    assert path.read_bytes() == before
+
+
 @pytest.mark.parametrize('subject', ['', '../S001', 'a/b', 'NUL', 'COM1', 'a:1'])
 def test_subject_cannot_escape_record_root(subject):
     with pytest.raises(ValueError):
