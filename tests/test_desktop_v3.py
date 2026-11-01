@@ -53,8 +53,7 @@ def test_behavior_rating_graphical_entry_builds_rating_only_route():
         '--subject-id','12345678','--session-id','7','--no-dialog','--integrated-startup']
     assert '--emotion-only' in rating.rating_arguments('brainco','12345678',1,emotion_only=True)
     assert '--windowed' in rating.rating_arguments('emotivpro','12345678',1,fullscreen=False)
-    batch=(root/'rating_emotion_v3.bat').read_text(encoding='utf-8')
-    assert 'scripts\\rating_emotion_v3.py' in batch
+    assert not (root/'rating_emotion_v3.bat').exists()
 
 
 def test_installed_launcher_routes_rating_shortcut_to_graphical_entry(monkeypatch):

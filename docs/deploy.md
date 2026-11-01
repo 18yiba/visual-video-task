@@ -29,7 +29,7 @@ Remove-Item Env:UV_PROJECT_ENVIRONMENT
 
 命令行统一从根目录 `main.py` 或 `python -m src` 进入；二者委托同一 CLI。用 `--paradigm v1|v2|v3` 选择范式，例如：`python main.py --paradigm v3 --phase acquisition --device emotivpro`、`python -m src --paradigm v3 --phase behavior-rating --device neuracle`。v1/v2还需 `--mode demo|formal`；v3不指定阶段时打开控制台。`--protocol` 暂作兼容别名，旧BAT参数继续有效。
 
-v3 控制台提供独立的“开始行为评分”按钮；也可双击 `rating_emotion_v3.bat` 打开图形评分窗口，在同一页选择原采集设备、视频范围、被试和Session并查看待评分进度。两种入口均不检测或连接 EEG。
+v3 行为评分统一从对应设备控制台的“开始行为评分”按钮进入，沿用当前设备、视频范围、被试和Session；评分不检测或连接 EEG。源码不再提供独立评分BAT。
 
 ## 本机启动配置
 

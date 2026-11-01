@@ -38,3 +38,12 @@
 - Source release allowlist and template-required files are maintained together in `scripts/maintenance/build_release.py` and `scripts/repository_layout.json`; verify the source package independently and never include private local DVC settings.
 - Keep Windows installer source files outside this repository in the sibling `visual-video-package/` directory; the source release must not include installer definitions or launcher source. `scripts/build_windows_release.py` writes artifacts to its `artifacts/` subdirectory by default and must fail clearly if the external sources are missing.
 - Do not commit third-party vendor installer binaries. Virtual Serial Ports Emulator (VSPE) is downloaded from Eterlogic at setup time and must pass the pinned MSI SHA256 and publisher-signature checks before launch; check-only mode must remain offline.
+
+
+## 进度、迁移与入口维护原则（2026-11-01）
+
+- 单一操作入口：v3评分从原采集设备控制台的“开始行为评分”按钮进入，沿用设备、视频范围、被试、Session；不要重新增加独立评分BAT或默认切换到另一设备。进度表保持Session、采集视频、行为评分三列。已发布安装器兼容实现不因删除BAT而擅自删除。
+- 区分事实与推断：观看完成、对应EEG文件可确认、行为评分完成是三个不同事实。全部视频已完成包含其情绪视频观看完成（Session 1、8：177普通＋69情绪＝246），不能据此虚构EEG有效性或评分答案；“仅情绪视频”是独立采集合同和目录，不是全部记录的筛选视图，不自动跨设备或范围合并状态。
+- 原始记录是依据：保持session_state、原始EEG、事件、metadata及协议哈希。迁移只读解析当前被试/Session内原采集子目录，兼容旧绝对路径；资源引用使用resolve_project_path。不能用旧项目残留副本掩盖新目录缺失文件。区分选错入口、路径失效、文件缺失和真实采集异常，禁止笼统宣称“采集故障”或要求重采。trigger重建仅在核对视频身份、尝试、起止、分段与样本覆盖后另行审计，不能直接改完成标记。
+- 最小存储与工作量：状态评估不复制或切分EEG，不建立磁盘缓存；一次刷新/批次共用临时metadata和文件检查索引，每段评分前重新检查。说明这是减少重复读取，不是减少已有数据体积；性能声明区分读取次数测试与实机耗时。迁移备份、BIDS、历史环境未经明确授权不得清理，不能以节省空间为由删除记录。
+- 变更必须可交付、可解释：实施前说明入口/UI增删、理由和数据影响；交付时列明实际改动、目标目录/文件、需否重启/重装、源码与安装版区别、兼容范围和未解决问题。联动修改提供一致更新包并备份源码，避免只替换单文件。同步README、操作手册、发行清单与测试；验证迁移旧路径、设备/范围隔离、246/69计数、评分资格、真实窗口模拟采集与续跑，明确模拟不等于真实硬件验收。用户要求原分支时不新建分支；使用本AGENTS.md，不新建重复agent.md。
