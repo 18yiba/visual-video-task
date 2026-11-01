@@ -9,7 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from video_eeg.experiment import video_runner as base
-from video_eeg.utils.v3_progress import inspect_progress, valid_subject
+from video_eeg.utils.v3_progress import inspect_progress, valid_subject, progress_detail
 
 
 def is_neuracle():
@@ -302,7 +302,7 @@ def make_window():
             eeg_done = sum(x['eeg_complete'] and x['emotion_eeg_saved'] == x['emotion_total'] for x in self.progress)
             rating_done = sum(x['ratings_complete'] for x in self.progress)
             self.overview.setText(f"被试总进度：EEG完成 {eeg_done}/{len(self.progress)} 个Session；评分完成 {rating_done}/{len(self.progress)} 个Session。\n"
-                f"当前Session可继续评分 {r['emotion_eeg_saved'] - r['ratings_completed']} 段；尚未确认对应EEG文件的情绪视频 {r['emotion_total'] - r['emotion_eeg_saved']} 段。")
+                f"当前Session可继续评分 {r['emotion_eeg_saved'] - r['ratings_completed']} 段。" + progress_detail(r))
             self.location.setText(r['path']); self.location.setCursorPosition(0); self.location.setToolTip(r['path'])
             self.eeg_bar.setRange(0, max(1, r['videos_total'])); self.eeg_bar.setValue(r['videos_completed'])
             self.eeg_bar.setFormat('%v / %m · %p%')

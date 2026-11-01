@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -43,6 +44,7 @@ def test_rating_gate_requires_complete_playback_samples_and_saved_part(recorded,
 
 def test_reject_uncollected_before_replay_or_questions(recorded):
     r = object.__new__(EmotionV3Runner)
+    r.progress_dir = Path(recorded['emotion_rating']['eeg_recording_dir']).parent
     r._replay = Mock(); r._choice_page = Mock()
     recorded['video_completed_naturally'] = False
     with pytest.raises(RuntimeError):
@@ -53,6 +55,7 @@ def test_reject_uncollected_before_replay_or_questions(recorded):
 @pytest.mark.parametrize('interrupt', [False, True])
 def test_behavior_resubmits_both_original_ratings_without_sample_indices(recorded, interrupt):
     r = object.__new__(EmotionV3Runner)
+    r.progress_dir = Path(recorded['emotion_rating']['eeg_recording_dir']).parent
     r._event_times = {}; r.manager = BehaviorEvents(r)
     r._asset_by_id = {'v': 'asset'}
     r._choice_page = Mock(return_value='3'); r._replay = Mock()
