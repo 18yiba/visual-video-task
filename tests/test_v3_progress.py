@@ -159,3 +159,32 @@ def test_full_session_246_includes_69_rating_eligible_emotion_videos(tmp_path):
     assert row['videos_completed'] == 246
     assert row['emotion_viewed'] == row['emotion_eeg_saved'] == 69
     assert row['ratings_completed'] == 0 and row['eeg_problems'] == {}
+
+
+def test_assessment_reads_shared_metadata_once_and_refreshes(tmp_path, monkeypatch):
+    from pathlib import Path
+    from video_eeg.experiment.emotion_v3_runner import EegAssessment, eeg_status
+    directory = tmp_path / 'record'
+    directory.mkdir()
+    eeg = directory / 'eeg.npy'
+    eeg.write_bytes(b'EEG')
+    meta = directory / 'metadata.json'
+    meta.write_text(json.dumps(dict(eeg_part=1, local_eeg_recorded=True, sample_count=100, eeg_file='eeg.npy')))
+    attempt = dict(video_completed_naturally=True, emotion_rating=dict(eeg_part=1,
+        eeg_recording_dir=str(directory), video_onset_sample_index=0, video_offset_sample_index=80))
+    original = Path.read_text
+    reads = []
+    def read(path, *args, **kwargs):
+        if path == meta:
+            reads.append(path)
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', read)
+    before = {p.name: p.read_bytes() for p in directory.iterdir()}
+    assessment = EegAssessment()
+    for _ in range(69):
+        assert eeg_status(attempt, assessment=assessment) == 'saved'
+    assert len(reads) == 1
+    assert before == {p.name: p.read_bytes() for p in directory.iterdir()}
+    eeg.unlink()
+    assert eeg_status(attempt) == 'missing_eeg_file'  # Fresh rating check never reuses the UI cache.
+    assert len(reads) == 2

@@ -4,7 +4,7 @@ import hashlib
 from pathlib import Path
 from video_eeg.paths import resolve_project_path
 
-from video_eeg.experiment.emotion_v3_runner import eeg_status
+from video_eeg.experiment.emotion_v3_runner import eeg_status, EegAssessment
 from video_eeg.utils.session_protocol import load_state
 from video_eeg.utils.material_exclusions import exclusion_ids
 
@@ -37,6 +37,7 @@ def inspect_progress(config, subject, project_dir, *, seed=20260912):
     emotion_only = config['protocol'].get('emotion_only', False) if 'protocol' in config else False
     if emotion_only:
         groups = {sid: [r for r in rows if r['trial_type'] == 'emotion'] for sid, rows in groups.items()}
+    assessment = EegAssessment()
     result = []
     for sid, rows in groups.items():
         ids = {r['video_id'] for r in rows}
@@ -55,7 +56,7 @@ def inspect_progress(config, subject, project_dir, *, seed=20260912):
             for attempt in state.video_attempts:
                 if attempt.get('video_id') not in emotion:
                     continue
-                status = eeg_status(attempt, path.parent)
+                status = eeg_status(attempt, path.parent, assessment=assessment)
                 if status == 'saved':
                     eligible.add(attempt['video_id'])
                     if attempt['emotion_rating'].get('completed'):

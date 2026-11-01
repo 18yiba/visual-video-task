@@ -49,7 +49,35 @@ def recording_directory(attempt, session_dir=None):
     return None
 
 
-def eeg_status(attempt, session_dir=None):
+class EegAssessment:
+    """Short-lived read-only index. Create a new instance for every refresh/batch."""
+    def __init__(self):
+        self.directories = {}
+        self.files = {}
+
+    def metadata(self, directory):
+        if directory not in self.directories:
+            rows = []
+            for path in directory.glob('metadata*.json'):
+                try:
+                    value = json.loads(path.read_text(encoding='utf-8'))
+                except (OSError, ValueError):
+                    continue
+                if isinstance(value, dict):
+                    rows.append(value)
+            self.directories[directory] = rows
+        return self.directories[directory]
+
+    def nonempty_file(self, path):
+        if path not in self.files:
+            try:
+                self.files[path] = path.is_file() and path.stat().st_size > 0
+            except OSError:
+                self.files[path] = False
+        return self.files[path]
+
+
+def eeg_status(attempt, session_dir=None, *, assessment=None):
     """Return saved/missing/invalid reasons, preserving the existing EEG checks."""
     row = attempt.get('emotion_rating', {})
     if row.get('eeg_recording_mode') == 'emotivpro_external':
@@ -61,14 +89,9 @@ def eeg_status(attempt, session_dir=None):
     directory = recording_directory(attempt, session_dir)
     if directory is None or not directory.is_dir():
         return 'missing_directory'
-    matches = []
-    for path in directory.glob('metadata*.json'):
-        try:
-            metadata = json.loads(path.read_text(encoding='utf-8'))
-        except (OSError, ValueError):
-            continue
-        if metadata.get('eeg_part') == row.get('eeg_part'):
-            matches.append(metadata)
+    assessment = assessment if assessment is not None else EegAssessment()
+    matches = [metadata for metadata in assessment.metadata(directory)
+               if metadata.get('eeg_part') == row.get('eeg_part')]
     if len(matches) != 1:
         return 'missing_or_ambiguous_metadata'
     metadata = matches[0]
@@ -86,13 +109,13 @@ def eeg_status(attempt, session_dir=None):
     filename = metadata.get('eeg_file')
     if not metadata.get('local_eeg_recorded') or metadata.get('sample_count', 0) < offset:
         return 'incomplete_samples'
-    if not filename or Path(filename).name != filename or not (directory / filename).is_file() or (directory / filename).stat().st_size == 0:
+    if not filename or Path(filename).name != filename or not assessment.nonempty_file(directory / filename):
         return 'missing_eeg_file'
     return 'saved'
 
 
-def eeg_saved(attempt, session_dir=None):
-    return eeg_status(attempt, session_dir) == 'saved'
+def eeg_saved(attempt, session_dir=None, *, assessment=None):
+    return eeg_status(attempt, session_dir, assessment=assessment) == 'saved'
 
 
 class BehaviorEvents:
@@ -187,13 +210,14 @@ class EmotionV3Runner(EmotionV2Runner):
         self._write_emotion_list()
 
     def _write_emotion_list(self):
+        assessment = EegAssessment()
         rows = []
         for video_id in self.state.video_ids:
             source = self.library.rows[video_id]
             if source['trial_type'] != 'emotion':
                 continue
             attempts = [a for a in self.state.video_attempts if a['video_id'] == video_id]
-            eligible = [a for a in attempts if eeg_saved(a, self.progress_dir)]
+            eligible = [a for a in attempts if eeg_saved(a, self.progress_dir, assessment=assessment)]
             rows.append(dict(video_id=video_id, video_path=source['video_path'],
                 original_label=source['original_label'], three_class_label=source['three_class_label'],
                 eeg_saved=bool(eligible), rating_completed=any(a['emotion_rating'].get('completed') for a in eligible)))
@@ -297,8 +321,9 @@ class EmotionV3Runner(EmotionV2Runner):
                 'Esc 保存退出；未完成评分续跑时重播并重答两项。\n\n按空格继续。')
             # One completed EEG attempt per video, in the saved viewing order.
             selected = {}
+            assessment = EegAssessment()
             for attempt in self.state.video_attempts:
-                if 'emotion_rating' in attempt and eeg_saved(attempt, self.progress_dir):
+                if 'emotion_rating' in attempt and eeg_saved(attempt, self.progress_dir, assessment=assessment):
                     selected.setdefault(attempt['video_id'], attempt)
             for attempt in selected.values():
                 if not attempt['emotion_rating'].get('completed'):
