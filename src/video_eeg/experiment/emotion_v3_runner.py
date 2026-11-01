@@ -21,36 +21,78 @@ def configure_emotion_only(config):
     config['protocol'].update(emotion_only=True, attention_enabled=False, attention_tasks_per_session=0)
 
 
-def eeg_saved(attempt):
-    """Require a complete playback, growing sample indices and its saved EEG part."""
+def recording_directory(attempt, session_dir=None):
+    """Resolve only the same recording child in the current Session, without edits."""
+    from pathlib import PureWindowsPath
+    value = attempt.get('emotion_rating', {}).get('eeg_recording_dir', '')
+    if not value:
+        return None
+    saved = Path(value)
+    if session_dir is None:
+        return saved
+    current = Path(session_dir).resolve()
+    # Seeded demo/test states use run_*/session_XX, while EEG is stored at
+    # subject/session_XX. This is an existing recording contract, not a search.
+    anchor = current.parent.parent / current.name if current.parent.name.startswith('run_') else current
+    anchors = list(dict.fromkeys([current, anchor]))
+    parts = PureWindowsPath(value).parts
+    if len(parts) < 4 or '..' in parts:
+        return None
+    for root in anchors:
+        if saved.is_absolute() and saved.parent.resolve() == root:
+            return saved
+        expected = (root.parent.parent.name, root.parent.name, root.name)
+        if tuple(p.casefold() for p in parts[-4:-1]) == tuple(p.casefold() for p in expected):
+            local = root / parts[-1]
+            if local.resolve().parent == root:
+                return local
+    return None
+
+
+def eeg_status(attempt, session_dir=None):
+    """Return saved/missing/invalid reasons, preserving the existing EEG checks."""
     row = attempt.get('emotion_rating', {})
     if row.get('eeg_recording_mode') == 'emotivpro_external':
         from video_eeg.utils.emotivpro_recording import external_eeg_saved
-        return external_eeg_saved(attempt)
+        return 'saved' if external_eeg_saved(attempt) else 'external_unconfirmed'
     onset, offset = row.get('video_onset_sample_index'), row.get('video_offset_sample_index')
     if not attempt.get('video_completed_naturally') or not isinstance(onset, int) or not isinstance(offset, int) or offset <= onset:
-        return False
-    directory = Path(row.get('eeg_recording_dir', ''))
+        return 'incomplete_samples'
+    directory = recording_directory(attempt, session_dir)
+    if directory is None or not directory.is_dir():
+        return 'missing_directory'
+    matches = []
     for path in directory.glob('metadata*.json'):
         try:
             metadata = json.loads(path.read_text(encoding='utf-8'))
         except (OSError, ValueError):
             continue
-        if metadata.get('eeg_part') != row.get('eeg_part'):
-            continue
-        if metadata.get('device_type') == 'neuracle' and metadata.get('neuracle_trigger') is not None:
-            trigger = metadata['neuracle_trigger']
-            if metadata.get('neuracle_saved_trigger_required') and metadata.get('neuracle_saved_trigger', {}).get('status') != 'passed':
-                return False
-            if (metadata.get('background_error') or trigger.get('error') or trigger.get('pending_codes')
-                    or trigger.get('confirmed_count', 0) != trigger.get('sent_count', 0)
-                    or metadata.get('neuracle_forwarding', {}).get('error')):
-                return False
-        filename = metadata.get('eeg_file')
-        return bool(metadata.get('local_eeg_recorded') and metadata.get('sample_count', 0) >= offset
-                    and filename and Path(filename).name == filename
-                    and (directory / filename).is_file() and (directory / filename).stat().st_size > 0)
-    return False
+        if metadata.get('eeg_part') == row.get('eeg_part'):
+            matches.append(metadata)
+    if len(matches) != 1:
+        return 'missing_or_ambiguous_metadata'
+    metadata = matches[0]
+    for field in ('subject_id', 'session_id'):
+        if field in row and field in metadata and str(row[field]) != str(metadata[field]):
+            return 'identity_mismatch'
+    if metadata.get('device_type') == 'neuracle' and metadata.get('neuracle_trigger') is not None:
+        trigger = metadata['neuracle_trigger']
+        if metadata.get('neuracle_saved_trigger_required') and metadata.get('neuracle_saved_trigger', {}).get('status') != 'passed':
+            return 'trigger_failed'
+        if (metadata.get('background_error') or trigger.get('error') or trigger.get('pending_codes')
+                or trigger.get('confirmed_count', 0) != trigger.get('sent_count', 0)
+                or metadata.get('neuracle_forwarding', {}).get('error')):
+            return 'acquisition_error'
+    filename = metadata.get('eeg_file')
+    if not metadata.get('local_eeg_recorded') or metadata.get('sample_count', 0) < offset:
+        return 'incomplete_samples'
+    if not filename or Path(filename).name != filename or not (directory / filename).is_file() or (directory / filename).stat().st_size == 0:
+        return 'missing_eeg_file'
+    return 'saved'
+
+
+def eeg_saved(attempt, session_dir=None):
+    return eeg_status(attempt, session_dir) == 'saved'
 
 
 class BehaviorEvents:
@@ -151,7 +193,7 @@ class EmotionV3Runner(EmotionV2Runner):
             if source['trial_type'] != 'emotion':
                 continue
             attempts = [a for a in self.state.video_attempts if a['video_id'] == video_id]
-            eligible = [a for a in attempts if eeg_saved(a)]
+            eligible = [a for a in attempts if eeg_saved(a, self.progress_dir)]
             rows.append(dict(video_id=video_id, video_path=source['video_path'],
                 original_label=source['original_label'], three_class_label=source['three_class_label'],
                 eeg_saved=bool(eligible), rating_completed=any(a['emotion_rating'].get('completed') for a in eligible)))
@@ -222,7 +264,7 @@ class EmotionV3Runner(EmotionV2Runner):
             movie.unload()
 
     def _rate_attempt(self, attempt):
-        if not eeg_saved(attempt):
+        if not eeg_saved(attempt, self.progress_dir):
             raise RuntimeError('该视频尚无完整、已保存的 EEG 采集，不允许评分。')
         row = attempt['emotion_rating']
         try:
@@ -256,7 +298,7 @@ class EmotionV3Runner(EmotionV2Runner):
             # One completed EEG attempt per video, in the saved viewing order.
             selected = {}
             for attempt in self.state.video_attempts:
-                if 'emotion_rating' in attempt and eeg_saved(attempt):
+                if 'emotion_rating' in attempt and eeg_saved(attempt, self.progress_dir):
                     selected.setdefault(attempt['video_id'], attempt)
             for attempt in selected.values():
                 if not attempt['emotion_rating'].get('completed'):

@@ -172,14 +172,14 @@ def main():
                 self.path_label.clear()
                 return False
             try:
-                from video_eeg.utils.v3_progress import inspect_progress
+                from video_eeg.utils.v3_progress import inspect_progress, progress_detail
                 self.progress = inspect_progress(self.current_config(), subject, ROOT)
                 row = self.progress[self.session.value() - 1]
                 pending = max(0, row['emotion_eeg_saved'] - row['ratings_completed'])
                 self.progress_label.setText(
                     f"Session {row['session']:02d}　可评分 {pending} 段　"
                     f"EEG已保存 {row['emotion_eeg_saved']}/{row['emotion_total']}　"
-                    f"评分完成 {row['ratings_completed']}/{row['emotion_total']}"
+                    f"评分完成 {row['ratings_completed']}/{row['emotion_total']}\n" + progress_detail(row)
                 )
                 self.path_label.setText('原记录位置：' + row['path'])
                 return True
@@ -194,7 +194,8 @@ def main():
                 return
             row = self.progress[self.session.value() - 1]
             if row['emotion_eeg_saved'] <= row['ratings_completed']:
-                W.QMessageBox.information(self, '暂无待评分内容', '该 Session 没有已保存 EEG 且尚未完成行为评分的视频。')
+                from video_eeg.utils.v3_progress import progress_detail
+                W.QMessageBox.information(self, '暂无待评分内容', progress_detail(row))
                 return
             try:
                 from video_eeg.utils.material_settings import check
