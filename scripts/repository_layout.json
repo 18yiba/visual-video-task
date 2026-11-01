@@ -153,7 +153,6 @@
       "run_emotion_v3.bat",
       "run_neuracle_v3.bat",
       "run_brainco_v3.bat",
-      "rating_emotion_v3.bat",
       "config/config.toml",
       "src/__init__.py",
       "src/__main__.py",

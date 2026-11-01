@@ -5,7 +5,7 @@
 | 路径 | 当前职责 |
 |---|---|
 | `main.py` / `python -m src` / `config/` | 同一 CLI 的实验入口；`--paradigm`选择范式，TOML提供严格校验的启动默认值与私有覆盖 |
-| `RUNME.bat` / `run_experiment.bat` / `run_emotion_v3.bat` / `run_neuracle_v3.bat` / `run_brainco_v3.bat` / `rating_emotion_v3.bat` | `RUNME.bat` 是模板要求的兼容别名，只转发到 `run_experiment.bat`；其余入口提供v1/v2选择页、各设备v3控制台及独立评分启动入口 |
+| `RUNME.bat` / `run_experiment.bat` / `run_emotion_v3.bat` / `run_neuracle_v3.bat` / `run_brainco_v3.bat` | `RUNME.bat` 是模板要求的兼容别名，只转发到 `run_experiment.bat`；其余入口提供v1/v2选择页、各设备v3控制台及控制台内评分按钮 |
 | `src/video_eeg/` | 实验执行器、共享设备/Trigger 组装、EEG记录服务契约、适配器和 CLI 的唯一实现 |
 | `src/video_eeg/config/` / `video_eeg.py` | 协议资源和唯一配置副本归入源码包；根目录单文件 shim 兼容旧脚本导入，不保留根 `video_eeg/` 目录 |
 | `assets/` / `stimuli/` / `data/` | 品牌资源、已有刺激路径、私有原始记录；视频与数据不移动、不进入源码包 |

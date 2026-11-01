@@ -2,9 +2,9 @@
 
 # visual-video-task：视频EEG采集与情绪评分
 
-最新源码版本为 **v0.3.7**，分支名为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)。该版本包含模板布局校验修复、Neuracle 原生 EDF 保存、v3 强脑 SDK 与独立行为评分图形入口。Windows v0.3.7 安装包构建后可从本机 `D:\Experiment\visual-video-package\artifacts\v0.3.7` 获取。
+最新源码版本为 **v0.3.7**，分支名为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)。该版本包含模板布局校验修复、Neuracle 原生 EDF 保存、v3 强脑 SDK 与控制台行为评分按钮。Windows v0.3.7 安装包构建后可从本机 `D:\Experiment\visual-video-package\artifacts\v0.3.7` 获取。
 
-源码现提供三种设备 v3 BAT 入口：`run_emotion_v3.bat`（EMOTIV）、`run_neuracle_v3.bat`（博睿康 Collect TCP）和 `run_brainco_v3.bat`（强脑 SDK），另有独立评分入口 `rating_emotion_v3.bat`。评分图形窗口在同一页选择采集设备、视频范围、被试和Session，并显示可评分进度；评分时不连接 EEG。Windows v0.3.7 安装版为 EMOTIV 和博睿康各提供行为评分开始菜单入口。
+源码提供三个设备 v3 BAT 入口：`run_emotion_v3.bat`（EMOTIV）、`run_neuracle_v3.bat`（博睿康 Collect TCP）和 `run_brainco_v3.bat`（强脑 SDK）。行为评分统一从对应设备控制台的“开始行为评分”按钮进入，沿用当前设备、视频范围、被试和Session，不连接或采集EEG。已移除独立评分BAT；已发布安装版的历史评分快捷方式不随源码更新自动移除。
 
 Windows v0.3.4修复首次设置时桌面位于D盘、用户目录位于C盘的启动错误；数据可保存在任一本机固定磁盘，NAS仅用于读取材料。已有安装版保存退出后覆盖安装，无需移动桌面或删除数据。
 
@@ -236,7 +236,6 @@ visual-video-task/
   run_emotion_v3.bat                 v3 EMOTIV入口
   run_neuracle_v3.bat                v3 博睿康 Collect TCP入口
   run_brainco_v3.bat                 v3 强脑 SDK入口
-  rating_emotion_v3.bat              v3 独立行为评分入口
   install_lab_env_uv.bat              首次环境安装入口，不是实验入口
   download_materials.bat              下载普通视频母库，不下载情绪库
   README.md                          本完整操作指南
