@@ -728,3 +728,5 @@ Remove-Item Env:UV_PROJECT_ENVIRONMENT
 `scripts/maintenance/build_emotion_sessions.py`用于v2研究设计阶段，不是每次启动的步骤；不得重新生成并覆盖已在采的固定清单。导出题库、材料标签和诊断脚本也集中于maintenance，命令参数先看`--help`。
 
 本次按版本合并文档、移除重复启动BAT和旧上传回执。每个被移除文件原来写了什么、为何重复、有效信息放在哪里，见[逐文件清理表](docs/maintenance/FILE_CLEANUP.md)；跨版本进展见[维护记录](docs/maintenance/CHANGELOG.md)。没有删除被试记录、母库或运行所需环境。
+
+历史博睿康NPY需要EDF副本时，使用[逐段转换说明](docs/operations/NEURACLE_NPY_TO_EDF.md)：先预览、再显式转换，保留原件，回读核对TRG与量化误差；EDF转换不等于完整BIDS交付。
