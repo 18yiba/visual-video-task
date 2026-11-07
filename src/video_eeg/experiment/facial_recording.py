@@ -66,6 +66,33 @@ def validate_coverage(frames, onset, offset, duration, decoded_duration):
         raise FacialRecordingError('摄像头帧间隔超过1秒。')
 
 
+def onset_frame_alignment(frames, onset, encoded_pts):
+    """Locate the onset in software arrival time, retaining both bracketing frames."""
+    result = dict(time_basis='FFmpeg frame arrival versus presentation flip callback',
+                  exposure_alignment_verified=False)
+    if onset is None or not math.isfinite(onset) or not frames:
+        return dict(result, status='unavailable', reason='missing onset or frames')
+    times = [row[1] for row in frames]
+    if not all(math.isfinite(t) for t in times) or any(b <= a for a, b in zip(times, times[1:])):
+        return dict(result, status='unavailable', reason='invalid frame arrival times')
+    before = [i for i, value in enumerate(times) if value <= onset]
+    after = [i for i, value in enumerate(times) if value >= onset]
+    if not before or not after:
+        return dict(result, status='unavailable', reason='onset outside observed frames')
+    left, right = before[-1], after[0]
+    nearest = min((left, right), key=lambda i: abs(times[i] - onset))
+
+    def frame_record(index):
+        number, arrival, pts = frames[index]
+        return dict(frame=number, arrival_monotonic_sec=arrival,
+                    relative_video_onset_sec=arrival-onset, capture_pts_sec=pts,
+                    encoded_pts_sec=encoded_pts[index] if index < len(encoded_pts) else None)
+
+    return dict(result, status='software_observation_only', onset_monotonic_sec=onset,
+                before=frame_record(left), after=frame_record(right),
+                nearest=frame_record(nearest), bracket_interval_sec=times[right]-times[left])
+
+
 class FacialRecorder:
     device = 'UGREEN Camera 4K'
 
@@ -98,7 +125,7 @@ class FacialRecorder:
         if not self.directory.is_dir():
             raise FacialRecordingError('Session保存目录不存在。')
 
-    def start(self):
+    def start(self, on_started=None):
         self.preflight()
         self.path, self.number = reserve_path(self.directory, self.code)
         self._log('reserved')
@@ -111,8 +138,21 @@ class FacialRecorder:
         self.thread = threading.Thread(target=self._read, daemon=True)
         self.thread.start()
         deadline = time.perf_counter() + 15
+        start_reported = False
         while time.perf_counter() < deadline:
             self.check(startup=True)
+            if self.frames and not start_reported:
+                frame, observed, pts = self.frames[0]
+                fields = dict(facial_file=self.path.name, facial_attempt=self.attempt,
+                    facial_number=self.number, camera_first_frame=frame,
+                    camera_first_frame_monotonic_sec=observed, camera_first_frame_pts_sec=pts,
+                    camera_start_observed_monotonic_sec=time.perf_counter(),
+                    camera_time_basis='software observation of first FFmpeg frame')
+                self.boundary('recording_start', fields)
+                if on_started is not None:
+                    on_started(**fields)
+                self._log('recording_started', **fields)
+                start_reported = True
             if (len(self.frames) >= 16 and self.frames[-1][1] - self.frames[0][1] >= .5
                     and self.path.stat().st_size > 0):
                 return
@@ -213,6 +253,8 @@ class FacialRecorder:
                 for i, (n, arrival, pts) in enumerate(self.frames):
                     writer.writerow([n, arrival, pts, encoded_pts[i] if i < len(encoded_pts) else '',
                                      arrival-onset if onset is not None else ''])
+            alignment = onset_frame_alignment(self.frames, onset, encoded_pts)
+            self._log('onset_frame_alignment', alignment=alignment)
             if complete and failure is None:
                 if decoded is None:
                     raise FacialRecordingError('没有可验证的录像帧。')

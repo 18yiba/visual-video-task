@@ -73,6 +73,7 @@ def probe(config):
     from video_eeg.experiment.video_runner import build_acquirer,build_marker_backend
     acquirer=build_acquirer(device_name='neuracle',config=config)
     backend=None
+    samples=0
     try:
         acquirer.start_stream()
         backend=build_marker_backend(config);acquirer.bind_marker(backend)
@@ -101,6 +102,12 @@ def probe(config):
             samples=samples,serial_port=backend.port,recording_mode='neuracle_tcp_local',
             expected_sampling_rate_hz=acquirer.metadata.sfreq,**acquirer.recording_metadata(),
             **backend.recording_metadata(),test_codes=[250,251,252])
+    except Exception as exc:
+        exc.probe_diagnostics = dict(samples=samples, channels=acquirer.metadata.n_channels,
+            sfreq=acquirer.metadata.sfreq, **acquirer.recording_metadata())
+        if backend is not None:
+            exc.probe_diagnostics.update(backend.recording_metadata())
+        raise
     finally:
         acquirer.stop_stream()
         if backend is not None:backend.close()

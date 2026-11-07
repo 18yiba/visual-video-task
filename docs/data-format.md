@@ -13,3 +13,8 @@
 完整字段、部分试次重播和冲突根目录规则见 [EEG 与恢复](operations/EEG_AND_RECOVERY.md)；导出范围见 [BIDS](operations/BIDS_EXPORT.md) 和 [EEGQC 交接](operations/EEGQC_HANDOFF.md)。v3 的采集/行为阶段独立合同见 [v3](versions/v3.md)。
 
 数据字段若发生不兼容变更，须另行提升相应 schema 并更新此说明；目录重排不能触发旧答案转换、旧 UUID 重建或历史记录迁移。
+
+独立格式转换：[NPY → EDF+ / 模板BIDS工具](operations/NPY_TO_EDFPLUS_BIDS.md)。生成独立副本，保留原始NPY与恢复记录；默认执行离线官方校验。
+# 2026-11-07 trigger码表调整
+
+新采集数字码保留101/102、112–115、130–133、140/141、156–164、171–173、175，博睿康连通性检测保留250–252。110/111、134–139、142、152–155已从当前数字码表删除；对应流程事件保存在events日志，marker_code为空且external_marker_sent=false。历史数字码按各采集目录metadata中的trigger_codes解释。情绪视频开始按three_class_label发送positive=171、negative=172、neutral=173，结束统一175；150/151已废除。事件name保留EMOTION_VIDEO_ONSET/OFFSET，payload.marker_event_name记录具体发送名称，marker_code记录实际发送数字；类别缺失或未知时停止。

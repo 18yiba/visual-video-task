@@ -120,6 +120,8 @@ class StrictDataServer(DataServerThread):
         self.selected_channel_names = (THINGS_CHANNEL_NAMES if signal_channels == 64 else None) if channel_names is None else tuple(channel_names)
         self.failure=None
         self.forwarded_metadata=None
+        self.packet_trigger_count=0
+        self.packet_trigger_examples=[]
         self.sock.settimeout(3.)
         self.sockBufLock=threading.RLock()
 
@@ -215,6 +217,13 @@ class StrictDataServer(DataServerThread):
         expected = offset + 4 + self.n_chan + sum(counts)*4 + triggers*34 + 2
         if len(packet) != expected:
             raise RuntimeError('Neuracle data packet length mismatch')
+        if triggers:
+            self.packet_trigger_count += triggers
+            if len(self.packet_trigger_examples) < 16:
+                self.packet_trigger_examples.append(dict(
+                    packet_start_timestamp=start, packet_duration=duration,
+                    trigger_count=triggers,
+                    trigger_section_prefix_hex=packet[-2-34*triggers:-2][:544].hex()))
 
     def isDataPacketLost(self, data):
         if self.lastTimestamp >= 0 and (self.lastTimestamp % (2**32)) != data['startTimeStamp']:
@@ -305,4 +314,9 @@ class VerifiedNeuracleAcquirer(NeuracleAcquirer):
 
     def recording_metadata(self):
         return dict(neuracle_forwarding=dict(self._forwarded,host=self._host,port=self._port,
-            error=self._stream_error,strict_continuity=True),eeg_recording_mode='neuracle_tcp_local')
+            error=self._stream_error,strict_continuity=True,
+            packet_trigger_diagnostics=dict(
+                count=getattr(self._server, 'packet_trigger_count', 0),
+                examples=list(getattr(self._server, 'packet_trigger_examples', [])),
+                interpretation='raw packet event section; not mapped into EEG TRG')),
+            eeg_recording_mode='neuracle_tcp_local')
