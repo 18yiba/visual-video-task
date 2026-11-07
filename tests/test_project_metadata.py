@@ -21,6 +21,17 @@ def load_script(name):
 
 
 class ProjectMetadataTests(unittest.TestCase):
+    def test_lockfile_matches_source_only_project_version(self):
+        import tomllib
+        project = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+        lock = tomllib.loads((ROOT / 'uv.lock').read_text(encoding='utf-8'))
+        packages = [item for item in lock['package']
+                    if item['name'] == project['project']['name']]
+        self.assertEqual(len(packages), 1)
+        self.assertEqual(packages[0]['version'], project['project']['version'])
+        self.assertEqual(packages[0]['source'], {'virtual': '.'})
+        self.assertIs(project['tool']['uv']['package'], False)
+
     def test_project_id_matches_read_only_dvc_remote(self):
         metadata = load_project_metadata()
         self.assertEqual(metadata.unique_name, 'EMOVID-20261008')

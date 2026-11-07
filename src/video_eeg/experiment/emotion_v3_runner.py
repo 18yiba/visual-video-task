@@ -152,9 +152,17 @@ class EmotionV3Runner(EmotionV2Runner):
         self._facial_recorder = facial
         original_emit = self.manager.emit
         def emit(name, **payload):
+            if facial is not None and name == 'video_on':
+                flip = facial.events.get('stimulus_flip')
+                if flip is not None:
+                    payload['stimulus_flip_monotonic_sec'] = flip['monotonic_sec']
             original_emit(name, **payload)
             if facial is not None and name in {'video_on', 'video_off'}:
-                facial.boundary(name, self._event_times[name])
+                event = dict(self._event_times[name])
+                if name == 'video_on' and 'stimulus_flip_monotonic_sec' in payload:
+                    event.update(monotonic_sec=payload['stimulus_flip_monotonic_sec'],
+                        time_basis='first presentation flip callback before marker sends')
+                facial.boundary(name, event)
         self.manager.emit = emit
         try:
             return super()._run_trial(trial_idx, asset)

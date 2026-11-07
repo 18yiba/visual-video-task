@@ -17,6 +17,7 @@ class VerifiedTriggerBox(MarkerBackend):
         self._lock=threading.RLock();self.pending=deque();self.error=None
         self.last_write_accepted=False;self._last_value=0;self._sample_index=0
         self._last_raw_value=0
+        self._observed_values={}
         self._confirmed=0;self._sent=0;self._file=None;self._last_port_check=0.
         self.sample_boundary = lambda: self._sample_index
         self.receipt_timeout=float(receipt_timeout_sec)
@@ -112,6 +113,7 @@ class VerifiedTriggerBox(MarkerBackend):
                 if not float(value).is_integer():self._fail(f'TRG contains a noninteger value: {value}')
                 code=int(value)
                 if not 0 <= code <= 255:self._fail(f'TRG value outside 0..255: {code}')
+                self._observed_values[code] = self._observed_values.get(code, 0) + 1
                 if (code and code!=self._last_value and not self.error and self.pending
                         and code==self.pending[0]['code']
                         and self._sample_index>=self.pending[0]['minimum_sample_index']):
@@ -148,6 +150,8 @@ class VerifiedTriggerBox(MarkerBackend):
             return dict(neuracle_trigger=dict(port=self.port,hardware_id=self.hardware_id,device_name=self.device_name,
                 transport='Neuracle DCP 115200 8N1',ack_format='event code or E1; independent TRG required',sent_count=self._sent,confirmed_count=self._confirmed,
                 pending_codes=[x['code'] for x in self.pending],error=self.error,
+                observed_samples=self._sample_index, observed_value_counts=dict(self._observed_values),
+                pending_details=[dict(item) for item in self.pending],
                 confirmation='matching value edge in forwarded TRG channel',
                 recording_control='local TCP recording only; does not control Collect disk recording'))
 

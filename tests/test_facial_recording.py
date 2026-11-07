@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from video_eeg.experiment.facial_recording import (
-    FacialRecorder, FacialRecordingError, reserve_path, validate_coverage,
+    FacialRecorder, FacialRecordingError, reserve_path, validate_coverage, onset_frame_alignment,
 )
 
 
@@ -75,7 +75,7 @@ def test_interruption_timestamps_and_clock_mapping(tmp_path):
     lines = r.path.with_suffix('.timestamps.csv').read_text().splitlines()
     assert len(lines) == 92
     assert lines[1].endswith(',-0.5')
-    log = json.loads((tmp_path/'facial_recording_log.jsonl').read_text(encoding='utf-8'))
+    log = json.loads((tmp_path/'facial_recording_log.jsonl').read_text(encoding='utf-8').splitlines()[-1])
     assert log['status'] == 'interrupted'
     assert log['events']['video_on']['sample_index'] == 100
     assert set(log['clock_mapping']) == {'monotonic_sec', 'timestamp_unix_sec'}
@@ -93,6 +93,42 @@ def test_dead_camera_detected(tmp_path):
         r.check()
 
 
+@pytest.mark.parametrize('fails_before_frame', [False, True])
+def test_camera_start_marker_once_after_first_frame(monkeypatch, tmp_path, fails_before_frame):
+    r = FacialRecorder(tmp_path, 'start', 2)
+    r.preflight = Mock()
+    monkeypatch.setattr('video_eeg.experiment.facial_recording.subprocess.Popen', Mock())
+    monkeypatch.setattr('video_eeg.experiment.facial_recording.threading.Thread', Mock())
+    monkeypatch.setattr('video_eeg.experiment.facial_recording.time.sleep', Mock())
+    callback = Mock()
+    checks = []
+
+    def check(startup=False):
+        assert startup
+        checks.append(True)
+        if fails_before_frame:
+            raise FacialRecordingError('no frame')
+        if len(checks) == 1:
+            r.frames = [(0, 10., 0.)]
+        else:
+            r.frames = [(i, 10. + i / 30, i / 30) for i in range(17)]
+            r.path.write_bytes(b'video header')
+
+    r.check = check
+    if fails_before_frame:
+        with pytest.raises(FacialRecordingError, match='no frame'):
+            r.start(on_started=callback)
+        callback.assert_not_called()
+    else:
+        r.start(on_started=callback)
+        callback.assert_called_once()
+        fields = callback.call_args.kwargs
+        assert fields['facial_attempt'] == 2
+        assert fields['camera_first_frame_monotonic_sec'] == 10.
+        assert fields['facial_file'] == 'start_facial.mp4'
+        rows = [json.loads(line) for line in
+                (tmp_path / 'facial_recording_log.jsonl').read_text(encoding='utf-8').splitlines()]
+        assert [row['status'] for row in rows] == ['reserved', 'recording_started']
 @pytest.mark.parametrize('stage,trial_type,expected', [('eeg', 'emotion', 1),
     ('eeg', 'ordinary', 0), ('ratings', 'emotion', 0)])
 def test_v3_capture_scope_and_cleanup(monkeypatch, tmp_path, stage, trial_type, expected):
@@ -105,9 +141,11 @@ def test_v3_capture_scope_and_cleanup(monkeypatch, tmp_path, stage, trial_type, 
     original_emit = Mock()
     r.manager = SimpleNamespace(emit=original_emit)
     recorder = Mock()
+    recorder.events = {}
     factory = Mock(return_value=recorder)
     monkeypatch.setattr('video_eeg.experiment.facial_recording.FacialRecorder', factory)
     def trial(self, idx, asset):
+        recorder.events['stimulus_flip'] = dict(monotonic_sec=.8)
         self._event_times = dict(video_on=dict(monotonic_sec=1., sample_index=4))
         self.manager.emit('video_on')
         raise RuntimeError('playback failed')
@@ -117,6 +155,9 @@ def test_v3_capture_scope_and_cleanup(monkeypatch, tmp_path, stage, trial_type, 
     assert factory.call_count == expected
     assert recorder.finish.call_count == expected
     assert recorder.boundary.call_count == expected
+    if expected:
+        assert original_emit.call_args.kwargs['stimulus_flip_monotonic_sec'] == .8
+        assert recorder.boundary.call_args.args[1]['monotonic_sec'] == .8
     assert r.manager.emit is original_emit
     assert r._facial_recorder is None
 
@@ -133,5 +174,20 @@ def test_failed_length_keeps_video_and_timestamps(tmp_path):
         r.finish(complete=True, material_duration=4)
     assert r.path.read_bytes() == b'preserved recording'
     assert r.path.with_suffix('.timestamps.csv').is_file()
-    row = json.loads((tmp_path/'facial_recording_log.jsonl').read_text(encoding='utf-8'))
+    row = json.loads((tmp_path/'facial_recording_log.jsonl').read_text(encoding='utf-8').splitlines()[-1])
     assert row['status'] == 'failed'
+
+
+def test_onset_alignment_brackets_and_preserves_media_pts():
+    result = onset_frame_alignment([(0, 10., 0.), (1, 10.04, .04)], 10.03, [0., .04])
+    assert result['before']['frame'] == 0
+    assert result['after']['frame'] == result['nearest']['frame'] == 1
+    assert result['nearest']['encoded_pts_sec'] == .04
+    assert result['nearest']['relative_video_onset_sec'] == pytest.approx(.01)
+    assert result['bracket_interval_sec'] == pytest.approx(.04)
+    assert result['exposure_alignment_verified'] is False
+
+
+@pytest.mark.parametrize('onset', [None, 9., 11., float('nan')])
+def test_onset_alignment_requires_observed_coverage(onset):
+    assert onset_frame_alignment([(0, 10., 0.)], onset, [])['status'] == 'unavailable'

@@ -13,3 +13,5 @@
 | [NAS材料](operations/NAS_MATERIALS.md) | 两设备共用只读材料路径，本机记录与进度不变 |
 | [虚拟串口](operations/VIRTUAL_SERIAL.md) | 从 Eterlogic 官方站点取得并验证 VSPE；检查入口不下载、不安装 |
 | [结构迁移](maintenance/TEMPLATE_LAYOUT.md) / [维护记录](maintenance/CHANGELOG.md) | 目录职责、兼容边界及验证记录 |
+
+独立格式转换：[NPY → EDF+ / 模板BIDS工具](operations/NPY_TO_EDFPLUS_BIDS.md)。生成独立副本，保留原始NPY与恢复记录；默认执行离线官方校验。

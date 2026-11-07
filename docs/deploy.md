@@ -49,3 +49,5 @@ uv lock --check
 输出目录必须是新的空目录。源码包包含源码、启动 TOML、原协议资源和脚本，排除记录、视频、环境、缓存与本机配置；素材索引独立发布。CI 检查锁文件、第三方依赖、两个源码入口、项目元数据和干净发行包；不构建本项目 wheel。实际实验仅在 Windows 环境验收。
 
 改动启动路径后运行 `scripts/validation/smoke_unified_entry.py --protocol v1` 和 `--protocol v2`，完成真实 PsychoPy 窗口的模拟 EEG 写盘检查。模拟通过不能证明真实设备、音频时延或硬件触发合格。
+
+独立格式转换：[NPY → EDF+ / 模板BIDS工具](operations/NPY_TO_EDFPLUS_BIDS.md)。生成独立副本，保留原始NPY与恢复记录；默认执行离线官方校验。

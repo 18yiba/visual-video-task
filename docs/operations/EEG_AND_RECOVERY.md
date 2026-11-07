@@ -6,6 +6,10 @@
 
 # 数据目录、续跑、采集日志与断流保护
 
+若Collect显示测试码而程序TRG全零，查看新报告的 `diagnostics.neuracle_forwarding.packet_trigger_diagnostics`。count统计TCP独立事件区的记录数，examples保留最多16个包的时间字段和有界原始字节，供核对事件转发格式；这些诊断字节尚未转换成EEG触发码。重启源码控制台并重新检测后生成报告。
+
+博睿康检测出现“TRG 未在3秒内回传标记250”时，表示测试码串口应答已通过，但未在转发TRG中确认匹配边沿。`connect success`只说明TCP连接建立。更新源码后，失败报告 `logs/neuracle_probe_*.json` 的diagnostics保存接收样本数、实际转发元数据、TRG observed_value_counts、observed_samples及pending_details（含串口ACK和发送边界）。先核对Collect能否看到250，再核对转发TRG值和通道映射；仅凭超时无法确定硬件故障原因。保存退出并重启控制台后重新检测，安装包需另行更新。
+
 两份源码项目之间的记录复制可使用[自动检查与迁移脚本](MIGRATE_RECORDS.md)：默认预览，保留原件，拒绝冲突，完整复制后校验 SHA256。
 
 ## 统一入口的数据规则

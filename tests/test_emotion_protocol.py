@@ -56,10 +56,63 @@ def test_scale_words_do_not_expose_labels_and_two_pages_only():
         assert all(label not in wording+anchors for label in ('positive','negative','Excitation','Fear','Sad','Tension','.mp4'))
 
 def test_marker_codes_preserve_legacy_and_add_unique_events():
-    assert [PROTOCOL_EVENT_CODES[k] for k in ('video_on','video_off','break_start','break_end','attention_task_on')]==[132,133,136,137,142]
+    assert [PROTOCOL_EVENT_CODES[k] for k in ('video_on','video_off')]==[132,133]
+    assert not set(PROTOCOL_EVENT_CODES.values()) & {110,111,134,135,136,137,138,139,142,152,153,154,155}
     new = [value for key,value in PROTOCOL_EVENT_CODES.items() if key.isupper()]
-    assert len(new)==len(set(new))==14
+    assert len(new)==len(set(new))==13
+    assert not {150, 151} & set(PROTOCOL_EVENT_CODES.values())
+    assert PROTOCOL_EVENT_CODES['CAMERA_RECORDING_ONSET'] == 164
     assert not set(new)&{value for key,value in PROTOCOL_EVENT_CODES.items() if not key.isupper()}
+
+
+def test_retired_triggers_record_locally_without_hardware_send():
+    from unittest.mock import Mock
+    from video_eeg.experiment.video_protocol import EegSessionManager
+    manager = object.__new__(EegSessionManager)
+    manager._background_error = None
+    manager.raise_if_background_failed = lambda: None
+    manager._subject_id = 'test'
+    manager._session_id = 1
+    manager._marker_backend = Mock()
+    manager._recorder = Mock()
+    names = ('baseline_start', 'baseline_end', 'blank_on', 'blank_off',
+             'break_start', 'break_end', 'iti_on', 'iti_off', 'attention_task_on',
+             'VALENCE_RATING_ONSET', 'VALENCE_RATING_RESPONSE',
+             'AROUSAL_RATING_ONSET', 'AROUSAL_RATING_RESPONSE')
+    for name in names:
+        manager.emit(name)
+        assert manager._recorder.add_event.call_args.args == (name,)
+        assert manager._recorder.add_event.call_args.kwargs['marker_code'] is None
+        assert manager._recorder.add_event.call_args.kwargs['external_marker_sent'] is False
+    assert manager._marker_backend.mock_calls == []
+
+
+@pytest.mark.parametrize('category,code', [('positive',171), ('negative',172), ('neutral',173)])
+def test_emotion_category_reaches_hardware_and_event_log(category, code):
+    from video_eeg.experiment.video_protocol import EegSessionManager
+    from video_eeg.utils.markers import MarkerBackend
+    class Backend(MarkerBackend):
+        def __init__(self):
+            self.codes = []
+        def send(self, label, timestamp=None):
+            self.codes.append(label)
+    manager = object.__new__(EegSessionManager)
+    manager._background_error = None
+    manager.raise_if_background_failed = lambda: None
+    manager._subject_id = 'test'
+    manager._session_id = 1
+    manager._marker_backend = Backend()
+    manager._recorder = Mock()
+    manager.emit('EMOTION_VIDEO_ONSET', three_class_label=category)
+    assert manager._recorder.add_event.call_args.args == ('EMOTION_VIDEO_ONSET',)
+    assert manager._recorder.add_event.call_args.kwargs['marker_code'] == code
+    manager.emit('EMOTION_VIDEO_OFFSET', three_class_label=category)
+    assert manager._recorder.add_event.call_args.kwargs['marker_code'] == 175
+    assert manager._marker_backend.codes == [code, 175]
+    for invalid in (None, '', 'unknown'):
+        with pytest.raises(ValueError, match='类别'):
+            manager.emit('EMOTION_VIDEO_ONSET', three_class_label=invalid)
+    assert manager._marker_backend.codes == [code, 175]
 
 @pytest.mark.parametrize('phase', ['video','valence','arousal'])
 def test_partial_rating_state_survives_and_video_is_not_committed(tmp_path,phase):

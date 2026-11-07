@@ -1591,7 +1591,14 @@ class VideoRunner:
         planned_duration = asset.duration_sec
         facial = getattr(self, '_facial_recorder', None)
         if facial is not None:
-            facial.start()
+            def camera_started(**fields):
+                manager.emit('CAMERA_RECORDING_ONSET', trial_idx=trial_idx,
+                    video_name=asset.asset_id, stim_file=stim_file, **fields)
+            facial.start(on_started=camera_started)
+            # Observe the presentation flip before serial marker callbacks can block.
+            def camera_stimulus_flip():
+                facial.boundary('stimulus_flip', dict(monotonic_sec=time.perf_counter()))
+            self.win.callOnFlip(camera_stimulus_flip)
         self.win.callOnFlip(manager.fixation_off, trial_idx=trial_idx)
         if getattr(self, 'natural_eof_only', False):
             movie.play()

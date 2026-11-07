@@ -186,7 +186,9 @@
       "scripts/maintenance/migrate_records.py",
       "docs/operations/MIGRATE_RECORDS.md",
       "assets/README.md",
-      "assets/.gitignore"
+      "assets/.gitignore",
+      "scripts/convert_npy_bids.py",
+      "docs/operations/NPY_TO_EDFPLUS_BIDS.md"
     ]
   }
 }

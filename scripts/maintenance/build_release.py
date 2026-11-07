@@ -14,6 +14,8 @@ FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'lab_uv_env.toml',
          'assets/README.md', 'assets/.gitignore', 'assets/stimuli.dvc',
          'requirements-psychopy.txt', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md',
          'assets/brand/company_logo.png', 'main.py', 'video_eeg.py', 'data/README.md')
+# Explicitly tracked conversion-tool deliverables (also covered by folder selection).
+FILES += ('scripts/convert_npy_bids.py', 'docs/operations/NPY_TO_EDFPLUS_BIDS.md')
 PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/sourcedata/.gitkeep')
 ROOT_BATS = ('RUNME.bat', 'run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat', 'run_experiment.bat',
              'install_lab_env_uv.bat', 'download_materials.bat', 'setup_virtual_serial.bat', 'check_virtual_serial.bat')

@@ -463,6 +463,8 @@ def main(argv=None):
             report = dict(ok=True, connection=base.probe_eeg_connection(configuration(port=args.port)))
         except Exception as exc:
             report = dict(ok=False, error=str(exc))
+            if hasattr(exc, 'probe_diagnostics'):
+                report['diagnostics'] = exc.probe_diagnostics
         if is_neuracle():
             try:
                 from video_eeg.utils.neuracle_recording import write_probe_report
