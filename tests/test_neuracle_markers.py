@@ -39,6 +39,39 @@ def test_no_returned_trigger_fault_is_sticky():
     with pytest.raises(RuntimeError):b.send(133)
 
 
+def test_failed_trigger_retains_observed_values_and_pending_ack():
+    t=[0.];b=box(clock=lambda:t[0]);b.send(250)
+    b.observe(np.array([0, 0, 7, 0]))
+    t[0]=4
+    with pytest.raises(RuntimeError):b.check_health()
+    report=b.recording_metadata()['neuracle_trigger']
+    assert report['observed_samples']==4
+    assert report['observed_value_counts']=={0:3, 7:1}
+    assert report['pending_codes']==[250]
+    assert report['pending_details'][0]['ack_payload_hex']=='fa'
+    assert report['confirmed_count']==0
+
+
+def test_packet_event_diagnostic_preserves_bytes_and_is_bounded():
+    from video_eeg.devices.neuracle_verified import StrictDataServer
+    server = object.__new__(StrictDataServer)
+    server.n_chan = 2
+    server.serialNumber = 12
+    server.sample_rate = 1000
+    server.dataCountPerChannel = [2, 2]
+    server.forwarded_metadata = dict(selected_stream_indices=[0, 1], trigger_mapping=dict(ratio=1))
+    server.packet_trigger_count = 0
+    server.packet_trigger_examples = []
+    tail = bytes(range(34))
+    body = struct.pack('<I', 34) + struct.pack('<I', 12) + bytes([1, 1]) + bytes(16) + tail + bytes(2)
+    packet = struct.pack('<H7I', 0xA55A, 30, 30 + len(body), 100, 2, 1, 0, 1) + body
+    for _ in range(20):
+        server._validate_data_packet(packet)
+    assert server.packet_trigger_count == 20
+    assert len(server.packet_trigger_examples) == 16
+    assert server.packet_trigger_examples[0]['trigger_section_prefix_hex'] == tail.hex()
+
+
 def test_wrong_ack_and_short_response_rejected():
     b=box(Serial(ack=b'\x00'))
     with pytest.raises(RuntimeError,match='ACK'):b.send(132)

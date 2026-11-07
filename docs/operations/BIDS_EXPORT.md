@@ -98,3 +98,5 @@ uv run --no-sync python scripts/export_bids.py --source "C:\Users\EDY\Desktop\vi
 ```
 
 旧 `vendor/eeg-bids-converter` 作为历史通用组件保留。本次桌面功能使用针对本范式事件和行为表实现的 `src/video_eeg/utils/bids_export.py`，不再让主试手动套用旧通用转换配置。
+
+独立格式转换：[NPY → EDF+ / 模板BIDS工具](NPY_TO_EDFPLUS_BIDS.md)。生成独立副本，保留原始NPY与恢复记录；默认执行离线官方校验。

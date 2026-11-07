@@ -1,8 +1,35 @@
 <p align="center"><img src="assets/brand/company_logo.png" alt="公司标志" width="96"></p>
 
+## v0.3.8 更新说明（2026-11-07）
+
+本版更新实时EEG trigger码。积极情绪视频开始为171，消极为172，中性为173，情绪视频结束统一175；150/151停止发送。程序按材料的three_class_label选码，类别缺失或异常时停止。数字码可在EEG的TRG通道及Collect中核对，事件日志同时保存类别和实际发送码。
+
+| 事件 | 开始码 | 结束／作答码 |
+|---|---|---|
+| Session | 101 | 102 |
+| 睁眼／闭眼基线 | 112／114 | 113／115 |
+| 注视十字 | 130 | 131 |
+| 普通视频／图片 | 132 | 133 |
+| Trial | 140 | 141 |
+| 短休息 | 156 | 157 |
+| 喜好评分 | 158 | 159 |
+| 定时注意力检查 | 160 | 161 |
+| 疲劳评分 | 162 | 163 |
+| 摄像头正式录像首帧软件确认 | 164 | — |
+| 积极／消极／中性视频 | 171／172／173 | 175 |
+| 博睿康连通性检测 | 250、251、252 | — |
+
+110/111、134–139、142、152–155已从数字码表移除，其对应流程事件仅记本地日志。历史记录按采集目录metadata中的trigger_codes解释；分析新数据须使用本表，跨版本续跑须按每个采集段的码表处理。
+
+摄像头增加164开始标记，播放开始在刷新后的首个同步回调取时，录像日志提供开始前、后及最近帧和时间差。帧匹配使用软件观察时间，曝光精度仍待光学测量。Collect和实验程序同时使用摄像头时应分别指定独立设备。
+
+现场验收由用户于2026-11-07确认真实同步盒与Collect显示通过。开发验证包括全套391项通过、5项跳过、12个子测试、双源码入口及真实PsychoPy窗口配合模拟EEG/合成录像；模拟结果单独记录。
+
+升级前正常保存退出并备份完整被试目录；安装版覆盖安装v0.3.8后重新启动，源码版更新后重启。安装包包含运行环境，视频材料另行配置。发行源码、Windows安装包及SHA256见[v0.3.8发布页](https://github.com/18yiba/visual-video-task/releases/tag/v0.3.8)。下文旧版本章节保留其发布时的历史说明。
+
 # visual-video-task：视频EEG采集与情绪评分
 
-最新源码版本为 **v0.3.7**，分支名为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)。该版本包含模板布局校验修复、Neuracle 原生 EDF 保存、v3 强脑 SDK 与控制台行为评分按钮。Windows v0.3.7 安装包构建后可从本机 `D:\Experiment\visual-video-package\artifacts\v0.3.7` 获取。
+最新源码版本为 **v0.3.8**，分支名为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)。该版本包含模板布局校验修复、Neuracle 原生 EDF 保存、v3 强脑 SDK 与控制台行为评分按钮。Windows v0.3.8 安装包构建后可从本机 `D:\Experiment\visual-video-package\artifacts\v0.3.8` 获取。
 
 源码提供三个设备 v3 BAT 入口：`run_emotion_v3.bat`（EMOTIV）、`run_neuracle_v3.bat`（博睿康 Collect TCP）和 `run_brainco_v3.bat`（强脑 SDK）。行为评分统一从对应设备控制台的“开始行为评分”按钮进入，沿用当前设备、视频范围、被试和Session，不连接或采集EEG。已移除独立评分BAT；已发布安装版的历史评分快捷方式不随源码更新自动移除。
 
@@ -16,7 +43,7 @@ NAS材料设置：在设备控制台点击“视频材料位置（本机 / NAS�
 
 源码按 [acq-task-template](https://github.com/Omni-Intel/acq-task-template) 直接运行，不安装本项目或创建控制台别名。`main.py` 和 `python -m src` 是统一源码入口；`run_experiment.bat` 及三个 v3 设备 BAT 是转发到该入口的兼容入口。uv 仅管理锁定的第三方依赖。默认打开 v1/v2 选择页并选 Demo；v3 控制台保留阶段、设备选择与进度管理。原协议 YAML、题库、固定清单和历史记录不转换。[部署](docs/deploy.md) · [文档索引](docs/README.md) · [结构与兼容边界](docs/maintenance/TEMPLATE_LAYOUT.md)
 
-当前安装包为 **Windows v0.3.4（双设备入口与面部录像）**，开始菜单可分别打开“视频EEG v3 EMOTIV设备入口”和“视频EEG v3 博睿康设备入口”；通用入口默认EMOTIV。强脑 SDK 入口目前仅在源码中提供。v3先采集并保存EEG，再独立重播情绪视频进行评分；旧v1/v2从开始菜单的独立入口运行。安装包版本号、界面版本和实验协议不是同一个编号，升级不会把历史进度转换成v3。
+历史 Windows v0.3.4 安装包说明：**Windows v0.3.4（双设备入口与面部录像）**，开始菜单可分别打开“视频EEG v3 EMOTIV设备入口”和“视频EEG v3 博睿康设备入口”；通用入口默认EMOTIV。强脑 SDK 入口目前仅在源码中提供。v3先采集并保存EEG，再独立重播情绪视频进行评分；旧v1/v2从开始菜单的独立入口运行。安装包版本号、界面版本和实验协议不是同一个编号，升级不会把历史进度转换成v3。
 
 适用于Windows 10/11 64位，v3源码提供EMOTIV/EmotivPRO、博睿康Collect及强脑 SDK 入口；安装包入口仍为前两者。安装包自带Python、PsychoPy和bcigo-sdk 1.0.2，无需另外安装Python或采集软件；视频材料不在安装包内。本仓库源码不包含被试数据、视频或开发环境。
 
@@ -433,7 +460,7 @@ v2疲劳题干为“当前您的疲劳程度是？”。
 
 融合版9道内容题按约10、20……90分钟净视频附近的普通视频结束绑定，计入普通和情绪视频时长，答题/休息不计。重播或S重排会影响实际间隔，程序不打断正在播放的视频硬性出题；续跑保留原抽查计划。
 
-EEG连续覆盖视频、回答和休息。普通视频起止marker为132/133；情绪150/151；效价152/153；唤醒154/155；短休息156/157；喜好158/159；V2内容题160/161；疲劳162/163。`eeg_acquisition_error`只写本地事件，不伪造硬件marker。旧版本仍使用其原事件定义。
+EEG连续覆盖视频、回答和休息。当前数字marker为Session101/102、睁眼112/113、闭眼114/115、注视130/131、普通视频132/133、Trial140/141、情绪视频积极开始171、消极开始172、中性开始173、统一结束175、短休息156/157、喜好158/159、V2内容题160/161、疲劳162/163及摄像头开始164；博睿康检测使用250–252。2026-11-07删除110/111、134–139、142、152–155的数字码定义，对应流程事件仅写本地日志，marker_code为空。历史事件解释依据记录自身metadata中的trigger_codes。
 
 ## 设备配置及完整YAML
 
@@ -730,3 +757,7 @@ Remove-Item Env:UV_PROJECT_ENVIRONMENT
 本次按版本合并文档、移除重复启动BAT和旧上传回执。每个被移除文件原来写了什么、为何重复、有效信息放在哪里，见[逐文件清理表](docs/maintenance/FILE_CLEANUP.md)；跨版本进展见[维护记录](docs/maintenance/CHANGELOG.md)。没有删除被试记录、母库或运行所需环境。
 
 历史博睿康NPY需要EDF副本时，使用[逐段转换说明](docs/operations/NEURACLE_NPY_TO_EDF.md)：先预览、再显式转换，保留原件，回读核对TRG与量化误差；EDF转换不等于完整BIDS交付。
+
+独立格式转换：[NPY → EDF+ / 模板BIDS工具](docs/operations/NPY_TO_EDFPLUS_BIDS.md)。生成独立副本，保留原始NPY与恢复记录；默认执行离线官方校验。
+
+格式转换独立入口：[bids-convert/RUNME.bat](../BIDS-convert/RUNME.bat)，可单独复制整个目录，环境准备见[工具说明](../BIDS-convert/README.md)。

@@ -324,7 +324,13 @@ class EegSessionManager:
             self._recorder.add_event(event_name, **payload)
             return
         self.raise_if_background_failed()
-        code = PROTOCOL_EVENT_CODES.get(event_name)
+        marker_event_name = event_name
+        if event_name == 'EMOTION_VIDEO_ONSET':
+            category = payload.get('three_class_label')
+            if category not in ('positive', 'negative', 'neutral'):
+                raise ValueError('情绪视频开始标记缺少有效类别：positive / negative / neutral。')
+            marker_event_name = 'EMOTION_VIDEO_ONSET_' + category.upper()
+        code = PROTOCOL_EVENT_CODES.get(marker_event_name)
         is_local_only = event_name in LOCAL_ONLY_EVENT_NAMES
         if code is None and not is_local_only:
             raise ValueError(f"Unknown protocol event: {event_name}")
@@ -351,6 +357,7 @@ class EegSessionManager:
             "subject_id": self._subject_id,
             "session_id": self._session_id,
             "marker_code": code,
+            "marker_event_name": marker_event_name,
             "flip_callback_time_monotonic_sec": callback_monotonic,
             "marker_send_started_monotonic_sec": marker_started,
             "marker_backend": marker_backend,
@@ -359,9 +366,9 @@ class EegSessionManager:
         }
         try:
             if hasattr(self._marker_backend, 'delivery_status'):
-                self._marker_backend.send_event(event_name, timestamp=time.time())
+                self._marker_backend.send_event(marker_event_name, timestamp=time.time())
             else:
-                self._marker_backend.send_event(event_name)
+                self._marker_backend.send_event(marker_event_name)
         except BaseException as exc:
             if hasattr(self._marker_backend, 'delivery_status'):
                 event_payload.update(external_marker_sent=self._marker_backend.last_write_accepted,

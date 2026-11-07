@@ -93,9 +93,28 @@ def main():
             (runner.progress_dir / 'facial_recording_log.jsonl').read_text(encoding='utf-8').splitlines()]
         passed = [row for row in facial_rows if row['status'] == 'passed']
         assert len(passed) == 3
+        alignments = [row['alignment'] for row in facial_rows if row['status'] == 'onset_frame_alignment']
+        assert len(alignments) == 3
+        assert all(row['status'] == 'software_observation_only' for row in alignments)
+        assert all(row['before']['relative_video_onset_sec'] <= 0 <=
+                   row['after']['relative_video_onset_sec'] for row in alignments)
         assert all(row['decoded_duration_sec'] >= row['material_duration_sec'] for row in passed)
         assert all(row['events']['video_off']['sample_index'] > row['events']['video_on']['sample_index'] for row in passed)
         events = json.loads((runner.manager.session_dir / runner.manager.recorder.events_filename).read_text(encoding='utf-8'))
+        camera_events = [e for e in events if e['name'] == 'CAMERA_RECORDING_ONSET']
+        assert len(camera_events) == 3
+        assert all(e['payload']['marker_code'] == 164 for e in camera_events)
+        assert all('stimulus_flip_monotonic_sec' in e['payload'] for e in events
+                   if e['name'] == 'EMOTION_VIDEO_ONSET')
+        emotion_onsets = [e for e in events if e['name'] == 'EMOTION_VIDEO_ONSET']
+        assert len(emotion_onsets) == 3
+        category_codes = {'positive': 171, 'negative': 172, 'neutral': 173}
+        assert all(e['payload']['marker_code'] == category_codes[e['payload']['three_class_label']]
+                   for e in emotion_onsets)
+        assert all(e['payload']['marker_code'] == 175 for e in events
+                   if e['name'] == 'EMOTION_VIDEO_OFFSET')
+        assert not any(e['payload'].get('marker_code') in (150, 151) for e in events)
+        assert {e['payload']['facial_file'] for e in camera_events} == {row['file'] for row in passed}
         assert not any('RATING' in e['name'] for e in events)
         if cfg['protocol'].get('emotion_only'):
             assert not any(e['name'].startswith(('LIKING', 'ALARM', 'FATIGUE')) for e in events)

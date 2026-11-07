@@ -83,8 +83,8 @@ class VideoMarkerTests(unittest.TestCase):
     def test_video_markers_keep_existing_codes(self) -> None:
         self.assertEqual(PROTOCOL_EVENT_CODES["video_on"], 132)
         self.assertEqual(PROTOCOL_EVENT_CODES["video_off"], 133)
-        self.assertEqual(PROTOCOL_EVENT_CODES["break_start"], 136)
-        self.assertEqual(PROTOCOL_EVENT_CODES["break_end"], 137)
+        self.assertNotIn("break_start", PROTOCOL_EVENT_CODES)
+        self.assertNotIn("break_end", PROTOCOL_EVENT_CODES)
 
     def test_duration_status_boundaries(self) -> None:
         self.assertEqual(duration_status(4.99), "invalid_short")

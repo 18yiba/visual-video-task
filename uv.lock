@@ -2714,7 +2714,7 @@ wheels = [
 
 [[package]]
 name = "video-eeg"
-version = "0.3.7"
+version = "0.3.8"
 source = { virtual = "." }
 
 [package.dev-dependencies]
