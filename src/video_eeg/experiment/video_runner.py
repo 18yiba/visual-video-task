@@ -551,6 +551,8 @@ def build_marker_backend(config: dict[str, Any]) -> Any:
 
 
 def _marker_mode(backend: Any) -> str:
+    if type(backend).__name__ == 'CortexMarker':
+        return 'cortex_software_marker'
     if type(backend).__name__ == 'EmotivProSerialBackend':
         return 'emotivpro_serial'
     if type(backend).__name__ == "NoOpMarkerBackend":
@@ -578,6 +580,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--real-eeg", action="store_true", help="强制使用真实 EEG 配置。")
     parser.add_argument("--device-type", choices=["brainco", "neuracle", "emotivpro"], default="")
     parser.add_argument('--emotivpro-port', default='')
+    parser.add_argument('--emotiv-transport', choices=['cortex', 'serial'], default=None)
+    parser.add_argument('--facial-recording', action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument('--emotivpro-baudrate', type=int, default=115200)
     parser.add_argument("--brainco-transport", choices=["bcigo", "lsl", "sdk"], default="")
     parser.add_argument("--preflight-eeg", action="store_true", help="打开窗口前检查 EEG/Marker 连接。")
@@ -601,6 +605,12 @@ def apply_cli_overrides(config: dict[str, Any], args: argparse.Namespace) -> Non
     if args.device_type:
         config["device_type"] = args.device_type
     device_cfg = dict(config.get("device", {}))
+    if getattr(args, 'emotiv_transport', None) is not None:
+        device_cfg['emotiv_transport'] = args.emotiv_transport
+    if getattr(args, 'facial_recording', None) is not None:
+        config['facial_recording_enabled'] = args.facial_recording
+    else:
+        config.setdefault('facial_recording_enabled', config.get('device_type') != 'emotivpro')
     if args.brainco_transport:
         device_cfg["brainco_transport"] = args.brainco_transport
     if getattr(args, 'emotivpro_port', ''):
@@ -1105,7 +1115,7 @@ class VideoRunner:
             self.termination_reason = "eeg_background_error"
             self._run_traceback = traceback.format_exc()
             self._eeg_failure = exc
-            if (uses_emotivpro_recording(getattr(self, 'config', {})) or getattr(self, 'config', {}).get('device', {}).get('neuracle_strict')) and hasattr(self.win, '_toCall'):
+            if (uses_emotivpro_recording(getattr(self, 'config', {})) or (getattr(self, 'config', {}).get('device', {}).get('neuracle_strict') or getattr(self, 'config', {}).get('device', {}).get('emotiv_transport') == 'cortex')) and hasattr(self.win, '_toCall'):
                 self.win._toCall.clear()
             movie = getattr(self, '_active_movie', None)
             if movie is not None:
@@ -1118,7 +1128,7 @@ class VideoRunner:
             except Exception: pass  # EEG export must still be attempted.
             self._show_text(failure_message(exc), wait_for_key=False, duration=0, allow_abort=False)
         except Exception as exc:
-            if uses_emotivpro_recording(getattr(self, 'config', {})) or getattr(self, 'config', {}).get('device', {}).get('neuracle_strict'):
+            if uses_emotivpro_recording(getattr(self, 'config', {})) or (getattr(self, 'config', {}).get('device', {}).get('neuracle_strict') or getattr(self, 'config', {}).get('device', {}).get('emotiv_transport') == 'cortex'):
                 # PsychoPy retains a failed flip callback; never resend it on the error page.
                 if hasattr(self.win, '_toCall'):
                     self.win._toCall.clear()
@@ -1246,12 +1256,12 @@ class VideoRunner:
 
     def _device_check_success_action(self, info: dict[str, Any]) -> str:
         body = (
-            "强脑 SDK 连接成功，并已读到 EEG 样本。正式实验尚未开始。\n\n"
+            "设备连接成功，并已读到 EEG 样本。正式实验尚未开始。\n\n"
             f"设备：{info.get('device')}\n"
             f"通道数：{info.get('channels')}\n"
             f"采样率：{info.get('sfreq')} Hz\n"
             f"检查样本数：{info.get('samples')}\n\n"
-            "确认 BCIGo/采集设备状态正常后，点击“开始实验”或按空格键继续。"
+            "确认采集设备状态正常后，点击“开始实验”或按空格键继续。"
         )
         return self._device_check_action_screen(
             title="设备连接成功",
@@ -1382,7 +1392,13 @@ class VideoRunner:
             config=self.config,
         )
         marker_backend = build_marker_backend(self.config)
-        if hasattr(acquirer, 'bind_marker'):
+        if acquirer.metadata.name == 'emotiv_cortex':
+            if (connection.get('cortex_headset_id') != acquirer.headset['id']
+                    or connection.get('sfreq') != acquirer.metadata.sfreq
+                    or connection.get('channels') != acquirer.metadata.n_channels):
+                acquirer.stop_stream()
+                raise EegAcquisitionError('Cortex 设备或采样参数在检测后变化，请重新检测。')
+        if getattr(acquirer, 'verified_neuracle', False):
             acquirer.expected_forwarded = connection.get('neuracle_forwarding')
             expected_trigger = connection.get('neuracle_trigger', {})
             if expected_trigger and expected_trigger.get('hardware_id') != marker_backend.hardware_id:
@@ -1416,6 +1432,7 @@ class VideoRunner:
                     "emotion_video_scope": 'emotion_only' if self.config['protocol'].get('emotion_only') else 'all'}
                    if self.config.get('protocol', {}).get('separate_emotion_ratings') else {}),
                 "psychopy_runner": True,
+                "facial_recording_enabled": self.config.get('facial_recording_enabled', False),
                 "video_trials": len(self.playlist),
                 "num_sessions": self.protocol.num_sessions,
                 "attention_enabled": self.protocol.attention_enabled,
@@ -2402,6 +2419,7 @@ def probe_eeg_connection(config: dict[str, Any]) -> dict[str, Any]:
             raise RuntimeError("脑电连接成功，但未读取到样本")
         return {
             "device": acquirer.metadata.name,
+            **({'cortex_headset_id': acquirer.headset['id']} if acquirer.metadata.name == 'emotiv_cortex' else {}),
             "channels": int(acquirer.metadata.n_channels),
             "sfreq": float(acquirer.metadata.sfreq),
             "expected_sampling_rate_hz": expected_sampling_rate(config),

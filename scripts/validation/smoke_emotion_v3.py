@@ -21,6 +21,7 @@ def main():
     base._load_psychopy()
     cfg = base.load_config(base.CONFIG_DIR / 'video_emotion_v3_demo_config.yaml')
     cfg.update(_project_dir=str(base.PROJECT_ROOT), subject_id='AUTO_V3_' + str(time.time_ns()), explicit_run_seed=20260912, _integrated_startup=True)
+    cfg['facial_recording_enabled'] = '--no-facial' not in sys.argv
     cfg['protocol'].update(fixation_sec=.1, post_video_rest_seconds=.1, random_seed=20260912)
     cfg['storage']['records_dir'] = 'data/sourcedata/demo/v3_smoke'
     if '--emotion-only' in sys.argv:
@@ -89,32 +90,38 @@ def main():
         attempts = [a for a in runner.state.video_attempts if 'emotion_rating' in a]
         assert len(attempts) == 3 and all(eeg_saved(a) for a in attempts)
         assert all(not a['emotion_rating']['completed'] for a in attempts)
-        facial_rows = [json.loads(line) for line in
-            (runner.progress_dir / 'facial_recording_log.jsonl').read_text(encoding='utf-8').splitlines()]
-        passed = [row for row in facial_rows if row['status'] == 'passed']
-        assert len(passed) == 3
-        alignments = [row['alignment'] for row in facial_rows if row['status'] == 'onset_frame_alignment']
-        assert len(alignments) == 3
-        assert all(row['status'] == 'software_observation_only' for row in alignments)
-        assert all(row['before']['relative_video_onset_sec'] <= 0 <=
-                   row['after']['relative_video_onset_sec'] for row in alignments)
-        assert all(row['decoded_duration_sec'] >= row['material_duration_sec'] for row in passed)
-        assert all(row['events']['video_off']['sample_index'] > row['events']['video_on']['sample_index'] for row in passed)
+        passed = []
         events = json.loads((runner.manager.session_dir / runner.manager.recorder.events_filename).read_text(encoding='utf-8'))
-        camera_events = [e for e in events if e['name'] == 'CAMERA_RECORDING_ONSET']
-        assert len(camera_events) == 3
-        assert all(e['payload']['marker_code'] == 164 for e in camera_events)
-        assert all('stimulus_flip_monotonic_sec' in e['payload'] for e in events
-                   if e['name'] == 'EMOTION_VIDEO_ONSET')
-        emotion_onsets = [e for e in events if e['name'] == 'EMOTION_VIDEO_ONSET']
-        assert len(emotion_onsets) == 3
-        category_codes = {'positive': 171, 'negative': 172, 'neutral': 173}
-        assert all(e['payload']['marker_code'] == category_codes[e['payload']['three_class_label']]
-                   for e in emotion_onsets)
-        assert all(e['payload']['marker_code'] == 175 for e in events
-                   if e['name'] == 'EMOTION_VIDEO_OFFSET')
-        assert not any(e['payload'].get('marker_code') in (150, 151) for e in events)
-        assert {e['payload']['facial_file'] for e in camera_events} == {row['file'] for row in passed}
+        if cfg['facial_recording_enabled']:
+            facial_rows = [json.loads(line) for line in
+                (runner.progress_dir / 'facial_recording_log.jsonl').read_text(encoding='utf-8').splitlines()]
+            passed = [row for row in facial_rows if row['status'] == 'passed']
+            assert len(passed) == 3
+            alignments = [row['alignment'] for row in facial_rows if row['status'] == 'onset_frame_alignment']
+            assert len(alignments) == 3
+            assert all(row['status'] == 'software_observation_only' for row in alignments)
+            assert all(row['before']['relative_video_onset_sec'] <= 0 <=
+                       row['after']['relative_video_onset_sec'] for row in alignments)
+            assert all(row['decoded_duration_sec'] >= row['material_duration_sec'] for row in passed)
+            assert all(row['events']['video_off']['sample_index'] > row['events']['video_on']['sample_index'] for row in passed)
+            events = json.loads((runner.manager.session_dir / runner.manager.recorder.events_filename).read_text(encoding='utf-8'))
+            camera_events = [e for e in events if e['name'] == 'CAMERA_RECORDING_ONSET']
+            assert len(camera_events) == 3
+            assert all(e['payload']['marker_code'] == 164 for e in camera_events)
+            assert all('stimulus_flip_monotonic_sec' in e['payload'] for e in events
+                       if e['name'] == 'EMOTION_VIDEO_ONSET')
+            emotion_onsets = [e for e in events if e['name'] == 'EMOTION_VIDEO_ONSET']
+            assert len(emotion_onsets) == 3
+            category_codes = {'positive': 171, 'negative': 172, 'neutral': 173}
+            assert all(e['payload']['marker_code'] == category_codes[e['payload']['three_class_label']]
+                       for e in emotion_onsets)
+            assert all(e['payload']['marker_code'] == 175 for e in events
+                       if e['name'] == 'EMOTION_VIDEO_OFFSET')
+            assert not any(e['payload'].get('marker_code') in (150, 151) for e in events)
+            assert {e['payload']['facial_file'] for e in camera_events} == {row['file'] for row in passed}
+        else:
+            assert not (runner.progress_dir / 'facial_recording_log.jsonl').exists()
+            assert not any(e['name'] == 'CAMERA_RECORDING_ONSET' for e in events)
         assert not any('RATING' in e['name'] for e in events)
         if cfg['protocol'].get('emotion_only'):
             assert not any(e['name'].startswith(('LIKING', 'ALARM', 'FATIGUE')) for e in events)
@@ -144,7 +151,7 @@ def main():
                 (p.suffix.lower() in {'.edf', '.npy'} or p.name.startswith(('events', 'metadata', 'eeg_health')))}
         report = dict(status='PASS', real_hardware=False, path=str(behavior.progress_dir),
             ratings=3, speeds=[1, 1.5, 2], eeg_files_unchanged=True, abort_resume=True,
-            facial_source='synthetic' if '--facial-synthetic' in sys.argv else 'UGREEN Camera 4K',
+            facial_source='disabled' if not cfg['facial_recording_enabled'] else 'synthetic' if '--facial-synthetic' in sys.argv else 'UGREEN Camera 4K',
             facial_validated=len(passed),nas_input=nas_test)
         (base.PROJECT_ROOT / 'logs' / 'emotion_v3_smoke.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
         print(json.dumps(report), flush=True)

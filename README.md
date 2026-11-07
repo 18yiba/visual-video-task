@@ -1,3 +1,42 @@
+# EMOTIV Cortex 接入与可选面部录像
+
+当前开发分支：[codex/emotiv-cortex-optional-face](https://github.com/18yiba/visual-video-task/tree/codex/emotiv-cortex-optional-face)。本次更新 EMOTIV v3 源码：默认通过本机 Cortex 直接采集并保存 EEG，面部录像默认关闭、可手动开启。已发布 v0.3.8 Windows 安装包尚未包含这些改动；源码版本号继续沿用0.3.8，未创建新的安装版 Release。
+
+## 本次改动与兼容范围
+
+| 项目 | 本分支行为 |
+|---|---|
+| EMOTIV EEG | Cortex 直接接收并本地保存；设备返回实际采样率与通道，不使用修复版说明中未确认的参数 |
+| 稳定性保护 | 检测断流、队列溢出、样本重复/跳号、时间异常和插值包；打标超时或回执不匹配停止当前运行并保留已采数据 |
+| face 面部录像 | EMOTIV 默认不勾选；关闭时不预检摄像头、不录像、不发送摄像头164标记。EEG仍为必需采集 |
+| 旧模式与记录 | 可选择“EmotivPRO 外部录制（旧模式）”；沿用原设备、范围、被试和Session，不转换历史答案、状态或录像 |
+| 其他设备与协议 | 保留强脑、博睿康入口和v1/v2合同；其他设备控制台的录像仍默认勾选，也可关闭 |
+
+## EMOTIV 首次运行
+
+1. 按[源码部署](docs/deploy.md)准备第三方依赖，确认 `websockets>=15,<18` 可用；项目自身不安装。已有实验环境未被本次更新自动同步，更新前正常保存退出并备份完整被试目录。
+2. 启动本机 EMOTIV Launcher / CortexService，连接设备，确认应用具有 EEG 访问许可；停止占用该设备的 EmotivPRO 会话。程序不会自动关闭其他应用的会话。
+3. 将本人授权的凭据 JSON 保存在本机，通过 `EMOTIV_CREDS` 指定文件路径，JSON字段为 `clientId` 和 `clientSecret`；也支持当前目录或 `~/.emotiv/credentials.json`。凭据不放入Git、不随源码发布。
+4. 运行 `run_emotion_v3.bat`，选择“Cortex SDK 直接采集”，点击“检测 Cortex EEG”；多个设备时通过 `EMOTIV_HEADSET_ID` 指定设备。按需勾选“采集面部录像（可选）”，填写原被试编号、Session、视频范围和平台范式代码后开始。
+5. 保存退出后，从同一控制台点击“开始行为评分”。如果使用旧 EmotivPRO 模式，仍须先导出并登记对应EDF；中断视频按原合同重播，不手改完成状态。
+
+在 PowerShell 中临时指定凭据并启动（替换为自己的实际路径）：
+
+```powershell
+$env:EMOTIV_CREDS = 'D:\private\emotiv\credentials.json'
+.\run_emotion_v3.bat
+```
+
+需要录像时必须在开始前勾选；开启后仍执行原来的录像覆盖与时长检查，摄像头故障会中断当前试次。未勾选时，无摄像头不阻碍EEG采集。详细参数与故障处理见[EMOTIV Cortex 操作说明](docs/operations/EMOTIV_CORTEX.md)。
+
+## 保存格式、验证与升级
+
+Cortex 新记录保存 `continuous_eeg.npy`、事件和metadata；`cortex_packets_part_XXX.jsonl` 保留原始包、Cortex时间戳、主机到达时间和打标回执。原有 `session_state.json`、协议快照、被试目录及历史文件保持原样，备份须包含整个Session。Cortex软件标记不等于物理TRG或硬件同步，未知参考/滤波不推测；EMOTIV的BIDS/EEGQC设备配置尚未验收，不套用BrainCo参数。
+
+开发验证：409项测试、12个子测试通过，5项跳过；真实Qt/PsychoPy窗口配合模拟EEG通过关闭录像、合成摄像头录像、评分退出续跑及原EEG文件不变检查。源码发行包的两个入口独立验证通过。真实EMOTIV的长期连续采集、断连保存、标记接收和信号质量仍须现场验收，不能将模拟结果视为硬件稳定性保证。
+
+使用本分支源码需保存退出后更新并重启；仅重新安装已发布v0.3.8 EXE不会获得这些改动。下文保留已发布版本与历史部署说明，涉及EMOTIV接入和录像默认值时以本页上方说明为准。
+
 <p align="center"><img src="assets/brand/company_logo.png" alt="公司标志" width="96"></p>
 
 ## v0.3.8 更新说明（2026-11-07）
@@ -29,7 +68,7 @@
 
 # visual-video-task：视频EEG采集与情绪评分
 
-最新源码版本为 **v0.3.8**，分支名为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)。该版本包含模板布局校验修复、Neuracle 原生 EDF 保存、v3 强脑 SDK 与控制台行为评分按钮。Windows v0.3.8 安装包构建后可从本机 `D:\Experiment\visual-video-package\artifacts\v0.3.8` 获取。
+已发布版本为 **v0.3.8**，其发布基线分支为 [`codex/brainco-v3-sdk`](https://github.com/18yiba/visual-video-task/tree/codex/brainco-v3-sdk)；本次EMOTIV开发更新位于页首的新分支。该版本包含模板布局校验修复、Neuracle 原生 EDF 保存、v3 强脑 SDK 与控制台行为评分按钮。Windows v0.3.8 安装包构建后可从本机 `D:\Experiment\visual-video-package\artifacts\v0.3.8` 获取。
 
 源码提供三个设备 v3 BAT 入口：`run_emotion_v3.bat`（EMOTIV）、`run_neuracle_v3.bat`（博睿康 Collect TCP）和 `run_brainco_v3.bat`（强脑 SDK）。行为评分统一从对应设备控制台的“开始行为评分”按钮进入，沿用当前设备、视频范围、被试和Session，不连接或采集EEG。已移除独立评分BAT；已发布安装版的历史评分快捷方式不随源码更新自动移除。
 

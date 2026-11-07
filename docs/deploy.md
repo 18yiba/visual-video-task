@@ -1,3 +1,5 @@
+EMOTIV 源码入口现支持 [Cortex 直接采集](operations/EMOTIV_CORTEX.md)，需要本机 CortexService、应用授权与 EEG 许可；第三方依赖为 websockets>=15,<18。既有环境不自动同步；安装包未重建。
+
 # 源码部署与验证
 
 Windows 10/11 64 位按 [主操作手册](../README.md) 安装；实验运行固定 Python 3.12。项目是 source-only，uv 仅准备 `.venv` 和第三方依赖，不安装项目包、editable 路径或控制台别名。双击 `install_lab_env_uv.bat` 准备实验环境；已通过健康检查的现有实验环境继续复用。旧 editable 环境迁移前先正常结束实验并备份本机配置、凭据及数据，不运行 `git clean`。

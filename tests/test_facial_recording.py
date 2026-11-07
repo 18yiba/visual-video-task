@@ -134,6 +134,7 @@ def test_camera_start_marker_once_after_first_frame(monkeypatch, tmp_path, fails
 def test_v3_capture_scope_and_cleanup(monkeypatch, tmp_path, stage, trial_type, expected):
     from video_eeg.experiment.emotion_v3_runner import EmotionV3Runner, EmotionV2Runner
     r = object.__new__(EmotionV3Runner)
+    r.config = {"facial_recording_enabled": True}
     r.stage = stage
     r.library = SimpleNamespace(rows={'v': {'trial_type': trial_type}})
     r.progress_dir = tmp_path

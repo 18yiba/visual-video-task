@@ -16,6 +16,9 @@ FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'lab_uv_env.toml',
          'assets/brand/company_logo.png', 'main.py', 'video_eeg.py', 'data/README.md')
 # Explicitly tracked conversion-tool deliverables (also covered by folder selection).
 FILES += ('scripts/convert_npy_bids.py', 'docs/operations/NPY_TO_EDFPLUS_BIDS.md')
+FILES += ('src/video_eeg/devices/cortex_transport.py',
+          'src/video_eeg/devices/emotiv_cortex_acquirer.py',
+          'docs/operations/EMOTIV_CORTEX.md', 'tests/test_emotiv_cortex.py')
 PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/sourcedata/.gitkeep')
 ROOT_BATS = ('RUNME.bat', 'run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat', 'run_experiment.bat',
              'install_lab_env_uv.bat', 'download_materials.bat', 'setup_virtual_serial.bat', 'check_virtual_serial.bat')

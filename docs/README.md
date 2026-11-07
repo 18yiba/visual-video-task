@@ -4,6 +4,7 @@
 
 | 文档 | 用途 |
 |---|---|
+| [EMOTIV Cortex](operations/EMOTIV_CORTEX.md) | Cortex直接采集、可选面部录像与恢复 |
 | [部署](deploy.md) | 新 Windows 源码安装、启动、本机配置与验证 |
 | [DVC 素材](assets.md) / [采集后归档](data-transfer.md) | 素材索引与封存单记录包的独立 NAS 操作 |
 | [数据格式](data-format.md) / [交付约定](../data/README.md) | 原生记录、恢复、BIDS 副本与 EEGQC 单记录交付 |

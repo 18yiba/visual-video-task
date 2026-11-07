@@ -1,3 +1,5 @@
+EMOTIV Cortex 原始EEG、原包时间戳、标记回执和已有session_state须整Session备份；面部录像可选。新接入不转换旧记录，未验收EMOTIV BIDS设备配置。详见[操作说明](../docs/operations/EMOTIV_CORTEX.md)。
+
 # 数据保存与交付
 
 `data/` 是私有本地输出目录。Git 与源码包仅包含本说明和空的 `sourcedata/.gitkeep`；真实记录、模拟测试记录、配置快照、质检报告和上传回执均不提交。

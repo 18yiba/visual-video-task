@@ -1,3 +1,5 @@
+EMOTIV Cortex 新记录为实际通道顺序的 continuous_eeg.npy、metadata 和 cortex_packets_part_XXX.jsonl 原包审计；外部EmotivPRO历史EDF登记不变。详见[保存与恢复边界](operations/EMOTIV_CORTEX.md)。
+
 # 数据格式与恢复边界
 
 本次仅调整源码结构，不改变原始记录 schema、协议标识、Session 成员、行为字段或已有疲劳量尺。模板的模拟 `samples.csv` / `events.jsonl` 不替代本项目的保存合同。
