@@ -7,3 +7,5 @@ zeroconf
 
 # Only required for BrainCo direct-SDK mode. BCIGo mode does not need it.
 # bcigo-sdk>=1.0.2
+
+websockets>=15,<18

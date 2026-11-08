@@ -20,6 +20,10 @@ def is_brainco():
     return os.environ.get('VIDEO_EEG_BACKEND', '').lower() == 'brainco'
 
 
+def is_cortex():
+    return not is_neuracle() and not is_brainco() and os.environ.get('VIDEO_EEG_EMOTIV_TRANSPORT', 'cortex') == 'cortex'
+
+
 def configuration(emotion_only=False, port=""):
     config_path = Path(os.environ.get('VIDEO_EEG_V3_CONFIG', str(base.CONFIG_DIR / 'video_emotion_v3_config.yaml')))
     cfg = base.load_config(config_path)
@@ -47,6 +51,7 @@ def configuration(emotion_only=False, port=""):
     else:
         from video_eeg.utils.emotivpro_recording import configure
         configure(cfg, port)
+        cfg['device']['emotiv_transport'] = 'cortex' if is_cortex() else 'serial'
     if emotion_only:
         from video_eeg.experiment.emotion_v3_runner import configure_emotion_only
         configure_emotion_only(cfg)
@@ -159,13 +164,22 @@ def make_window():
                 label = W.QLabel(text); label.setObjectName('muted'); field.addWidget(label); field.addWidget(widget)
                 controls.addLayout(field)
             controls.addWidget(self.fullscreen)
+            self.facial = W.QCheckBox('采集面部录像（可选）')
+            self.facial.setChecked(is_neuracle() or is_brainco())
+            controls.addWidget(self.facial)
+            self.transport = W.QComboBox()
+            self.transport.addItems(['Cortex SDK 直接采集', 'EmotivPRO 外部录制（旧模式）'])
+            self.transport.setCurrentIndex(0 if is_cortex() else 1)
+            self.transport.setVisible(not is_neuracle() and not is_brainco())
+            self.transport.currentIndexChanged.connect(self.changed_transport)
+            controls.addWidget(self.transport)
             self.materials = W.QPushButton('视频材料位置（本机 / NAS）')
             controls.addWidget(self.materials)
             self.materials.clicked.connect(self.choose_materials)
             self.detect = W.QPushButton(
                 '配置 / 检测脑电与 TRG' if is_neuracle() else
                 '检测强脑 SDK 数据流' if is_brainco() else
-                '选择 / 检查 Trigger 发送端')
+                '检测 Cortex EEG' if is_cortex() else '选择 / 检查 Trigger 发送端')
             self.refresh = W.QPushButton('刷新进度')
             self.start = W.QPushButton('开始实验')
             self.start.setObjectName('primary')
@@ -234,7 +248,7 @@ def make_window():
 
         def locked(self, value):
             self.materials.setEnabled(not value)
-            for widget in (self.stage, self.scope, self.subject, self.session, self.paradigm, self.fullscreen, self.detect, self.register_eeg, self.refresh, self.start, self.rate, self.table):
+            for widget in (self.stage, self.scope, self.subject, self.session, self.paradigm, self.fullscreen, self.facial, self.transport, self.detect, self.register_eeg, self.refresh, self.start, self.rate, self.table):
                 widget.setEnabled(not value)
             if not value:
                 self.changed_stage()
@@ -245,10 +259,21 @@ def make_window():
             self.changed_stage()
             self.check_progress()
 
+        def changed_transport(self):
+            os.environ['VIDEO_EEG_EMOTIV_TRANSPORT'] = 'cortex' if self.transport.currentIndex() == 0 else 'serial'
+            self.connection = None
+            self.changed_stage()
+
         def changed_stage(self):
             ratings = self.stage.currentIndex() == 1
+            self.facial.setEnabled(not ratings and not self.running)
+            self.register_eeg.setVisible(not is_neuracle() and not is_brainco())
+            self.detect.setText('检测 Cortex EEG' if is_cortex() else '检测 EEG / 标记连接')
             self.paradigm.setEnabled(not ratings and not self.running)
             self.detect.setEnabled(not ratings and not self.running)
+            if is_cortex():
+                self.device_status.setText('行为评分不连接设备。' if ratings else ('Cortex 已读到 EEG 样本；开始时重新检测。' if self.connection else '请在 EMOTIV Launcher 连接设备并授权 Cortex；关闭占用设备的 EmotivPRO 采集。'))
+                return
             if is_neuracle():
                 self.device_status.setText('行为评分无需设备；本阶段不连接或采集 EEG。' if ratings else
                     (f"TCP + TRG 检测通过：{self.connection['channels']} 通道，信号 {self.connection['sfreq']:g} Hz，原始 TRG {self.connection.get('neuracle_forwarding',{}).get('trigger_mapping',{}).get('raw_sampling_rate_hz',self.connection['sfreq']):g} Hz。开始时会重新检测。" if self.connection else '请启动 Collect 数据转发，再检测脑电和同步盒。'))
@@ -318,6 +343,8 @@ def make_window():
                 except Exception as exc:
                     W.QMessageBox.warning(self, '配置未完成', str(exc)); return
                 self.port = profile['serial_port'] if profile else ''
+            elif is_cortex():
+                self.port = 'cortex'
             elif is_brainco():
                 self.port = 'brainco-sdk'
             else:
@@ -329,6 +356,7 @@ def make_window():
             self.locked(True)
             self.device_status.setText('正在核对 TCP 元数据、连续样本及测试码 250/251/252 的 TRG 回传…' if is_neuracle() else
                 '正在通过强脑 SDK 检查设备并读取 EEG 样本…' if is_brainco() else
+                '正在读取 Cortex EEG 样本…' if is_cortex() else
                 '正在检查 EmotivPRO 窗口、USB 接收器和发送端；录制状态仍需主试核对…')
             args = [str(Path(__file__).resolve()), '--probe', '--port', self.port]
             self.probe.setWorkingDirectory(str(ROOT)); self.probe.start(sys.executable, args)
@@ -346,7 +374,7 @@ def make_window():
                 c = self.connection
                 if is_neuracle():
                     self.changed_stage(); return
-                if is_brainco():
+                if is_brainco() or is_cortex():
                     self.changed_stage(); return
                 self.device_status.setText(f"环境检查通过：{c['serial_port']}、EmotivPRO 窗口和 USB 接收器。录制、无线脑电及标记接收仍需主试核对。")
             except Exception as exc:
@@ -379,7 +407,7 @@ def make_window():
                 if not ratings and not self.connection:
                     message = ('请先检测脑电与 TRG。' if is_neuracle() else
                                '请先检测强脑 SDK 数据流。' if is_brainco() else
-                               '请先选择并检查 Trigger 发送端。')
+                               '请先检测 Cortex EEG。' if is_cortex() else '请先选择并检查 Trigger 发送端。')
                     raise ValueError(message)
                 if not ratings and not self.paradigm.text().strip():
                     raise ValueError('请填写当前视频范围在平台上已确认的范式代码。')
@@ -389,10 +417,13 @@ def make_window():
                     cfg.update(subject_id=subject, paradigm_code=self.paradigm.text().strip())
                     v3_capture_identity(cfg)
                 if not ratings and r['eeg_complete']:
-                    raise ValueError('当前 Session 观看已完成，请查看采集与评分进度。' if is_neuracle() else '当前Session观看已完成，请先在 EmotivPRO 保存导出并登记 EEG，再进行行为评分。')
+                    raise ValueError('当前 Session 观看已完成，请查看采集与评分进度。' if is_neuracle() or is_brainco() or is_cortex() else '当前Session观看已完成，请先在 EmotivPRO 保存导出并登记 EEG，再进行行为评分。')
                 args = ['-m', 'video_eeg.experiment.emotion_v3_runner', '--no-dialog', '--integrated-startup',
                     '--subject-id', subject, '--session-id', str(self.session.value()), '--emotion-stage', 'ratings' if ratings else 'eeg']
                 args.append('--real-eeg')
+                args.append('--facial-recording' if self.facial.isChecked() else '--no-facial-recording')
+                if not is_neuracle() and not is_brainco():
+                    args += ['--emotiv-transport', 'cortex' if is_cortex() else 'serial']
                 if is_neuracle():
                     import tempfile
                     import yaml
@@ -404,7 +435,9 @@ def make_window():
                 elif is_brainco() and not ratings:
                     args += ['--device-type', 'brainco']
                 elif not ratings:
-                    args += ['--device-type', 'emotivpro', '--emotivpro-port', self.port]
+                    args += ['--device-type', 'emotivpro']
+                    if not is_cortex():
+                        args += ['--emotivpro-port', self.port]
                 if not is_neuracle() and os.environ.get('VIDEO_EEG_V3_CONFIG'):
                     args += ['--config', os.environ['VIDEO_EEG_V3_CONFIG']]
                 if not ratings:

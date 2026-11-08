@@ -25,6 +25,14 @@ def build_acquirer(*, device_name: str, config: dict[str, Any]) -> Any:
         else str(device_name or config.get("device_type", "brainco")).strip().lower()
     )
     if selected == 'emotivpro':
+        if device_cfg.get('emotiv_transport', 'serial') not in {'serial', 'cortex'}:
+            raise ValueError('Unknown EMOTIV transport; choose cortex or serial')
+        if device_cfg.get('emotiv_transport') == 'cortex':
+            import os
+            from video_eeg.devices.emotiv_cortex_acquirer import EmotivCortexAcquirer
+            acquirer = EmotivCortexAcquirer(headset_id=os.environ.get('EMOTIV_HEADSET_ID', ''))
+            config['eeg_sampling_rate_hz'] = acquirer.metadata.sfreq
+            return acquirer
         from video_eeg.devices.external_recorder_acquirer import ExternalRecorderAcquirer
         return ExternalRecorderAcquirer(sfreq=expected_sampling_rate(config), n_channels=1,
                                        backend_name='emotivpro')
@@ -105,6 +113,9 @@ def build_marker_backend(config: dict[str, Any]) -> Any:
     if str(config.get('device_type', '')).lower() == 'emotivpro':
         if config.get('hardware_dummy_mode'):
             return NoOpMarkerBackend()
+        if device_cfg.get('emotiv_transport') == 'cortex':
+            from video_eeg.devices.emotiv_cortex_acquirer import CortexMarker
+            return CortexMarker()
         from video_eeg.utils.serial_markers import EmotivProSerialBackend
         return EmotivProSerialBackend(device_cfg.get('emotivpro_serial_port', ''),
             baudrate=int(device_cfg.get('emotivpro_baudrate', 115200)))
@@ -163,7 +174,9 @@ def uses_bcigo_external_recording(config: dict[str, Any]) -> bool:
 
 
 def uses_emotivpro_recording(config):
-    return str(config.get('device_type', '')).lower() == 'emotivpro' and not config.get('hardware_dummy_mode', False)
+    return (str(config.get('device_type', '')).lower() == 'emotivpro'
+            and config.get('device', {}).get('emotiv_transport') != 'cortex'
+            and not config.get('hardware_dummy_mode', False))
 
 
 def uses_external_recording(config):

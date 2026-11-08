@@ -1,3 +1,5 @@
+EMOTIV 源码现支持[Cortex直接采集](EMOTIV_CORTEX.md)：本地EEG与原始包保留，断流或连续性异常停止当前试次；原编号续跑，不关闭别人的会话或重写旧完成状态。面部录像可选，关闭不影响EEG必需条件。
+
 ## Windows 1.0.4：BIDS副本
 
 当前源码BrainCo新采集原生保存32导EDF，按CH01→CH32含IO；Neuracle新采集原生保存EDF，保留转发通道顺序和TRG行，单位/参考/滤波未核实就标为n/a。历史NPY不转换。BrainCo量程±375000 µV、高通0.16 Hz，低通/陷波未知。尚未发布EXE；UUID身份、事件日志、行为与session_state继续保留，交接副本不得覆盖原件。详见[EEGQC 单记录 EDF 包](EEGQC_HANDOFF.md)。

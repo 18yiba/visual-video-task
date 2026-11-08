@@ -173,7 +173,7 @@ class EegSessionManager:
         try:
             self.emit("session_start", subject_id=self._subject_id, session_id=self._session_id)
         except Exception as exc:
-            if hasattr(self._marker_backend, 'delivery_status'):
+            if hasattr(self._marker_backend, 'delivery_status') or getattr(self._marker_backend, 'fail_closed_on_marker_error', False):
                 self._background_error = exc
                 self.stop_and_export(metadata=dict(completed=False, startup_error=str(exc)))
             raise
@@ -380,7 +380,7 @@ class EegSessionManager:
                 marker_send_success=False,
                 marker_send_error=repr(exc),
             )
-            if hasattr(self._marker_backend, 'finish_recording') and isinstance(exc, Exception):
+            if (hasattr(self._marker_backend, 'finish_recording') or getattr(self._marker_backend, 'fail_closed_on_marker_error', False)) and isinstance(exc, Exception):
                 self._latch_fault('trigger_send_error', str(exc))
                 raise EegAcquisitionError(str(exc)) from exc
             raise

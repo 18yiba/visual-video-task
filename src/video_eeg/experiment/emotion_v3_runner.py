@@ -139,14 +139,14 @@ class EmotionV3Runner(EmotionV2Runner):
     def _start_eeg(self, connection):
         from video_eeg.experiment.facial_recording import FacialRecorder
         pending = [v for v in self.state.queue_video_ids if self.library.rows[v]['trial_type'] == 'emotion']
-        if pending:
+        if pending and self.config.get('facial_recording_enabled', False):
             FacialRecorder(self.progress_dir, 'preflight', 0).preflight()
         return super()._start_eeg(connection)
 
     def _run_trial(self, trial_idx, asset):
         from video_eeg.experiment.facial_recording import FacialRecorder
         facial = None
-        if self.stage == 'eeg' and self.library.rows[asset.asset_id]['trial_type'] == 'emotion':
+        if self.config.get('facial_recording_enabled', False) and self.stage == 'eeg' and self.library.rows[asset.asset_id]['trial_type'] == 'emotion':
             facial = FacialRecorder(self.progress_dir, Path(asset.rel_path).stem,
                 self._attempt_counter_by_video.get(asset.asset_id, 0) + 1)
         self._facial_recorder = facial
@@ -352,12 +352,14 @@ def main(argv=None):
     if not any(arg.split('=')[0] == '--device-type' for arg in argv):
         argv += ['--device-type', 'emotivpro']
     args = base.parse_args(argv)
-    if args.device_type == 'emotivpro' and args.emotion_stage == 'eeg' and not args.emotivpro_port and not args.doctor:
+    if args.device_type == 'emotivpro' and args.emotiv_transport == 'serial' and args.emotion_stage == 'eeg' and not args.emotivpro_port and not args.doctor:
         from video_eeg.utils.emotivpro_port_dialog import select_port
         port = select_port()
         if not port:
             return 0
         argv += ['--emotivpro-port', port]
+    if args.device_type == 'emotivpro' and args.emotiv_transport is None:
+        argv += ['--emotiv-transport', 'serial' if args.emotivpro_port else 'cortex']
     return base.main(argv, default_config_filename='video_emotion_v3_config.yaml',
                      demo_config_filename='video_emotion_v3_demo_config.yaml')
 

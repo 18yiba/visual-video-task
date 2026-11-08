@@ -564,6 +564,8 @@ def export_recording(directory, output, *, protocol, profile=None):
 
 
 def after_recording(directory, config):
+    if config.get('device_type') == 'emotivpro' and config.get('device', {}).get('emotiv_transport') == 'cortex' and not config.get('hardware_dummy_mode'):
+        return 'Cortex 原始 EEG 与事件已保存；EMOTIV BIDS 设备配置尚待验收。'
     if config.get('device_type') == 'emotivpro' and not config.get('hardware_dummy_mode'):
         return ('行为与标记日志已保存；脑电由 EmotivPRO 保存。请停止录制并导出 EDF，'
                 '回到控制台登记外部 EEG 后再评分。不套用 BrainCo 通道/量程导出。')

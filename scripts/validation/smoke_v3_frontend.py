@@ -15,6 +15,9 @@ def main():
     w.show(); qtgui.QtWidgets.QApplication.instance().processEvents()
     assert not hasattr(w, 'mode') and w.table.rowCount() == 45
     assert w.table.columnCount() == 3
+    if front.is_cortex():
+        assert not w.facial.isChecked()
+        assert w.transport.currentText() == 'Cortex SDK 直接采集'
     assert [w.table.horizontalHeaderItem(i).text() for i in range(3)] == ['Session', '采集视频', '行为评分']
     assert sum(r['videos_total'] for r in w.progress) == 11084
     w.grab().save(str(ROOT / 'logs/v3_frontend.png'))
@@ -25,6 +28,9 @@ def main():
     w.paradigm.setText('TEST-ARGUMENT-CHECK')
     w.start.click()
     assert len(launched) == 1 and '--real-eeg' in launched[0]
+    if front.is_cortex():
+        assert '--no-facial-recording' in launched[0]
+        assert launched[0][launched[0].index('--emotiv-transport') + 1] == 'cortex'
     assert '--demo' not in launched[0] and '--dummy-eeg' not in launched[0]
     w.run_finished(0, None)
     w.scope.setCurrentIndex(1)

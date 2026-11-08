@@ -52,3 +52,11 @@
 - For migration/status changes, verify legacy paths, device/range isolation, 246/69 counts, rating eligibility, and interrupted-session resume. Distinguish file-read-count tests from measured on-device time.
 - Retired public versions stay excluded by the release allowlist, but do not recursively delete their local code, materials, or recordings. Verify Windows deletion targets and never traverse junctions. Preserve unknown files and backups unless their removal is explicitly authorized.
 - When the user requests the existing branch, keep it; do not create another branch. Use this `AGENTS.md`; do not create a duplicate `agent.md`.
+
+## 上传与合并分支：以证据决定是否放行
+
+- 先确认操作对象与授权：核对当前分支、HEAD、远程仓库完整名称、PR来源和目标分支；沿用本会话已确认的授权，不反复询问。上传分支、合并PR、发布安装包是不同动作，上传授权不代表允许合并或发布。只在目标不明确、权限不足或自动审批明确要求时请求必要确认，并说明具体阻碍。
+- 上传只包含可交付变更：逐项审查暂存差异和新增文件，明确列出要提交的文件；排除被试数据、凭据、本地配置、环境、缓存、测试产物及无关审计文档，保留本机未知文件。README、操作说明、变更记录和发行清单须与实现一致，明确源码与安装包差异、升级方式和未验证事项；推送后核对远程分支SHA与本地提交一致。
+- 验证针对实际改动：按受影响路径运行测试，检查严格metadata/TOML、锁文件与依赖一致性、两个源码入口及可迁移源码包；依赖验证使用隔离环境，不同步正在使用的实验环境。入口改动还须验证真实PsychoPy窗口配合模拟EEG；文档改动检查准确性、链接与发布边界，不为凑数重复全套测试。记录验证命令、结果及对应提交；软件测试、模拟采集和真实硬件验收分别报告。
+- CI状态必须追溯到日志：按当前PR头提交及实际测试的合并提交核对push/pull_request各运行、操作系统、步骤、结果和重跑次数。失败、取消、跳过、排队均不算通过；区分代码/锁文件错误与下载504等基础设施故障。先读首个失败步骤，再修复代码或重跑失败/连带取消任务，并跟进最终结果；不靠空提交、关闭检查或忽略失败来制造绿灯，旧提交成功不能证明新提交通过。
+- 合并前重新核对：只有获得合并授权，且当前提交所需检查通过、审查要求满足、冲突及未解决问题已处理，才执行合并；“No conflicts”只说明Git可合并，不代表程序正确。基线或头提交变化后重新确认相关验证与CI；基础设施故障未恢复时说明阻碍，不宣称可安全合并。合并后核对目标分支及合并SHA，报告PR/提交链接与剩余限制；合并不等于发布EXE，不自动删除分支或覆盖已有发行产物。
