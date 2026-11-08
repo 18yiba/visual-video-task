@@ -1,3 +1,8 @@
+
+EDF+以完整1秒数据记录保存：末段不足1秒时重复末个样本补齐，metadata的sample_count和edf_quantization_details.acquired_samples为实际采集点数，padded_samples为补齐点数；EDF+注释标明实际结束位置，分析时须排除补齐点。
+
+EMOTIV新采集保存原生EDF+及原包日志；已有NPY保持不变。EDF+量化范围来自该段观测值，具体误差见metadata，不代表设备硬件量程。
+
 EMOTIV 源码现支持[Cortex直接采集](EMOTIV_CORTEX.md)：本地EEG与原始包保留，断流或连续性异常停止当前试次；原编号续跑，不关闭别人的会话或重写旧完成状态。面部录像可选，关闭不影响EEG必需条件。
 
 ## Windows 1.0.4：BIDS副本

@@ -56,9 +56,14 @@ def test_layout_real_rate_and_native_save(tmp_path):
     while manager.recorder.sample_count < 20 and time.monotonic()<deadline: time.sleep(.01)
     manager.stop_and_export()
     m = json.loads((directory/'metadata.json').read_text())
-    data = np.load(directory/m['eeg_file'])
+    import edfio
+    assert m['eeg_file'].endswith('.edf') and not list(directory.glob('*.npy'))
+    edf = edfio.read_edf(directory/m['eeg_file'])
+    data = np.stack([s.data[:m['sample_count']] for s in edf.signals])
     assert data.shape == (2, 20)
-    assert np.all(data[0] == 20) and np.all(data[1] == 10)
+    assert np.allclose(data[0], 20, atol=.001) and np.allclose(data[1], 10, atol=.001)
+    assert [s.label for s in edf.signals] == ['B', 'A']
+    assert edf.annotations
     assert m['channel_names'] == ['B','A'] and m['sfreq'] == 256
     assert m['device_type'] == 'emotiv_cortex' and m['cortex_record_id'] == 'r'
     journal = (directory/'cortex_packets_part_001.jsonl').read_text()
@@ -84,6 +89,30 @@ def test_marker_wrong_session_aborts_and_saves_metadata(tmp_path):
     with pytest.raises(RuntimeError,match='acknowledgement'): manager.start()
     m=json.loads((manager.session_dir/'metadata.json').read_text())
     assert m['background_error'] and c.closed
+
+
+def test_emotiv_edf_variable_samples_and_failed_export_preserves_spool(tmp_path):
+    from video_eeg.storage.emotiv_recorder import EmotivSessionRecorder
+    import edfio
+    a, _ = acquirer()
+    recorder = EmotivSessionRecorder(a, sfreq=256, n_channels=2)
+    recorder.start_spooling(tmp_path)
+    expected = np.array([[4010.1, 4050.3, 3900.4], [-23.8, 0.2, 44.9]], dtype=np.float32)
+    a.get_new_samples = lambda: (expected, np.arange(3))
+    recorder.pull()
+    recorder.export(tmp_path, metadata={}, pull_final=False)
+    edf = edfio.read_edf(tmp_path/'continuous_eeg.edf')
+    decoded = np.stack([s.data[:3] for s in edf.signals])
+    assert np.max(np.abs(decoded - expected)) < .01
+    assert all(s.physical_dimension == 'uV' for s in edf.signals)
+    broken = tmp_path/'failure'; broken.mkdir()
+    recorder = EmotivSessionRecorder(a, sfreq=256, n_channels=2)
+    recorder.start_spooling(broken); recorder.pull()
+    recorder._write_edf = Mock(side_effect=RuntimeError('write failed'))
+    with pytest.raises(RuntimeError, match='write failed'):
+        recorder.export(broken, metadata={}, pull_final=False)
+    assert (broken/'.continuous_eeg.f32.tmp').is_file()
+    assert not list(broken.glob('*.npy'))
 
 
 @pytest.mark.parametrize('change,match', [

@@ -1,3 +1,12 @@
+
+EDF+以完整1秒数据记录保存：末段不足1秒时重复末个样本补齐，metadata的sample_count和edf_quantization_details.acquired_samples为实际采集点数，padded_samples为补齐点数；EDF+注释标明实际结束位置，分析时须排除补齐点。
+
+## 保存目录状态（2026-11-08）
+
+当前源码已将新 EMOTIV Cortex EEG 保存为 EDF+；历史 NPY、原始包日志、固定 Session 及各设备/视频范围目录保持原位。拟议的 `run-{YYMMDD##}/eeg、behavior、video` 新目录尚未接入采集、评分或续跑，当前运行仍沿用原有保存路径；`run_layout.py` 仅提供待集成的编号和路径检查，不代表新格式已投入使用。
+
+EDF+ 保存后回读核验导联、采样率和量化误差；不足1秒的末段会重复末样本补齐，实际和补齐点数记在 metadata，分析须排除补齐部分。真实 EMOTIV EDF+ 长时采集与断线恢复尚待现场验收；旧安装包未重建。
+
 # EMOTIV Cortex 接入与可选面部录像
 
 当前开发分支：[codex/emotiv-cortex-optional-face](https://github.com/18yiba/visual-video-task/tree/codex/emotiv-cortex-optional-face)。本次更新 EMOTIV v3 源码：默认通过本机 Cortex 直接采集并保存 EEG，面部录像默认关闭、可手动开启。已发布 v0.3.8 Windows 安装包尚未包含这些改动；源码版本号继续沿用0.3.8，未创建新的安装版 Release。
@@ -31,7 +40,7 @@ $env:EMOTIV_CREDS = 'D:\private\emotiv\credentials.json'
 
 ## 保存格式、验证与升级
 
-Cortex 新记录保存 `continuous_eeg.npy`、事件和metadata；`cortex_packets_part_XXX.jsonl` 保留原始包、Cortex时间戳、主机到达时间和打标回执。原有 `session_state.json`、协议快照、被试目录及历史文件保持原样，备份须包含整个Session。Cortex软件标记不等于物理TRG或硬件同步，未知参考/滤波不推测；EMOTIV的BIDS/EEGQC设备配置尚未验收，不套用BrainCo参数。
+Cortex 新记录保存 `continuous_eeg.edf`、事件和metadata；`cortex_packets_part_XXX.jsonl` 保留原始包、Cortex时间戳、主机到达时间和打标回执。原有 `session_state.json`、协议快照、被试目录及历史文件保持原样，备份须包含整个Session。Cortex软件标记不等于物理TRG或硬件同步，未知参考/滤波不推测；EMOTIV的BIDS/EEGQC设备配置尚未验收，不套用BrainCo参数。
 
 开发验证：409项测试、12个子测试通过，5项跳过；真实Qt/PsychoPy窗口配合模拟EEG通过关闭录像、合成摄像头录像、评分退出续跑及原EEG文件不变检查。源码发行包的两个入口独立验证通过。真实EMOTIV的长期连续采集、断连保存、标记接收和信号质量仍须现场验收，不能将模拟结果视为硬件稳定性保证。
 
@@ -458,7 +467,7 @@ storage:
 | emotion_rating_log.csv | 情绪效价和唤醒，保留协议及量尺上下限 |
 | rest_log.csv | 休息的开始、选择和时长 |
 | YYYYMMDD_HHMMSS/ | 一次EEG采集的启动时间目录，不是结束时间 |
-| continuous_eeg.edf / continuous_eeg.npy | 当前源码BrainCo及Neuracle新记录为EDF；历史NPY保持原样；分段名称带part编号 |
+| continuous_eeg.edf / continuous_eeg.edf | 当前源码BrainCo及Neuracle新记录为EDF；历史NPY保持原样；分段名称带part编号 |
 | events.json | 事件时间、样本索引、marker发送状态 |
 | metadata.json / eeg_segments.json | 采集设备、采样率、分段、退出原因 |
 | eeg_health_part_001.jsonl | 约每秒的样本增长与无数据时长记录 |

@@ -20,6 +20,9 @@ Heartbeat = Callable[[], None] | None
 
 def _default_recorder_factory(acquirer, *, sfreq, n_channels, event_only):
     recorder_class = SessionRecorder
+    if not event_only and getattr(acquirer.metadata, 'name', '') == 'emotiv_cortex':
+        from video_eeg.storage.emotiv_recorder import EmotivSessionRecorder
+        recorder_class = EmotivSessionRecorder
     if not event_only and getattr(acquirer, 'verified_neuracle', False):
         from video_eeg.storage.neuracle_recorder import NeuracleSessionRecorder
         recorder_class = NeuracleSessionRecorder
