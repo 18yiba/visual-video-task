@@ -1,3 +1,8 @@
+未发布源码：Cortex 新被试使用 v3_cortex 或 v3_cortex_emotion_only；旧 v3 记录确认设备后原地续跑。EmotivPRO 分目录及冲突规则见 [README](../../README.md)。
+
+
+EDF+以完整1秒数据记录保存：末段不足1秒时重复末个样本补齐，metadata的sample_count和edf_quantization_details.acquired_samples为实际采集点数，padded_samples为补齐点数；EDF+注释标明实际结束位置，分析时须排除补齐点。
+
 # EMOTIV Cortex 直接采集（源码更新，2026-11-07）
 
 EMOTIV v3 控制台默认使用 Cortex 直接接收并保存 EEG；面部录像默认不勾选。已发布 v0.3.8 安装包未重建，仍按旧模式运行，更新源码须正常保存退出后重启。
@@ -14,7 +19,7 @@ EMOTIV v3 控制台默认使用 Cortex 直接接收并保存 EEG；面部录像�
 
 ## 原始记录与故障
 
-Cortex EEG 按实际订阅导联顺序写 `continuous_eeg.npy`，单位 µV；metadata 保存通道、设备ID、Cortex session/record ID及采样率。`cortex_packets_part_XXX.jsonl` 保留原包、Cortex Unix 时间、主机到达时间与打标回执；结束时未提交尾包标注 `uncommitted_tail`，不能据此自动扩展完成状态。reference/filter 未核实保持 unknown。备份整个 Session。
+新 Cortex EEG 按实际订阅导联顺序写 EDF+（16位量化，范围来自该段观测值而非设备硬件量程），回读检查通过后写入 `continuous_eeg.edf`，单位 µV；metadata 保存通道、设备ID、Cortex session/record ID及采样率。`cortex_packets_part_XXX.jsonl` 保留原包、Cortex Unix 时间、主机到达时间与打标回执；结束时未提交尾包标注 `uncommitted_tail`，不能据此自动扩展完成状态。reference/filter 未核实保持 unknown。备份整个 Session。
 
 单接收线程、有界队列、RPC 超时与错误传播；断流由现有健康监视器停止。队列溢出、重复/跳号、时间倒退/异常间隔、Cortex 插值包会停止，不自动重连或填补。已写数据和中断试次保留，重新检测后用原编号续跑。官方每秒回绕与附件 Flex SDK 的16位 counter 回绕均显式支持，其他格式需现场核实。
 

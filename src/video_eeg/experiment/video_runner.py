@@ -636,6 +636,11 @@ def _session_manifest_path(config: dict[str, Any]) -> Path:
 def _records_dir(config: dict[str, Any]) -> Path:
     if config.get('_unified_protocol'):
         return recording_root(config, PROJECT_ROOT)
+    if (config.get('protocol', {}).get('separate_emotion_ratings')
+            and config.get('device_type') == 'emotivpro'
+            and not config.get('demo_mode')):
+        from video_eeg.utils.emotiv_roots import v3_emotiv_root
+        return v3_emotiv_root(config, PROJECT_ROOT, config.get('subject_id'))
     return _resolve_config_value(
         config,
         str(config.get("storage", {}).get("records_dir", "data/sourcedata")),
@@ -1410,9 +1415,14 @@ class VideoRunner:
             if expected is not None and expected != actual:
                 marker_backend.close()
                 raise EegAcquisitionError('检查后 EmotivPRO 或接收器已变化，请重新启动并核对录制。')
-        records_dir = self.project_dir / Path(
-            str(self.config.get("storage", {}).get("records_dir", "video_records_storage"))
-        )
+        if (self.config.get('protocol', {}).get('separate_emotion_ratings')
+                and self.config.get('device_type') == 'emotivpro'
+                and not self.config.get('demo_mode')):
+            records_dir = _records_dir(self.config)
+        else:
+            records_dir = self.project_dir / Path(
+                str(self.config.get("storage", {}).get("records_dir", "video_records_storage"))
+            )
         self.manager = EegSessionManager(
             acquirer,
             marker_backend,

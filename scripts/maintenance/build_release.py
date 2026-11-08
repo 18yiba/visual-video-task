@@ -18,6 +18,8 @@ FILES = ('README.md', 'AGENTS.md', 'pyproject.toml', 'lab_uv_env.toml',
 FILES += ('scripts/convert_npy_bids.py', 'docs/operations/NPY_TO_EDFPLUS_BIDS.md')
 FILES += ('src/video_eeg/devices/cortex_transport.py',
           'src/video_eeg/devices/emotiv_cortex_acquirer.py',
+          'src/video_eeg/utils/emotiv_roots.py',
+          'src/video_eeg/storage/emotiv_recorder.py',
           'docs/operations/EMOTIV_CORTEX.md', 'tests/test_emotiv_cortex.py')
 PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/sourcedata/.gitkeep')
 ROOT_BATS = ('RUNME.bat', 'run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat', 'run_experiment.bat',
