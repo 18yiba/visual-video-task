@@ -22,7 +22,11 @@ def valid_subject(value):
 def inspect_progress(config, subject, project_dir, *, seed=20260912):
     subject = valid_subject(subject)
     root = Path(project_dir)
-    records = root / config['storage']['records_dir'] / subject
+    if config.get('device_type') == 'emotivpro' and not config.get('demo_mode'):
+        from video_eeg.utils.emotiv_roots import v3_emotiv_root
+        records = v3_emotiv_root(config, root, subject) / subject
+    else:
+        records = root / config['storage']['records_dir'] / subject
     demo = bool(config.get('demo_mode'))
     if demo:
         records /= f'run_{seed}'

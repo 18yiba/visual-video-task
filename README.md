@@ -1,3 +1,9 @@
+## EMOTIV 设备目录（未发布源码）
+
+新被试按采集方式和视频范围分别保存：Cortex 全部视频 `data/sourcedata/v3_cortex`、仅情绪 `v3_cortex_emotion_only`；EmotivPRO 外部录制全部视频 `v3_emotviePRO`、仅情绪 `v3_emotivePRO_emotion_only`。两种 EmotivPRO 名称保留本次指定的不同拼写。配置的数据根不同时相应变化。
+
+旧 `v3` / `v3_emotion_only` 被试根据实际采集 metadata 确认方式后继续原地续跑，不搬动数据；新旧目录同一被试均有进度、旧目录混合方式或身份不明时停止并列出路径。请在相同设备与范围进入进度和评分；切换 Cortex / EmotivPRO 不共用进度。保存退出并备份后重启源码生效，已发布安装包未更新。真实设备续跑未验收。
+
 
 EDF+以完整1秒数据记录保存：末段不足1秒时重复末个样本补齐，metadata的sample_count和edf_quantization_details.acquired_samples为实际采集点数，padded_samples为补齐点数；EDF+注释标明实际结束位置，分析时须排除补齐点。
 

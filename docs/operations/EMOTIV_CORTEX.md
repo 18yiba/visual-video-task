@@ -1,3 +1,5 @@
+未发布源码：Cortex 新被试使用 v3_cortex 或 v3_cortex_emotion_only；旧 v3 记录确认设备后原地续跑。EmotivPRO 分目录及冲突规则见 [README](../../README.md)。
+
 
 EDF+以完整1秒数据记录保存：末段不足1秒时重复末个样本补齐，metadata的sample_count和edf_quantization_details.acquired_samples为实际采集点数，padded_samples为补齐点数；EDF+注释标明实际结束位置，分析时须排除补齐点。
 

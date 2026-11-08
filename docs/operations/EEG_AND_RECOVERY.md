@@ -1,3 +1,5 @@
+EMOTIV 新被试按 Cortex / EmotivPRO 与视频范围分目录；旧 v3 被试须依据 metadata 识别原方式并原地续跑，冲突或身份不明时停止。完整目录名见 [README](../../README.md)。
+
 
 EDF+以完整1秒数据记录保存：末段不足1秒时重复末个样本补齐，metadata的sample_count和edf_quantization_details.acquired_samples为实际采集点数，padded_samples为补齐点数；EDF+注释标明实际结束位置，分析时须排除补齐点。
 

@@ -164,6 +164,7 @@
       "src/video_eeg/experiment/acquisition.py",
       "src/video_eeg/devices/cortex_transport.py",
       "src/video_eeg/devices/emotiv_cortex_acquirer.py",
+      "src/video_eeg/utils/emotiv_roots.py",
       "src/video_eeg/storage/emotiv_recorder.py",
       "docs/operations/EMOTIV_CORTEX.md",
       "src/video_eeg/experiment/recording_contracts.py",
