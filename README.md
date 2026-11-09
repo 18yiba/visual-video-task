@@ -254,7 +254,7 @@ python scripts/maintenance/migrate_records.py --old "D:\旧项目" --apply
 
 ### 2. 只安装一次环境
 
-双击根目录`install_lab_env_uv.bat`。这是转发入口，实际调用`scripts/install_lab_env_uv.bat`和同目录PS1。
+双击根目录`install_lab_env_uv.bat`。这是转发入口，实际调用`scripts/install_lab_env_uv.bat`和同目录PS1。新建或重建实验环境时，Python 依赖默认从南方科技大学 PyPI 镜像下载。如需使用单位内部源，可在 PowerShell 中先设置 `$env:UV_DEFAULT_INDEX` 为该源的 simple 索引地址，再从同一窗口运行安装 BAT。
 
 安装器使用uv准备Python3.12和项目`.venv`，安装PsychoPy、BrainCo/LSL等依赖并检查环境；不要求Node.js，也不需要在系统PATH里手动配置Python。首次安装需要联网访问下载源。现有健康环境可以复用，不要每次采集都重新安装。
 

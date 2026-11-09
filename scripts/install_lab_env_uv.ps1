@@ -71,7 +71,9 @@ try {
         Run-Checked $uvExe @('venv', '--python', $basePython, $venvPath)
         # PsychoPy's unused pywinhook dependency has no Python 3.12 wheel.
         # The tested runtime set is listed explicitly in lab_uv_env.toml.
-        $env:UV_DEFAULT_INDEX = 'https://pypi.org/simple'
+        if ([string]::IsNullOrWhiteSpace($env:UV_DEFAULT_INDEX)) {
+            $env:UV_DEFAULT_INDEX = 'https://mirrors.sustech.edu.cn/pypi/web/simple'
+        }
         Run-Checked $uvExe @('pip', 'install', '--python', $pythonExe, '--no-deps', 'psychopy==2026.2.2')
         $labProject = Join-Path $projectRoot '.uv_lab_env'
         New-Item -ItemType Directory -Force -Path $labProject | Out-Null

@@ -33,5 +33,10 @@ bids = ["bids-validator-deno==3.0.1", "deno==2.9.6", "edfio==0.4.11", "eeg-bids-
 [tool.uv]
 package = false
 
+[[tool.uv.index]]
+name = "sustech"
+url = "https://mirrors.sustech.edu.cn/pypi/web/simple"
+default = true
+
 [tool.uv.sources]
 eeg-bids-converter = { path = "vendor/eeg-bids-converter" }
