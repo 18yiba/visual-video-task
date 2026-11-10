@@ -1,3 +1,25 @@
+# 摄像头修复：源码更新说明（2026-11-10）
+
+本分支修复 UGREEN Camera 4K 的 `Could not set video options` 预检失败。现场关闭其他摄像头占用后，设备报告 **MJPEG 支持1920×1080、30 fps，YUYV422 的1080p仅支持5 fps**；旧程序未明确输入编码，可能请求不支持的组合。设备已连接不等于所请求的录像模式可用。
+
+## 修复后的录制行为
+
+预检和正式录像共用同一输入模式：优先1080p/30 fps MJPEG，其次同规格NV12/YUYV422；若设备只报告可用的1440p/30 fps模式，则采集后缩放为1080p。最终仍保存1080p、H.264 MP4，不录音、不补帧、不降低到5 fps。未报告支持模式、设备占用或实际编码失败时停止，不把枚举成功当作录制成功。
+
+`facial_recording_log.jsonl` 新增 `input_width`、`input_height`、`input_codec`、`input_pixel_format` 和 `spatial_resize`，可核对所选输入与输出规格。帧时间仍为软件观察时间，不能据此宣称曝光级同步；原trigger码、EEG、历史录像和完成状态不变。
+
+## 如何更新实验电脑
+
+1. 正常保存退出实验，备份完整被试目录；关闭Collect及其他软件对同一UGREEN摄像头的录像和预览，Collect的EEG采集按原流程使用。
+2. 获取[当前分支源码](https://github.com/18yiba/visual-video-task/tree/codex/emotiv-cortex-optional-face)，不要再次下载旧的v0.3.8标签包。当前分支同时包含下文所述EMOTIV更新。若仅给原v0.3.8源码修复摄像头，可备份后仅替换项目中的 `src/video_eeg/experiment/facial_recording.py`；不要覆盖 `data/`、本机配置或现有环境，无需重装依赖。
+3. 从原设备BAT重新启动。博睿康仍使用原博睿康入口，先做EEG/TRG检测，再录制短段情绪视频，检查MP4、逐帧CSV和录像日志。确认 `input_codec=mjpeg`、输入1920×1080且 `spatial_resize=false` 后，再进行长段录制验收。
+
+这次只更新分支源码，版本号仍为0.3.8；已发布v0.3.8 Release源码压缩包和EXE没有此修复，未重建安装包。枚举命令末尾 `Immediate exit requested` 是列出模式后退出，不能单独作为录像故障判断。完整规则见[面部录像操作说明](docs/operations/FACIAL_RECORDING.md)。
+
+## 验证范围
+
+本次49项回归测试及12个子测试通过，涵盖两份现场模式输出的选择逻辑、拒绝5 fps、预检/正式录制参数一致、原有录像时间关联、严格配置/metadata及可迁移源码包；两个源码入口校验通过。FFmpeg合成1080p及1440p输入均通过1080p H.264编码验证。真实UGREEN、博睿康联合长时录制和同步误差尚待现场验收；此前同步盒/Collect验收不替代本次摄像头验收。
+
 ## EMOTIV 设备目录（未发布源码）
 
 新被试按采集方式和视频范围分别保存：Cortex 全部视频 `data/sourcedata/v3_cortex`、仅情绪 `v3_cortex_emotion_only`；EmotivPRO 外部录制全部视频 `v3_emotviePRO`、仅情绪 `v3_emotivePRO_emotion_only`。两种 EmotivPRO 名称保留本次指定的不同拼写。配置的数据根不同时相应变化。

@@ -101,6 +101,9 @@ class FacialRecorder:
         self.exe = get_ffmpeg_exe()
         self.directory, self.code, self.attempt = Path(directory), code, attempt
         self.frames, self.errors, self.events = [], [], {}
+        self.input_width, self.input_height = 1920, 1080
+        self.input_pixel_format = None
+        self.input_codec = None
         self.process = None
         self.closed = False
         self.path = None
@@ -117,11 +120,32 @@ class FacialRecorder:
         names = re.findall(r'"([^"]+)" \((?:video|none)\)', devices)
         if names.count(self.device) != 1:
             raise FacialRecordingError(f'摄像头缺失或同名歧义：{self.device}')
-        probe = self._command(['-hide_banner', '-f', 'dshow', '-video_size', '1920x1080',
-            '-framerate', '30', '-i', f'video={self.device}', '-t', '0.2', '-an',
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-f', 'null', '-'])
+        options = self._command(['-hide_banner', '-list_options', 'true',
+                                 '-f', 'dshow', '-i', f'video={self.device}']).stderr
+        # list_options deliberately exits with an error; parse advertised modes,
+        # then verify the selected mode by actually opening and encoding frames.
+        candidates = []
+        pattern = (r'(pixel_format|vcodec)=(\w+)\s+min s=(\d+)x(\d+) fps=([\d.]+)'
+                   r'\s+max s=(\d+)x(\d+) fps=([\d.]+)')
+        for kind, pixel, w, h, low, max_w, max_h, high in re.findall(pattern, options):
+            size = (int(w), int(h))
+            if (size == (int(max_w), int(max_h)) and
+                    size in ((1920, 1080), (2560, 1440)) and
+                    ((kind == 'pixel_format' and pixel in ('nv12', 'yuyv422')) or
+                     (kind == 'vcodec' and pixel == 'mjpeg')) and float(low) <= 30 <= float(high)):
+                candidates.append((size, kind, pixel))
+        if not candidates:
+            raise FacialRecordingError('摄像头未报告可用的1080p或1440p/30帧模式：' + options[-1800:])
+        size, kind, pixel = min(candidates, key=lambda item: (
+            item[0] != (1920, 1080), {'mjpeg': 0, 'nv12': 1, 'yuyv422': 2}[item[2]]))
+        self.input_width, self.input_height = size
+        self.input_pixel_format = pixel if kind == 'pixel_format' else None
+        self.input_codec = pixel if kind == 'vcodec' else None
+        probe = self._command(['-hide_banner', *self._input_args(), '-t', '0.2', '-an',
+            '-vf', self._video_filter(), '-c:v', 'libx264', '-preset', 'ultrafast',
+            '-pix_fmt', 'yuv420p', '-fps_mode', 'passthrough', '-f', 'null', '-'])
         if probe.returncode or not re.search(r'1920x1080.*30 fps', probe.stderr):
-            raise FacialRecordingError('摄像头1080p/30帧或H.264预检失败：' + probe.stderr[-1800:])
+            raise FacialRecordingError('摄像头输入模式或1080p/30帧H.264输出预检失败：' + probe.stderr[-1800:])
         if not self.directory.is_dir():
             raise FacialRecordingError('Session保存目录不存在。')
 
@@ -130,7 +154,7 @@ class FacialRecorder:
         self.path, self.number = reserve_path(self.directory, self.code)
         self._log('reserved')
         args = [self.exe, '-hide_banner', '-y', '-copyts', '-start_at_zero', *self._input_args(),
-                '-an', '-vf', 'setpts=PTS-STARTPTS,showinfo', '-c:v', 'libx264',
+                '-an', '-vf', self._video_filter(), '-c:v', 'libx264',
                 '-preset', 'ultrafast', '-crf', '20', '-pix_fmt', 'yuv420p', '-fps_mode', 'passthrough',
                 '-movflags', '+frag_keyframe+empty_moov+default_base_moof', str(self.path)]
         self.process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
@@ -160,8 +184,15 @@ class FacialRecorder:
         raise FacialRecordingError('摄像头未在15秒内稳定输出1080p/30帧录像。')
 
     def _input_args(self):
-        return ['-f', 'dshow', '-rtbufsize', '256M', '-video_size', '1920x1080',
-                '-framerate', '30', '-i', f'video={self.device}']
+        return ['-f', 'dshow', '-rtbufsize', '256M', '-video_size',
+                f'{self.input_width}x{self.input_height}', '-framerate', '30',
+                *(['-pixel_format', self.input_pixel_format] if self.input_pixel_format else []),
+                *(['-vcodec', self.input_codec] if self.input_codec else []),
+                '-i', f'video={self.device}']
+
+    def _video_filter(self):
+        scale = 'scale=1920:1080,' if (self.input_width, self.input_height) != (1920, 1080) else ''
+        return 'setpts=PTS-STARTPTS,' + scale + 'showinfo'
 
     def _read(self):
         try:
@@ -190,6 +221,9 @@ class FacialRecorder:
     def _log(self, status, **fields):
         row = dict(code=self.code, number=self.number, attempt=self.attempt, file=self.path.name,
                    device=self.device, width=1920, height=1080, requested_fps=30,
+                   input_width=self.input_width, input_height=self.input_height,
+                   input_pixel_format=self.input_pixel_format, input_codec=self.input_codec,
+                   spatial_resize=(self.input_width, self.input_height) != (1920, 1080),
                    status=status, clock_mapping=self.clock, events=self.events, **fields)
         with (self.directory / 'facial_recording_log.jsonl').open('a', encoding='utf-8') as stream:
             stream.write(json.dumps(row, ensure_ascii=False) + '\n')
