@@ -60,6 +60,7 @@ def test_preflight_rejects_missing_duplicate_and_unavailable(tmp_path):
             r.preflight()
     r._command = Mock(side_effect=[
         SimpleNamespace(stderr='"UGREEN Camera 4K" (none)'),
+        SimpleNamespace(stderr='vcodec=mjpeg min s=1920x1080 fps=30 max s=1920x1080 fps=60.0002'),
         SimpleNamespace(returncode=1, stderr='device busy')])
     with pytest.raises(FacialRecordingError, match='device busy'):
         r.preflight()
@@ -192,3 +193,45 @@ def test_onset_alignment_brackets_and_preserves_media_pts():
 @pytest.mark.parametrize('onset', [None, 9., 11., float('nan')])
 def test_onset_alignment_requires_observed_coverage(onset):
     assert onset_frame_alignment([(0, 10., 0.)], onset, [])['status'] == 'unavailable'
+
+
+@pytest.mark.parametrize('mode,size,codec,pixel', [
+    ('vcodec=mjpeg min s=1920x1080 fps=30 max s=1920x1080 fps=60.0002', '1920x1080', 'mjpeg', None),
+    ('pixel_format=nv12 min s=2560x1440 fps=30 max s=2560x1440 fps=30', '2560x1440', None, 'nv12'),
+])
+def test_advertised_camera_mode_shared_by_probe_and_capture(tmp_path, mode, size, codec, pixel):
+    r = FacialRecorder(tmp_path, 'v', 1)
+    r._command = Mock(side_effect=[
+        SimpleNamespace(stderr='"UGREEN Camera 4K" (video)'),
+        SimpleNamespace(returncode=1, stderr=mode + '\nImmediate exit requested'),
+        SimpleNamespace(returncode=0, stderr='Video: h264, yuv420p, 1920x1080, 30 fps')])
+    r.preflight()
+    args = r._input_args()
+    assert args[args.index('-video_size')+1] == size
+    assert r.input_codec == codec and r.input_pixel_format == pixel
+    probe = r._command.call_args.args[0]
+    assert probe[1:1+len(args)] == args
+    assert probe[probe.index('-vf')+1] == r._video_filter()
+    assert ('scale=' in r._video_filter()) == (size == '2560x1440')
+    assert 'fps=' not in r._video_filter()
+    r.path, r.number = reserve_path(tmp_path, 'v')
+    r._log('reserved')
+    row = json.loads((tmp_path/'facial_recording_log.jsonl').read_text(encoding='utf-8'))
+    assert row['input_codec'] == codec
+    assert row['input_width'] == int(size.split('x')[0])
+    assert row['width'] == 1920
+
+
+def test_prefers_native_1080_mjpeg_and_rejects_five_fps_raw(tmp_path):
+    r = FacialRecorder(tmp_path, 'v', 1)
+    raw = 'pixel_format=yuyv422 min s=1920x1080 fps=5 max s=1920x1080 fps=5'
+    modes = raw + '\nvcodec=mjpeg min s=1920x1080 fps=30 max s=1920x1080 fps=60.0002'
+    r._command = Mock(side_effect=[SimpleNamespace(stderr='"UGREEN Camera 4K" (video)'),
+        SimpleNamespace(stderr=modes), SimpleNamespace(returncode=0, stderr='1920x1080, 30 fps')])
+    r.preflight()
+    assert r.input_codec == 'mjpeg'
+    assert '-pixel_format' not in r._input_args()
+    r._command = Mock(side_effect=[SimpleNamespace(stderr='"UGREEN Camera 4K" (video)'),
+        SimpleNamespace(stderr=raw)])
+    with pytest.raises(FacialRecordingError, match='未报告'):
+        r.preflight()
