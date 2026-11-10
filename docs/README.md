@@ -1,3 +1,5 @@
+博睿康 v3 可选[全程动作录像](operations/ACTION_RECORDING.md)使用 `Action_CAMERA`，首帧trigger为165；面部录像仍使用 `facialcamera` 和164。动作MP4、逐帧CSV与日志保存当前Session，属于原始记录，随整个Session备份，不进入源码或BIDS副本。更新整套源码后重启原BAT，已发布EXE未更新，真实设备待验收。
+
 # 项目文档索引
 
 本项目按 [acq-task-template](https://github.com/Omni-Intel/acq-task-template/commit/b44af0a905cb604515bc1ff843df794b16f7952f) 使用 source-only 入口、uv 锁文件和文档分工。项目自身不安装；现有 `src/video_eeg` 是唯一范式实现，保留已有实验合同、设备适配器和 EEG 恢复格式。

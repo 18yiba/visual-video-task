@@ -14,6 +14,8 @@ def main():
     w.subject.setText('00000002'); w.check_progress()
     w.show(); qtgui.QtWidgets.QApplication.instance().processEvents()
     assert not hasattr(w, 'mode') and w.table.rowCount() == 45
+    assert not w.action.isChecked()
+    assert w.action.isVisible() == front.is_neuracle()
     assert w.table.columnCount() == 3
     if front.is_cortex():
         assert not w.facial.isChecked()
@@ -31,17 +33,23 @@ def main():
     if front.is_cortex():
         assert '--no-facial-recording' in launched[0]
         assert launched[0][launched[0].index('--emotiv-transport') + 1] == 'cortex'
+    assert '--no-action-recording' in launched[0]
     assert '--demo' not in launched[0] and '--dummy-eeg' not in launched[0]
     w.run_finished(0, None)
     w.scope.setCurrentIndex(1)
+    if front.is_neuracle():
+        w.action.setChecked(True)
     assert sum(r['videos_total'] for r in w.progress) == 3138
     assert all(r['videos_total'] == r['emotion_total'] for r in w.progress)
     w.connection = {'argument_check_only': True}
     w.start.click()
     assert '--emotion-only' in launched[-1]
+    if front.is_neuracle():
+        assert '--action-recording' in launched[-1]
     w.run_finished(0, None)
     w.stage.setCurrentIndex(1)
     assert not w.detect.isEnabled()
+    assert not w.action.isEnabled()
     w.close()
     print('Formal-only frontend PASS; no hardware tested')
 

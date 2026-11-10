@@ -167,6 +167,11 @@ def make_window():
             self.facial = W.QCheckBox('采集面部录像（可选）')
             self.facial.setChecked(is_neuracle() or is_brainco())
             controls.addWidget(self.facial)
+            self.action = W.QCheckBox('全程头动 / 躯体录像（可选）')
+            self.action.setChecked(False)
+            self.action.setVisible(is_neuracle())
+            self.action.setToolTip('仅使用 FriendlyName 为 Action_CAMERA 的摄像头；全程连续录像，首帧发送165。')
+            controls.addWidget(self.action)
             self.transport = W.QComboBox()
             self.transport.addItems(['Cortex SDK 直接采集', 'EmotivPRO 外部录制（旧模式）'])
             self.transport.setCurrentIndex(0 if is_cortex() else 1)
@@ -248,7 +253,7 @@ def make_window():
 
         def locked(self, value):
             self.materials.setEnabled(not value)
-            for widget in (self.stage, self.scope, self.subject, self.session, self.paradigm, self.fullscreen, self.facial, self.transport, self.detect, self.register_eeg, self.refresh, self.start, self.rate, self.table):
+            for widget in (self.stage, self.scope, self.subject, self.session, self.paradigm, self.fullscreen, self.facial, self.action, self.transport, self.detect, self.register_eeg, self.refresh, self.start, self.rate, self.table):
                 widget.setEnabled(not value)
             if not value:
                 self.changed_stage()
@@ -267,6 +272,7 @@ def make_window():
         def changed_stage(self):
             ratings = self.stage.currentIndex() == 1
             self.facial.setEnabled(not ratings and not self.running)
+            self.action.setEnabled(is_neuracle() and not ratings and not self.running)
             self.register_eeg.setVisible(not is_neuracle() and not is_brainco())
             self.detect.setText('检测 Cortex EEG' if is_cortex() else '检测 EEG / 标记连接')
             self.paradigm.setEnabled(not ratings and not self.running)
@@ -422,6 +428,8 @@ def make_window():
                     '--subject-id', subject, '--session-id', str(self.session.value()), '--emotion-stage', 'ratings' if ratings else 'eeg']
                 args.append('--real-eeg')
                 args.append('--facial-recording' if self.facial.isChecked() else '--no-facial-recording')
+                args.append('--action-recording' if is_neuracle() and not ratings and self.action.isChecked()
+                            else '--no-action-recording')
                 if not is_neuracle() and not is_brainco():
                     args += ['--emotiv-transport', 'cortex' if is_cortex() else 'serial']
                 if is_neuracle():

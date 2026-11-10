@@ -1,3 +1,5 @@
+博睿康 v3 可选[全程动作录像](operations/ACTION_RECORDING.md)使用 `Action_CAMERA`，首帧trigger为165；面部录像仍使用 `facialcamera` 和164。动作MP4、逐帧CSV与日志保存当前Session，属于原始记录，随整个Session备份，不进入源码或BIDS副本。更新整套源码后重启原BAT，已发布EXE未更新，真实设备待验收。
+
 EMOTIV Cortex 新记录为实际通道顺序的 continuous_eeg.edf、metadata 和 cortex_packets_part_XXX.jsonl 原包审计；外部EmotivPRO历史EDF登记不变。详见[保存与恢复边界](operations/EMOTIV_CORTEX.md)。
 
 # 数据格式与恢复边界

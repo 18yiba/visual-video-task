@@ -110,7 +110,8 @@ class EegSessionManager:
 
         return self._recorder.elapsed_sec
 
-    def start(self, *, metadata: dict[str, Any] | None = None, output_dir: Path | None = None) -> Path:
+    def start(self, *, metadata: dict[str, Any] | None = None, output_dir: Path | None = None,
+              before_session_start: Heartbeat = None) -> Path:
         if self._running:
             raise RuntimeError("EEG session is already running.")
 
@@ -173,6 +174,10 @@ class EegSessionManager:
             )
             self._thread.start()
         self._running = True
+        # Camera/setup failures are not evidence of an EEG acquisition fault.
+        # The caller's normal finally path still stops and exports this stream.
+        if before_session_start is not None:
+            before_session_start()
         try:
             self.emit("session_start", subject_id=self._subject_id, session_id=self._session_id)
         except Exception as exc:

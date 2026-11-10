@@ -135,7 +135,7 @@ def test_camera_start_marker_once_after_first_frame(monkeypatch, tmp_path, fails
 def test_v3_capture_scope_and_cleanup(monkeypatch, tmp_path, stage, trial_type, expected):
     from video_eeg.experiment.emotion_v3_runner import EmotionV3Runner, EmotionV2Runner
     r = object.__new__(EmotionV3Runner)
-    r.config = {"facial_recording_enabled": True}
+    r.config = {"facial_recording_enabled": True, "device_type": "neuracle"}
     r.stage = stage
     r.library = SimpleNamespace(rows={'v': {'trial_type': trial_type}})
     r.progress_dir = tmp_path
@@ -158,6 +158,7 @@ def test_v3_capture_scope_and_cleanup(monkeypatch, tmp_path, stage, trial_type, 
     assert recorder.finish.call_count == expected
     assert recorder.boundary.call_count == expected
     if expected:
+        assert factory.call_args.kwargs['device_type'] == 'neuracle'
         assert original_emit.call_args.kwargs['stimulus_flip_monotonic_sec'] == .8
         assert recorder.boundary.call_args.args[1]['monotonic_sec'] == .8
     assert r.manager.emit is original_emit
@@ -235,3 +236,46 @@ def test_prefers_native_1080_mjpeg_and_rejects_five_fps_raw(tmp_path):
         SimpleNamespace(stderr=raw)])
     with pytest.raises(FacialRecordingError, match='未报告'):
         r.preflight()
+
+
+@pytest.mark.parametrize('names', [
+    '"UGREEN Camera 4K" (video)',
+    '"facialcamera" (video)\n"facialcamera" (video)',
+    '"facialcamera extra" (video)',
+    '"facialcamera" (audio)',
+])
+def test_neuracle_requires_unique_exact_friendlyname(tmp_path, names):
+    recorder = FacialRecorder(tmp_path, 'v', 1, device_type='neuracle')
+    recorder._command = Mock(return_value=SimpleNamespace(stderr=names))
+    with pytest.raises(FacialRecordingError, match='facialcamera'):
+        recorder.preflight()
+    assert recorder._command.call_count == 1
+
+
+def test_neuracle_friendlyname_used_for_probe_and_capture(tmp_path):
+    recorder = FacialRecorder(tmp_path, 'v', 1, device_type='neuracle')
+    recorder._command = Mock(side_effect=[
+        SimpleNamespace(stderr='"UGREEN Camera 4K" (video)\n"facialcamera" (video)'),
+        SimpleNamespace(stderr='vcodec=mjpeg min s=1920x1080 fps=30 max s=1920x1080 fps=30'),
+        SimpleNamespace(returncode=0, stderr='1920x1080 30 fps'),
+    ])
+    recorder.preflight()
+    for call in recorder._command.call_args_list[1:]:
+        assert 'video=facialcamera' in call.args[0]
+    assert 'video=facialcamera' in recorder._input_args()
+    assert FacialRecorder(tmp_path, 'v', 1, device_type='brainco').device == 'UGREEN Camera 4K'
+
+
+def test_neuracle_initial_preflight_routes_device(monkeypatch, tmp_path):
+    from video_eeg.experiment.emotion_v3_runner import EmotionV3Runner, EmotionV2Runner
+    runner = object.__new__(EmotionV3Runner)
+    runner.config = dict(device_type='neuracle', facial_recording_enabled=True)
+    runner.state = SimpleNamespace(queue_video_ids=['v'])
+    runner.library = SimpleNamespace(rows={'v': {'trial_type': 'emotion'}})
+    runner.progress_dir = tmp_path
+    factory = Mock()
+    monkeypatch.setattr('video_eeg.experiment.facial_recording.FacialRecorder', factory)
+    monkeypatch.setattr(EmotionV2Runner, '_start_eeg', Mock())
+    runner._start_eeg({})
+    factory.assert_called_once_with(tmp_path, 'preflight', 0, device_type='neuracle')
+    factory.return_value.preflight.assert_called_once()

@@ -59,8 +59,9 @@ def test_marker_codes_preserve_legacy_and_add_unique_events():
     assert [PROTOCOL_EVENT_CODES[k] for k in ('video_on','video_off')]==[132,133]
     assert not set(PROTOCOL_EVENT_CODES.values()) & {110,111,134,135,136,137,138,139,142,152,153,154,155}
     new = [value for key,value in PROTOCOL_EVENT_CODES.items() if key.isupper()]
-    assert len(new)==len(set(new))==13
+    assert len(new)==len(set(new))==14
     assert not {150, 151} & set(PROTOCOL_EVENT_CODES.values())
+    assert PROTOCOL_EVENT_CODES['ACTION_RECORDING_ONSET'] == 165
     assert PROTOCOL_EVENT_CODES['CAMERA_RECORDING_ONSET'] == 164
     assert not set(new)&{value for key,value in PROTOCOL_EVENT_CODES.items() if not key.isupper()}
 

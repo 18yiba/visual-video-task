@@ -18,18 +18,18 @@ class FacialRecordingError(RuntimeError):
 FRAME = re.compile(r'\bn:\s*(\d+).*?pts_time:\s*([-+\d.eE]+)')
 
 
-def reserve_path(directory, code):
+def reserve_path(directory, code, *, suffix='facial', log_filename='facial_recording_log.jsonl'):
     """Exclusive reservation also protects orphaned/partial recordings."""
     if not code or any(c in code for c in '<>:"/\\|?*'):
         raise FacialRecordingError('无效的情绪视频编码。')
     directory = Path(directory)
     used = []
-    pattern = re.compile(re.escape(code) + r'_facial(?:_(\d+))?\.mp4$')
+    pattern = re.compile(re.escape(code + '_' + suffix) + r'(?:_(\d+))?\.mp4$')
     for p in directory.iterdir():
         match = pattern.fullmatch(p.name)
         if match:
             used.append(int(match[1] or 1))
-    log = directory / 'facial_recording_log.jsonl'
+    log = directory / log_filename
     if log.exists():
         for line in log.read_text(encoding='utf-8').splitlines():
             try:
@@ -40,8 +40,8 @@ def reserve_path(directory, code):
                 continue
     number = max(used, default=0) + 1
     while True:
-        suffix = '' if number == 1 else f'_{number:02d}'
-        path = directory / f'{code}_facial{suffix}.mp4'
+        number_suffix = '' if number == 1 else f'_{number:02d}'
+        path = directory / f'{code}_{suffix}{number_suffix}.mp4'
         try:
             with path.open('xb'):
                 pass
@@ -95,9 +95,14 @@ def onset_frame_alignment(frames, onset, encoded_pts):
 
 class FacialRecorder:
     device = 'UGREEN Camera 4K'
+    filename_suffix = 'facial'
+    log_filename = 'facial_recording_log.jsonl'
+    relative_time_column = 'relative_video_onset_sec'
 
-    def __init__(self, directory, code, attempt):
+    def __init__(self, directory, code, attempt, *, device_type=None):
         from imageio_ffmpeg import get_ffmpeg_exe
+        if device_type == 'neuracle':
+            self.device = 'facialcamera'
         self.exe = get_ffmpeg_exe()
         self.directory, self.code, self.attempt = Path(directory), code, attempt
         self.frames, self.errors, self.events = [], [], {}
@@ -116,6 +121,8 @@ class FacialRecorder:
 
     def preflight(self):
         devices = self._command(['-hide_banner', '-list_devices', 'true', '-f', 'dshow', '-i', 'dummy']).stderr
+        # DirectShow lists FriendlyName here; never use an index or an alternative
+        # device when the required name is missing or ambiguous.
         # Some Windows drivers enumerate their camera with the type "none".
         names = re.findall(r'"([^"]+)" \((?:video|none)\)', devices)
         if names.count(self.device) != 1:
@@ -151,7 +158,8 @@ class FacialRecorder:
 
     def start(self, on_started=None):
         self.preflight()
-        self.path, self.number = reserve_path(self.directory, self.code)
+        self.path, self.number = reserve_path(self.directory, self.code,
+            suffix=self.filename_suffix, log_filename=self.log_filename)
         self._log('reserved')
         args = [self.exe, '-hide_banner', '-y', '-copyts', '-start_at_zero', *self._input_args(),
                 '-an', '-vf', self._video_filter(), '-c:v', 'libx264',
@@ -167,8 +175,10 @@ class FacialRecorder:
             self.check(startup=True)
             if self.frames and not start_reported:
                 frame, observed, pts = self.frames[0]
-                fields = dict(facial_file=self.path.name, facial_attempt=self.attempt,
-                    facial_number=self.number, camera_first_frame=frame,
+                fields = {f'{self.filename_suffix}_file': self.path.name,
+                    f'{self.filename_suffix}_attempt': self.attempt,
+                    f'{self.filename_suffix}_number': self.number}
+                fields.update(camera_first_frame=frame,
                     camera_first_frame_monotonic_sec=observed, camera_first_frame_pts_sec=pts,
                     camera_start_observed_monotonic_sec=time.perf_counter(),
                     camera_time_basis='software observation of first FFmpeg frame')
@@ -225,9 +235,12 @@ class FacialRecorder:
                    input_pixel_format=self.input_pixel_format, input_codec=self.input_codec,
                    spatial_resize=(self.input_width, self.input_height) != (1920, 1080),
                    status=status, clock_mapping=self.clock, events=self.events, **fields)
-        with (self.directory / 'facial_recording_log.jsonl').open('a', encoding='utf-8') as stream:
+        with (self.directory / self.log_filename).open('a', encoding='utf-8') as stream:
             stream.write(json.dumps(row, ensure_ascii=False) + '\n')
             stream.flush()
+
+    def _validate_coverage(self, onset, offset, duration, decoded):
+        validate_coverage(self.frames, onset, offset, duration, decoded)
 
     def finish(self, complete=False, material_duration=0):
         if self.closed:
@@ -283,7 +296,7 @@ class FacialRecorder:
             with self.path.with_suffix('.timestamps.csv').open('x', newline='', encoding='utf-8') as stream:
                 writer = csv.writer(stream)
                 writer.writerow(['frame', 'arrival_monotonic_sec', 'capture_pts_sec', 'encoded_pts_sec',
-                                 'relative_video_onset_sec'])
+                                 self.relative_time_column])
                 for i, (n, arrival, pts) in enumerate(self.frames):
                     writer.writerow([n, arrival, pts, encoded_pts[i] if i < len(encoded_pts) else '',
                                      arrival-onset if onset is not None else ''])
@@ -292,8 +305,8 @@ class FacialRecorder:
             if complete and failure is None:
                 if decoded is None:
                     raise FacialRecordingError('没有可验证的录像帧。')
-                validate_coverage(self.frames, onset, self.events['video_off']['monotonic_sec'],
-                                  float(material_duration), decoded)
+                self._validate_coverage(onset, self.events['video_off']['monotonic_sec'],
+                                        float(material_duration), decoded)
             if failure:
                 raise failure
             self._log('passed' if complete else 'interrupted', frame_count=len(self.frames),

@@ -13,7 +13,7 @@ from video_eeg.utils.emotion_protocol import prepare
 
 
 def main():
-    if '--facial-synthetic' in sys.argv:
+    if '--facial-synthetic' in sys.argv or '--action-synthetic' in sys.argv:
         # Test-only synthetic source; production keeps strict named-camera checks.
         from video_eeg.experiment.facial_recording import FacialRecorder
         FacialRecorder.preflight = lambda self: None
@@ -22,6 +22,9 @@ def main():
     cfg = base.load_config(base.CONFIG_DIR / 'video_emotion_v3_demo_config.yaml')
     cfg.update(_project_dir=str(base.PROJECT_ROOT), subject_id='AUTO_V3_' + str(time.time_ns()), explicit_run_seed=20260912, _integrated_startup=True)
     cfg['facial_recording_enabled'] = '--no-facial' not in sys.argv
+    cfg['action_recording_enabled'] = '--action-synthetic' in sys.argv
+    if cfg['action_recording_enabled']:
+        cfg['device_type'] = 'neuracle'
     cfg['protocol'].update(fixation_sec=.1, post_video_rest_seconds=.1, random_seed=20260912)
     cfg['storage']['records_dir'] = 'data/sourcedata/demo/v3_smoke'
     if '--emotion-only' in sys.argv:
@@ -83,6 +86,25 @@ def main():
         return runner, keyboard
 
     try:
+        action_partial = None
+        interrupted_events = []
+        if cfg['action_recording_enabled']:
+            interrupted, _ = create('eeg')
+            original_check = interrupted._check_abort
+            def abort_acquisition():
+                original_check()
+                recorder = getattr(interrupted, '_action_recorder', None)
+                onset = recorder.events.get('video_on', {}).get('monotonic_sec') if recorder else None
+                if onset is not None and time.perf_counter() - onset >= 2:
+                    raise base.ExperimentAbort()
+            interrupted._check_abort = abort_acquisition
+            interrupted.run()
+            assert not interrupted.state.session_completed
+            assert not getattr(interrupted, '_action_recording_error', None)
+            action_partial = interrupted.progress_dir / 'experiment_action.mp4'
+            partial_hash = hashlib.sha256(action_partial.read_bytes()).hexdigest()
+            interrupted_events = json.loads((interrupted.manager.session_dir /
+                interrupted.manager.recorder.events_filename).read_text(encoding='utf-8'))
         runner, _ = create('eeg')
         runner.run()
         assert runner.termination_reason == 'completed', runner._run_traceback
@@ -105,12 +127,13 @@ def main():
             assert all(row['decoded_duration_sec'] >= row['material_duration_sec'] for row in passed)
             assert all(row['events']['video_off']['sample_index'] > row['events']['video_on']['sample_index'] for row in passed)
             events = json.loads((runner.manager.session_dir / runner.manager.recorder.events_filename).read_text(encoding='utf-8'))
-            camera_events = [e for e in events if e['name'] == 'CAMERA_RECORDING_ONSET']
+            facial_events = interrupted_events + events
+            camera_events = [e for e in facial_events if e['name'] == 'CAMERA_RECORDING_ONSET']
             assert len(camera_events) == 3
             assert all(e['payload']['marker_code'] == 164 for e in camera_events)
             assert all('stimulus_flip_monotonic_sec' in e['payload'] for e in events
                        if e['name'] == 'EMOTION_VIDEO_ONSET')
-            emotion_onsets = [e for e in events if e['name'] == 'EMOTION_VIDEO_ONSET']
+            emotion_onsets = [e for e in facial_events if e['name'] == 'EMOTION_VIDEO_ONSET']
             assert len(emotion_onsets) == 3
             category_codes = {'positive': 171, 'negative': 172, 'neutral': 173}
             assert all(e['payload']['marker_code'] == category_codes[e['payload']['three_class_label']]
@@ -122,6 +145,23 @@ def main():
         else:
             assert not (runner.progress_dir / 'facial_recording_log.jsonl').exists()
             assert not any(e['name'] == 'CAMERA_RECORDING_ONSET' for e in events)
+        if cfg['action_recording_enabled']:
+            assert not getattr(runner, '_action_recording_error', None)
+            action_rows = [json.loads(line) for line in (runner.progress_dir / 'action_recording_log.jsonl').read_text(encoding='utf-8').splitlines()]
+            action_passed = [row for row in action_rows if row['status'] == 'passed']
+            assert len(action_passed) == 2
+            assert action_passed[0]['experiment_completed'] is False
+            assert action_partial.name != action_passed[1]['file']
+            assert hashlib.sha256(action_partial.read_bytes()).hexdigest() == partial_hash
+            row = action_passed[1]
+            assert row['device'] == 'Action_CAMERA' and row['experiment_completed']
+            assert row['software_preroll_sec'] >= .5 and row['software_postroll_sec'] >= .5
+            assert row['decoded_duration_sec'] > row['material_duration_sec']
+            names = [e['name'] for e in events]
+            assert names.count('ACTION_RECORDING_ONSET') == 1
+            assert names.index('ACTION_RECORDING_ONSET') < names.index('session_start')
+            assert next(e for e in events if e['name'] == 'ACTION_RECORDING_ONSET')['payload']['marker_code'] == 165
+            action_before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in runner.progress_dir.glob('*action*')}
         assert not any('RATING' in e['name'] for e in events)
         if cfg['protocol'].get('emotion_only'):
             assert not any(e['name'].startswith(('LIKING', 'ALARM', 'FATIGUE')) for e in events)
@@ -149,7 +189,9 @@ def main():
             assert before == {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in eeg_files}
             assert set(eeg_files) == {p for p in behavior.progress_dir.rglob('*') if p.is_file() and
                 (p.suffix.lower() in {'.edf', '.npy'} or p.name.startswith(('events', 'metadata', 'eeg_health')))}
-        report = dict(status='PASS', real_hardware=False, path=str(behavior.progress_dir),
+        if cfg['action_recording_enabled']:
+            assert action_before == {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in runner.progress_dir.glob('*action*')}
+        report = dict(status='PASS', real_hardware=False, action_synthetic=cfg['action_recording_enabled'], path=str(behavior.progress_dir),
             ratings=3, speeds=[1, 1.5, 2], eeg_files_unchanged=True, abort_resume=True,
             facial_source='disabled' if not cfg['facial_recording_enabled'] else 'synthetic' if '--facial-synthetic' in sys.argv else 'UGREEN Camera 4K',
             facial_validated=len(passed),nas_input=nas_test)

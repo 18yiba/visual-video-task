@@ -136,11 +136,33 @@ class EmotionV3Runner(EmotionV2Runner):
     protocol_version = 'emotion-v3'
     acquisition_rating_stage_present = False
 
+    def _before_session_start(self):
+        if not self.config.get('action_recording_enabled', False):
+            return
+        if self.config.get('device_type') != 'neuracle' or self.stage != 'eeg':
+            raise ValueError('全程动作录像仅支持博睿康 v3 EEG采集。')
+        from video_eeg.experiment.action_recording import ActionRecorder
+        self._action_recorder = recorder = ActionRecorder(self.progress_dir)
+        def started(**fields):
+            self.manager.emit('ACTION_RECORDING_ONSET', **fields,
+                              device=recorder.device, time_basis='software_first_frame_observation')
+        recorder.start(on_started=started)
+        self.manager.raise_if_background_failed()
+        recorder.boundary('video_on', dict(monotonic_sec=time.perf_counter(),
+            meaning='before session_start; all experiment content follows'))
+
+    def _check_abort(self):
+        recorder = getattr(self, '_action_recorder', None)
+        if recorder is not None and not recorder.closed:
+            recorder.check()
+        return super()._check_abort()
+
     def _start_eeg(self, connection):
         from video_eeg.experiment.facial_recording import FacialRecorder
         pending = [v for v in self.state.queue_video_ids if self.library.rows[v]['trial_type'] == 'emotion']
         if pending and self.config.get('facial_recording_enabled', False):
-            FacialRecorder(self.progress_dir, 'preflight', 0).preflight()
+            FacialRecorder(self.progress_dir, 'preflight', 0,
+                           device_type=self.config.get('device_type')).preflight()
         return super()._start_eeg(connection)
 
     def _run_trial(self, trial_idx, asset):
@@ -148,7 +170,8 @@ class EmotionV3Runner(EmotionV2Runner):
         facial = None
         if self.config.get('facial_recording_enabled', False) and self.stage == 'eeg' and self.library.rows[asset.asset_id]['trial_type'] == 'emotion':
             facial = FacialRecorder(self.progress_dir, Path(asset.rel_path).stem,
-                self._attempt_counter_by_video.get(asset.asset_id, 0) + 1)
+                self._attempt_counter_by_video.get(asset.asset_id, 0) + 1,
+                device_type=self.config.get('device_type'))
         self._facial_recorder = facial
         original_emit = self.manager.emit
         def emit(name, **payload):
@@ -264,7 +287,25 @@ class EmotionV3Runner(EmotionV2Runner):
         return base.VideoRunner._run_post_video_rest(self, trial_idx=trial_idx, asset=asset, record=record)
 
     def _stop_and_export(self):
-        directory = super()._stop_and_export()
+        # EEG saving must be attempted even when the camera failed. Keep recording
+        # through session_end/export; validate the video only after EEG is safe.
+        try:
+            directory = super()._stop_and_export()
+        finally:
+            recorder = getattr(self, '_action_recorder', None)
+            if recorder is not None and not recorder.closed:
+                end = time.perf_counter()
+                recorder.boundary('video_off', dict(monotonic_sec=end,
+                    meaning='after EEG shutdown/export', termination_reason=self.termination_reason))
+                onset = recorder.events.get('video_on', {}).get('monotonic_sec')
+                recorder.experiment_completed = self.completed
+                try:
+                    recorder.finish(complete=onset is not None,
+                                    material_duration=end-onset if onset is not None else 0)
+                except Exception as exc:
+                    self._action_recording_error = str(exc)
+                    self._show_text('全程动作录像未通过校验；EEG已独立尝试保存，录像片段保留。\n'
+                        + str(exc) + '\n按空格继续。', allow_abort=False)
         self._write_emotion_list()
         return directory
 

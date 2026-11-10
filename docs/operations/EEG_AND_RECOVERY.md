@@ -1,3 +1,5 @@
+博睿康 v3 可选[全程动作录像](ACTION_RECORDING.md)使用 `Action_CAMERA`，首帧trigger为165；面部录像仍使用 `facialcamera` 和164。动作MP4、逐帧CSV与日志保存当前Session，属于原始记录，随整个Session备份，不进入源码或BIDS副本。更新整套源码后重启原BAT，已发布EXE未更新，真实设备待验收。
+
 EMOTIV 新被试按 Cortex / EmotivPRO 与视频范围分目录；旧 v3 被试须依据 metadata 识别原方式并原地续跑，冲突或身份不明时停止。完整目录名见 [README](../../README.md)。
 
 

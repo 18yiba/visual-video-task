@@ -21,6 +21,8 @@ FILES += ('src/video_eeg/devices/cortex_transport.py',
           'src/video_eeg/utils/emotiv_roots.py',
           'src/video_eeg/storage/emotiv_recorder.py',
           'docs/operations/EMOTIV_CORTEX.md', 'tests/test_emotiv_cortex.py')
+FILES += ('src/video_eeg/experiment/action_recording.py',
+          'docs/operations/ACTION_RECORDING.md', 'tests/test_action_recording.py')
 PLACEHOLDERS = ('stimuli/videos/.gitkeep', 'data/sourcedata/.gitkeep')
 ROOT_BATS = ('RUNME.bat', 'run_emotion_v3.bat', 'run_neuracle_v3.bat', 'run_brainco_v3.bat', 'run_experiment.bat',
              'install_lab_env_uv.bat', 'download_materials.bat', 'setup_virtual_serial.bat', 'check_virtual_serial.bat')

@@ -1,3 +1,41 @@
+# 当前分支：双摄像头录像与部署边界
+
+本分支包含博睿康 v3 可选全程动作录像及独立开始 trigger 165；仅更新源码，未发布新安装包。正式使用前必须通过设备名称检查和真实双摄像头验收。
+
+| 用途 | 当前代码要求的 DirectShow 精确名称 | 录制范围与标记 |
+|---|---|---|
+| 面部录像 | `facialcamera` | 每段情绪视频，首帧软件确认后发送164 |
+| 头动、躯体晃动录像 | `Action_CAMERA` | 本次采集全程，首帧软件确认后发送165，再预录至少0.5秒后开始Session；EEG结束保存流程后至少再录0.5秒 |
+
+现场在另一台实验电脑设置的 `Facial_CAMERA` / `Action_CAMERA` 是设备管理器显示名称；用户报告 Windows 摄像头设置仍显示两个 `UGREEN Camera 4K`。这不能证明 DirectShow 已改名，也不能证明发生硬件身份冲突。当前面部名称 `facialcamera` 与 `Facial_CAMERA` 不同，程序按精确名称匹配，不接受别名、按设备序号猜选或回退到 UGREEN。硬件固件改名、唯一序列号及跨端口身份稳定性尚未验证；当前实现未解决系统级同名问题。
+
+在实验电脑项目根目录用现有环境只读枚举（不开始录像）：
+
+```powershell
+$cameraFfmpeg = & .\.venv\Scripts\python.exe -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
+& $cameraFfmpeg -hide_banner -list_devices true -f dshow -i dummy
+```
+
+检查视频设备列表中两个目标名称各出现一次；枚举命令末尾的退出提示不代表实际录像失败，名称符合后仍须通过程序的打开编码预检。若仍是两个 UGREEN 或面部仅显示 `Facial_CAMERA`，当前严格选择规则会停止，不能据此说明已可双机正式采集。完整操作、文件和失败恢复见[动作录像](docs/operations/ACTION_RECORDING.md)与[面部录像](docs/operations/FACIAL_RECORDING.md)。
+
+升级时正常保存退出并备份完整被试目录，更新整套分支源码后重启原 `run_neuracle_v3.bat`；保留本机配置、环境和数据，无新增依赖。动作录像默认关闭，只在博睿康 v3 EEG阶段启用；独立行为评分不录制。不能只替换一个录像模块，也不能通过重装旧v0.3.8 EXE获得本次功能。下文分日期记录保留历史验证范围；软件测试和模拟采集不代表真实摄像头、EEG回传或曝光同步通过。
+
+## 2026-11-10 / 博睿康可选全程动作录像（未发布源码）
+
+博睿康 v3 入口新增默认关闭的“全程头动 / 躯体录像（可选）”，仅使用 FriendlyName `Action_CAMERA`。EEG就绪后录像首帧发送新码165，预录至少0.5秒后开始Session；连续覆盖全部实验内容与休息，EEG结束保存后再至少后录0.5秒。每次启动保存独立 `experiment_action*.mp4`、逐帧CSV及 `action_recording_log.jsonl`，与 `facialcamera` 面部录像/164独立。
+
+保存退出后更新整套分支源码并重启原BAT，无需重装依赖；旧v0.3.8源码包与EXE未更新。原记录、协议、答案与完成状态不转换；真实双摄像头及165硬件回传仍待验收。操作、失败恢复与同步边界见[全程动作录像说明](docs/operations/ACTION_RECORDING.md)。
+
+开发验证：444项测试及12个子测试通过，5项跳过；真实Qt入口与PsychoPy窗口配合模拟EEG、双合成摄像头通过。真实设备、长时负载和165硬件回传尚未验收。
+
+## 2026-11-10 / 博睿康面部摄像头选择（未发布源码）
+
+博睿康开启面部录像时，仅使用 DirectShow FriendlyName 精确为 `facialcamera` 的摄像头；预检与每段录像采用同一规则。设备缺失、同名重复、占用或规格不支持时停止，不回退到 UGREEN、内置摄像头或设备序号。请确认 FFmpeg 枚举名称为 `facialcamera`，仅修改设备管理器显示名称不代表 DirectShow 名称已改变。其他设备仍使用 `UGREEN Camera 4K`。
+
+保存退出后更新源码并重启原博睿康 BAT，无需重装依赖；已发布 v0.3.8 源码包和 EXE 未更新。本次不改历史录像、EEG、协议或完成状态，1080p/30 fps 与录像覆盖校验保持原规则。真实摄像头与 EEG 联合采集仍待现场验收。下文 UGREEN 说明在博睿康路径以本条为准。
+
+验证：73项测试及12个子测试通过，包含录像选择、严格配置与metadata、可迁移源码包和双源码入口；未重建安装包。
+
 # 摄像头修复：源码更新说明（2026-11-10）
 
 本分支修复 UGREEN Camera 4K 的 `Could not set video options` 预检失败。现场关闭其他摄像头占用后，设备报告 **MJPEG 支持1920×1080、30 fps，YUYV422 的1080p仅支持5 fps**；旧程序未明确输入编码，可能请求不支持的组合。设备已连接不等于所请求的录像模式可用。

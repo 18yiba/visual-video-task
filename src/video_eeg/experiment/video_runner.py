@@ -582,6 +582,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--emotivpro-port', default='')
     parser.add_argument('--emotiv-transport', choices=['cortex', 'serial'], default=None)
     parser.add_argument('--facial-recording', action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument('--action-recording', action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument('--emotivpro-baudrate', type=int, default=115200)
     parser.add_argument("--brainco-transport", choices=["bcigo", "lsl", "sdk"], default="")
     parser.add_argument("--preflight-eeg", action="store_true", help="打开窗口前检查 EEG/Marker 连接。")
@@ -611,6 +612,14 @@ def apply_cli_overrides(config: dict[str, Any], args: argparse.Namespace) -> Non
         config['facial_recording_enabled'] = args.facial_recording
     else:
         config.setdefault('facial_recording_enabled', config.get('device_type') != 'emotivpro')
+    if getattr(args, 'action_recording', None) is not None:
+        config['action_recording_enabled'] = args.action_recording
+    else:
+        config.setdefault('action_recording_enabled', False)
+    if config['action_recording_enabled'] and (
+            config.get('device_type') != 'neuracle' or
+            not config.get('protocol', {}).get('separate_emotion_ratings')):
+        raise ValueError('全程动作录像仅支持博睿康 v3 采集。')
     if args.brainco_transport:
         device_cfg["brainco_transport"] = args.brainco_transport
     if getattr(args, 'emotivpro_port', ''):
@@ -1435,6 +1444,7 @@ class VideoRunner:
             startup_timeout_sec=float(self.config.get('device', {}).get('eeg_startup_timeout_sec', 10.0)),
         )
         session_dir = self.manager.start(
+            before_session_start=getattr(self, '_before_session_start', None),
             metadata={
                 "task_mode": "video",
                 **({"protocol_version": "emotion-v3", "paradigm_code": self.config.get('paradigm_code'),
@@ -1443,6 +1453,7 @@ class VideoRunner:
                    if self.config.get('protocol', {}).get('separate_emotion_ratings') else {}),
                 "psychopy_runner": True,
                 "facial_recording_enabled": self.config.get('facial_recording_enabled', False),
+                "action_recording_enabled": self.config.get('action_recording_enabled', False),
                 "video_trials": len(self.playlist),
                 "num_sessions": self.protocol.num_sessions,
                 "attention_enabled": self.protocol.attention_enabled,
@@ -1651,7 +1662,7 @@ class VideoRunner:
         status = "running"
         try:
             while True:
-                manager.raise_if_background_failed()
+                self._require_manager()
                 if facial is not None:
                     facial.check()
                 keys = self.keyboard.getKeys(["escape", "s"], waitRelease=False, clear=True)
@@ -1816,7 +1827,7 @@ class VideoRunner:
         if status == "aborted" and abort_reason == "esc":
             raise ExperimentAbort()
         if status == "aborted" and abort_reason == "eeg_background_error":
-            manager.raise_if_background_failed()
+            self._require_manager()
         if completed_naturally:
             self._run_post_video_rest(trial_idx=trial_idx, asset=asset, record=record)
         return completed_naturally
@@ -1978,7 +1989,7 @@ class VideoRunner:
         rest_total = 0.0
         while True:
             # Waiting for release prevents a held Space key from toggling twice.
-            manager.raise_if_background_failed()
+            self._require_manager()
             keys = self.keyboard.getKeys(["escape", "f", "j", "space"], waitRelease=True, clear=True)
             names = [str(getattr(key, "name", key)).lower() for key in keys]
             if "escape" in names:
@@ -2110,7 +2121,7 @@ class VideoRunner:
                 page_onset = time.perf_counter()
                 page_onset_timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
                 rest_started = True
-            manager.raise_if_background_failed()
+            self._require_manager()
             keys = self.keyboard.getKeys(["escape", "f", "j"], waitRelease=False, clear=True)
             names = {str(getattr(key, "name", key)).lower() for key in keys}
             action = ""
@@ -2359,7 +2370,7 @@ class VideoRunner:
     def _check_abort(self) -> None:
         manager = getattr(self, 'manager', None)
         if manager is not None and getattr(manager, 'running', False):
-            manager.raise_if_background_failed()
+            self._require_manager()
         if self.keyboard.getKeys(["escape"], waitRelease=False, clear=False):
             raise ExperimentAbort()
 
@@ -2377,6 +2388,9 @@ class VideoRunner:
         if self.manager is None:
             raise RuntimeError("EEG session has not started")
         self.manager.raise_if_background_failed()
+        action = getattr(self, '_action_recorder', None)
+        if action is not None and not action.closed:
+            action.check()
         return self.manager
 
 
